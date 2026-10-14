@@ -1,0 +1,325 @@
+{
+  "index": "EGX30",
+  "as_of": "2026-10-13",
+  "source": "https://www.egx.com.eg/en/CurrentIndexConstituntes.aspx?type=1&Nav=1",
+  "note": "Constituents, ISINs and weights are from the EGX page. valuation_model and sector are the tool's own starting classification; entries with needs_review=true must be checked before a first valuation.",
+  "constituents": [
+    {
+      "symbol": "ABUK",
+      "reuters": "ABUK.CA",
+      "isin": "EGS38191C010",
+      "name": "Abou Kir Fertilizers",
+      "weight_pct": 3.25,
+      "valuation_model": "operating",
+      "sector": "basic_resources_fertilizers",
+      "needs_review": false
+    },
+    {
+      "symbol": "ADIB",
+      "reuters": "ADIB.CA",
+      "isin": "EGS60111C019",
+      "name": "Abu Dhabi Islamic Bank- Egypt",
+      "weight_pct": 2.64,
+      "valuation_model": "bank",
+      "sector": "banks",
+      "needs_review": false
+    },
+    {
+      "symbol": "ALCN",
+      "reuters": "ALCN.CA",
+      "isin": "EGS42111C012",
+      "name": "Alexandria Containers and goods",
+      "weight_pct": 1.52,
+      "valuation_model": "operating",
+      "sector": "transport_ports",
+      "needs_review": false
+    },
+    {
+      "symbol": "AMOC",
+      "reuters": "AMOC.CA",
+      "isin": "EGS380P1C010",
+      "name": "Alexandria Mineral Oils Company",
+      "weight_pct": 1.33,
+      "valuation_model": "operating",
+      "sector": "energy_refining",
+      "needs_review": false
+    },
+    {
+      "symbol": "BTFH",
+      "reuters": "BTFH.CA",
+      "isin": "EGS691G1C015",
+      "name": "Beltone Holding",
+      "weight_pct": 1.32,
+      "valuation_model": "nonbank_financial",
+      "sector": "nonbank_financial_services",
+      "needs_review": true,
+      "note": "Non-bank financial group: value with P/B-ROE or sum-of-the-parts by business line."
+    },
+    {
+      "symbol": "CLHO",
+      "reuters": "CLHO.CA",
+      "isin": "EGS729J1C018",
+      "name": "Cleopatra Hospital Company",
+      "weight_pct": 0.91,
+      "valuation_model": "operating",
+      "sector": "healthcare",
+      "needs_review": false
+    },
+    {
+      "symbol": "COMI",
+      "reuters": "COMI.CA",
+      "isin": "EGS60121C018",
+      "name": "Commercial International Bank-Egypt (CIB)",
+      "weight_pct": 28.76,
+      "valuation_model": "bank",
+      "sector": "banks",
+      "needs_review": false
+    },
+    {
+      "symbol": "EAST",
+      "reuters": "EAST.CA",
+      "isin": "EGS37091C013",
+      "name": "Eastern Company",
+      "weight_pct": 4.83,
+      "valuation_model": "operating",
+      "sector": "food_beverage_tobacco",
+      "needs_review": false
+    },
+    {
+      "symbol": "EFID",
+      "reuters": "EFID.CA",
+      "isin": "EGS305I1C011",
+      "name": "Edita Food Industries S.A.E",
+      "weight_pct": 1.9,
+      "valuation_model": "operating",
+      "sector": "food_beverage_tobacco",
+      "needs_review": false
+    },
+    {
+      "symbol": "HRHO",
+      "reuters": "HRHO.CA",
+      "isin": "EGS69101C011",
+      "name": "EFG Holding",
+      "weight_pct": 3.01,
+      "valuation_model": "nonbank_financial",
+      "sector": "nonbank_financial_services",
+      "needs_review": true,
+      "note": "Investment bank plus banking/NBFI arms: sum-of-the-parts is the usual approach."
+    },
+    {
+      "symbol": "EFIH",
+      "reuters": "EFIH.CA",
+      "isin": "EGS743O1C013",
+      "name": "E-finance For Digital and Financial Investments",
+      "weight_pct": 4.99,
+      "valuation_model": "operating",
+      "sector": "it_fintech",
+      "needs_review": false
+    },
+    {
+      "symbol": "EGAL",
+      "reuters": "EGAL.CA",
+      "isin": "EGS3E181C010",
+      "name": "Egypt Aluminum",
+      "weight_pct": 1.23,
+      "valuation_model": "operating",
+      "sector": "basic_resources_metals",
+      "needs_review": false
+    },
+    {
+      "symbol": "EMFD",
+      "reuters": "EMFD.CA",
+      "isin": "EGS673Y1C015",
+      "name": "Emaar Misr for Development",
+      "weight_pct": 0.73,
+      "valuation_model": "real_estate",
+      "sector": "real_estate",
+      "needs_review": false
+    },
+    {
+      "symbol": "FWRY",
+      "reuters": "FWRY.CA",
+      "isin": "EGS745L1C014",
+      "name": "Fawry For Banking Technology And Electronic Payment",
+      "weight_pct": 5.74,
+      "valuation_model": "operating",
+      "sector": "it_fintech",
+      "needs_review": false
+    },
+    {
+      "symbol": "GBCO",
+      "reuters": "GBCO.CA",
+      "isin": "EGS673T1C012",
+      "name": "GB Corp",
+      "weight_pct": 1.41,
+      "valuation_model": "operating",
+      "sector": "autos_and_consumer_finance",
+      "needs_review": true,
+      "note": "Auto business plus consumer-finance arm: consider sum-of-the-parts."
+    },
+    {
+      "symbol": "HELI",
+      "reuters": "HELI.CA",
+      "isin": "EGS65591C017",
+      "name": "Heliopolis Housing",
+      "weight_pct": 0.94,
+      "valuation_model": "real_estate",
+      "sector": "real_estate",
+      "needs_review": false
+    },
+    {
+      "symbol": "ISPH",
+      "reuters": "ISPH.CA",
+      "isin": "EGS512O1C012",
+      "name": "Ibnsina Pharma",
+      "weight_pct": 0.93,
+      "valuation_model": "operating",
+      "sector": "healthcare_pharma_distribution",
+      "needs_review": false
+    },
+    {
+      "symbol": "JUFO",
+      "reuters": "JUFO.CA",
+      "isin": "EGS30901C010",
+      "name": "Juhayna Food Industries",
+      "weight_pct": 0.88,
+      "valuation_model": "operating",
+      "sector": "food_beverage_tobacco",
+      "needs_review": false
+    },
+    {
+      "symbol": "MCQE",
+      "reuters": "MCQE.CA",
+      "isin": "EGS3C391C017",
+      "name": "Misr Cement (Qena)",
+      "weight_pct": 0.9,
+      "valuation_model": "operating",
+      "sector": "building_materials",
+      "needs_review": false
+    },
+    {
+      "symbol": "MFPC",
+      "reuters": "MFPC.CA",
+      "isin": "EGS39061C014",
+      "name": "Misr Fertilizers Production Company - Mopco",
+      "weight_pct": 2.12,
+      "valuation_model": "operating",
+      "sector": "basic_resources_fertilizers",
+      "needs_review": false
+    },
+    {
+      "symbol": "ORAS",
+      "reuters": "ORAS.CA",
+      "isin": "EGS95001C011",
+      "name": "Orascom Construction PLC",
+      "weight_pct": 2.83,
+      "valuation_model": "operating",
+      "sector": "contracting_construction",
+      "needs_review": true,
+      "note": "Verify the reporting currency of the financial statements before discounting."
+    },
+    {
+      "symbol": "ORHD",
+      "reuters": "ORHD.CA",
+      "isin": "EGS70321C012",
+      "name": "Orascom Development Egypt",
+      "weight_pct": 1.16,
+      "valuation_model": "real_estate",
+      "sector": "real_estate_tourism",
+      "needs_review": false
+    },
+    {
+      "symbol": "PHDC",
+      "reuters": "PHDC.CA",
+      "isin": "EGS655L1C012",
+      "name": "Palm Hills Development Company",
+      "weight_pct": 1.43,
+      "valuation_model": "real_estate",
+      "sector": "real_estate",
+      "needs_review": false
+    },
+    {
+      "symbol": "CCAP",
+      "reuters": "CCAP.CA",
+      "isin": "EGS73541C012",
+      "name": "QALAA For Financial Investments",
+      "weight_pct": 2.12,
+      "valuation_model": "holding",
+      "sector": "holding",
+      "needs_review": false
+    },
+    {
+      "symbol": "RAYA",
+      "reuters": "RAYA.CA",
+      "isin": "EGS690C1C010",
+      "name": "Raya Holding For Financial Investments",
+      "weight_pct": 0.64,
+      "valuation_model": "holding",
+      "sector": "holding",
+      "needs_review": false
+    },
+    {
+      "symbol": "SKPC",
+      "reuters": "SKPC.CA",
+      "isin": "EGS380S1C017",
+      "name": "Sidi Kerir Petrochemicals - SIDPEC",
+      "weight_pct": 0.96,
+      "valuation_model": "operating",
+      "sector": "basic_resources_petrochemicals",
+      "needs_review": false
+    },
+    {
+      "symbol": "TMGH",
+      "reuters": "TMGH.CA",
+      "isin": "EGS691S1C011",
+      "name": "T M G Holding",
+      "weight_pct": 9.72,
+      "valuation_model": "real_estate",
+      "sector": "real_estate",
+      "needs_review": false
+    },
+    {
+      "symbol": "ETEL",
+      "reuters": "ETEL.CA",
+      "isin": "EGS48031C016",
+      "name": "Telecom Egypt",
+      "weight_pct": 8.94,
+      "valuation_model": "operating",
+      "sector": "telecom",
+      "needs_review": true,
+      "note": "Holds a stake in another operator: consider adding it as a NAV component."
+    },
+    {
+      "symbol": "RMDA",
+      "reuters": "RMDA.CA",
+      "isin": "EGS381B1C015",
+      "name": "Tenth Of Ramadan Pharmaceutical Industries&Diagnostic-Rameda",
+      "weight_pct": 0.67,
+      "valuation_model": "operating",
+      "sector": "healthcare_pharma",
+      "needs_review": false
+    },
+    {
+      "symbol": "VLMR",
+      "reuters": "VLMR.CA",
+      "isin": "EGS69082C013",
+      "name": "Valmore Holding",
+      "weight_pct": 1.65,
+      "valuation_model": "holding",
+      "sector": "holding",
+      "needs_review": true,
+      "note": "Second trading line of the same company as VLMRA; verify business profile before choosing a model."
+    },
+    {
+      "symbol": "VLMRA",
+      "reuters": "VLMRA.CA",
+      "isin": "EGS69081C023",
+      "name": "Valmore Holding-EGP",
+      "weight_pct": 0.54,
+      "valuation_model": "holding",
+      "sector": "holding",
+      "needs_review": true,
+      "note": "Second trading line of the same company as VLMR; verify business profile before choosing a model."
+    }
+  ]
+}

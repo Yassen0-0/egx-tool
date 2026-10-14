@@ -1,0 +1,9 @@
+{
+  "_help": "Fill each value as a decimal (0.25 = 25%) with its date and source. Leave value null until known.",
+  "risk_free_rate_egp": {"value": null, "as_of": "", "source": ""},
+  "equity_risk_premium": {"value": null, "as_of": "", "source": ""},
+  "long_run_nominal_growth": {"value": null, "as_of": "", "source": ""},
+  "inflation_yoy": {"value": null, "as_of": "", "source": ""},
+  "usd_egp": {"value": null, "as_of": "", "source": ""},
+  "corporate_tax_rate": {"value": null, "as_of": "", "source": ""}
+}

@@ -1,0 +1,26 @@
+[project]
+name = "egx-mcp"
+version = "0.1.0"
+description = "EGX30 valuation, risk and portfolio tools exposed over MCP for the DeepSeek Harness EGX bundle"
+requires-python = ">=3.11"
+dependencies = [
+    "mcp>=1.9",
+    "pydantic>=2.7",
+]
+
+[project.scripts]
+egx-mcp = "egx_mcp.server:main"
+egx-cli = "egx_mcp.cli:main"
+
+[dependency-groups]
+dev = ["pytest>=8"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["egx_mcp"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

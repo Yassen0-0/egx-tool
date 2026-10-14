@@ -1,0 +1,28 @@
+{
+  "name": "dsh-egx-bundle",
+  "version": "0.1.0",
+  "description": "EGX30 analyst for DeepSeek Harness: valuation MCP server, methodology skills and a restricted analyst preset",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./presets/egx-analyst.patch.yml": "./presets/egx-analyst.patch.yml",
+    "./host/egx-portfolio.mjs": "./host/egx-portfolio.mjs",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "presets/egx-analyst.patch.yml",
+    "host/egx-portfolio.mjs",
+    "host/portfolio.html"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml",
+        "./presets/egx-analyst.patch.yml"
+      ]
+    }
+  }
+}

@@ -1,0 +1,24 @@
+{
+  "_help": "Copy to <SYMBOL>.json (e.g. EAST.json). One entry per period; annual periods start with FY. Use one unit for all amounts and state it in 'unit'. Fill only fields you have from the published statements.",
+  "currency": "EGP",
+  "unit": "EGP millions",
+  "periods": [
+    {
+      "period": "FY2025",
+      "period_end": "2025-12-31",
+      "source": "Audited annual financial statements, page/URL",
+      "data": {
+        "revenue": null, "cogs": null, "gross_profit": null, "sga": null, "ebit": null, "ebitda": null,
+        "depreciation": null, "interest_expense": null, "net_income": null, "income_continuing_ops": null,
+        "eps": null, "dividend_per_share": null, "shares_outstanding": null,
+        "total_assets": null, "total_assets_begin": null, "current_assets": null, "current_liabilities": null,
+        "receivables": null, "ppe_net": null, "securities": null, "total_liabilities": null,
+        "long_term_debt": null, "total_debt": null, "cash": null, "total_equity": null,
+        "retained_earnings": null, "minority_interest": null,
+        "cfo": null, "capex": null,
+        "car": null, "npl_ratio": null, "coverage_ratio": null, "loans_to_deposits": null,
+        "fx_open_position_to_capital": null
+      }
+    }
+  ]
+}

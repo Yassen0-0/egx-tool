@@ -52,10 +52,7 @@ If `review_required` is true (price already below protection), the critic step m
 ## 9. Critic review (mandatory)
 Load `egx-critic` and run it. Revise and recompute if the critic finds a material problem.
 
-## 10. Save
-`save_valuation` with methods, assumptions, sources, the sanity result, thesis, critic notes, `macro_snapshot` (the macro values you used, as returned by `get_company_data`), and `reason` (what changed vs the previous valuation, if any).
-
-## 11. Report to the user (in the user's language; Arabic by default)
+## 10. Write the report (in the user's language; Arabic by default)
 1. Current price and date; fair value (base) and range (bear-bull).
 2. Entry price and protection price, and where the market price sits relative to them.
 3. Risk rating with its main drivers and any red flags.
@@ -64,3 +61,10 @@ Load `egx-critic` and run it. Revise and recompute if the critic finds a materia
 6. Sanity warnings and how they were handled; the critic's main points.
 7. Change vs the previous valuation and why.
 End with: this is a valuation analysis, not a recommendation to buy or sell; the decision is the user's.
+
+Write it as Markdown (headings, short paragraphs, bullet lists, pipe tables). Start with a `# <SYMBOL> — <company>` heading and the valuation date.
+
+## 11. Save, then show
+`save_valuation` with methods, assumptions, sources, the sanity result, thesis, critic notes, `macro_snapshot` (the macro values you used, as returned by `get_company_data`), `reason` (what changed vs the previous valuation, if any), and `report`: the complete Markdown report from step 10, exactly as you will show it. The user's analyses archive (التحليلات) displays this text, so never pass a summary.
+
+Then show the same report to the user and tell them it is saved in التحليلات. If saving is refused, fix the cause the tool names and save again before presenting the result as final.

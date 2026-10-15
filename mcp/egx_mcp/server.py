@@ -259,17 +259,19 @@ def pricing_levels(fair_value: float, current_price: float | None = None) -> dic
 def save_valuation(symbol: str, fair_value: float, bear: float, bull: float,
                    risk_rating: Literal["safe", "balanced", "high_risk"], financial_period: str,
                    methods: list[ScenarioMethod], assumptions: dict, sources: list[SourceRef],
-                   sanity: dict, thesis: str, critic_notes: str, reason: str = "",
+                   sanity: dict, thesis: str, critic_notes: str, report: str, reason: str = "",
                    price_at_valuation: float | None = None, macro_snapshot: dict | None = None,
                    risk_details: dict | None = None) -> dict:
     """Store a full valuation after the critic review. Refused when the sanity check failed, sources are
-    missing, or critic_notes are empty. `reason` explains the change versus the previous valuation."""
+    missing, critic_notes are empty, or report is empty. `report` is the complete Markdown report exactly
+    as shown to the user (it is what the user's analyses archive displays). `reason` explains the change
+    versus the previous valuation."""
     entry = _require_symbol(symbol)
     with _db() as conn:
         return valuations.save_full_valuation(
             conn, entry["symbol"], fair_value, bear, bull, risk_rating, financial_period,
             [m.model_dump() for m in methods], assumptions, [s.model_dump() for s in sources], sanity,
-            thesis, critic_notes, reason, price_at_valuation, macro_snapshot, risk_details,
+            thesis, critic_notes, reason, price_at_valuation, macro_snapshot, risk_details, report=report,
         )
 
 
@@ -293,6 +295,24 @@ def get_valuation_history(symbol: str, limit: int = 20) -> dict:
     """Past valuations and the fair-value change log with the reason for each change."""
     with _db() as conn:
         return valuations.valuation_history(conn, symbol, limit)
+
+
+@tool
+def list_valuations(symbol: str | None = None,
+                    risk_rating: Literal["safe", "balanced", "high_risk"] | None = None,
+                    kind: Literal["full", "light"] | None = "full", date_from: str | None = None,
+                    date_to: str | None = None, limit: int = 50, offset: int = 0) -> dict:
+    """Search the analyses archive, newest first. Dates are YYYY-MM-DD. Each item carries the change
+    in fair value against the symbol's previous full valuation."""
+    with _db() as conn:
+        return valuations.list_valuations(conn, symbol, risk_rating, kind, date_from, date_to, limit, offset)
+
+
+@tool
+def get_valuation(valuation_id: int) -> dict:
+    """One archived valuation in full: report, assumptions, methods, sources, sanity, critic notes, change."""
+    with _db() as conn:
+        return valuations.get_valuation(conn, valuation_id)
 
 
 @tool

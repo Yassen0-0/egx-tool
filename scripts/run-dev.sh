@@ -5,5 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 export EGX_HOME="$ROOT"
 export DSH_HOME="${DSH_HOME:-$ROOT/.dsh-dev}"
+# Development uses its own database so the desktop app's real data is never touched.
+export EGX_DB_PATH="${EGX_DB_PATH:-$DSH_HOME/egx-dev.sqlite}"
 export EGX_UV="${EGX_UV:-$(command -v uv)}"
 exec "$ROOT/harness/node_modules/.bin/dsh" --profile egx --no-open --port "${PORT:-3180}" "$@"

@@ -76,7 +76,7 @@ async function readJson(req) {
   return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
 }
 
-async function handleApi(req, res, path) {
+async function handleApi(req, res, path, query) {
   const method = req.method ?? 'GET'
   if (method === 'GET' && path === '/egx/api/portfolio') {
     const { status, body } = await runCli('portfolio-summary')
@@ -84,6 +84,29 @@ async function handleApi(req, res, path) {
   }
   if (method === 'GET' && path === '/egx/api/universe') {
     const { status, body } = await runCli('universe')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/valuations') {
+    const q = query
+    const { status, body } = await runCli('valuations-list', {
+      symbol: q.get('symbol') || null,
+      risk_rating: q.get('risk_rating') || null,
+      kind: q.has('kind') ? (q.get('kind') || null) : 'full',
+      date_from: q.get('date_from') || null,
+      date_to: q.get('date_to') || null,
+      limit: Number(q.get('limit') || 50),
+      offset: Number(q.get('offset') || 0),
+    })
+    return sendJson(res, status, body)
+  }
+  const series = /^\/egx\/api\/valuations\/series\/([A-Za-z0-9.]{2,12})$/.exec(path)
+  if (method === 'GET' && series) {
+    const { status, body } = await runCli('valuation-series', { symbol: series[1] })
+    return sendJson(res, status, body)
+  }
+  const single = /^\/egx\/api\/valuations\/(\d+)$/.exec(path)
+  if (method === 'GET' && single) {
+    const { status, body } = await runCli('valuation-get', { valuation_id: Number(single[1]) })
     return sendJson(res, status, body)
   }
   const mutating = method === 'POST' || method === 'PATCH' || method === 'DELETE'
@@ -113,9 +136,10 @@ export function apply(ctx) {
     kind: 'prefix',
     path: '/egx/api',
     async handler(req, res) {
-      const path = new URL(req.url ?? '/', 'http://local').pathname.replace(/\/+$/, '')
+      const url = new URL(req.url ?? '/', 'http://local')
+      const path = url.pathname.replace(/\/+$/, '')
       if (!hostAllowed(req)) return sendJson(res, 403, { error: 'forbidden host or origin' })
-      if (path.startsWith('/egx/api/')) return handleApi(req, res, path)
+      if (path.startsWith('/egx/api/')) return handleApi(req, res, path, url.searchParams)
       return sendJson(res, 404, { error: 'not found' })
     },
   }))

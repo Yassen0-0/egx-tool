@@ -25,7 +25,8 @@ CREATE TABLE IF NOT EXISTS valuations (
     sanity TEXT,
     thesis TEXT,
     critic_notes TEXT,
-    reason TEXT
+    reason TEXT,
+    report TEXT
 );
 CREATE INDEX IF NOT EXISTS valuations_symbol ON valuations (symbol, created_at);
 
@@ -54,6 +55,9 @@ CREATE TABLE IF NOT EXISTS holdings (
 
 JSON_COLUMNS = ("macro_snapshot", "methods", "assumptions", "sources", "risk_details", "sanity")
 
+# Columns added after the first release, applied to existing databases on connect.
+MIGRATIONS = (("valuations", "report", "TEXT"),)
+
 
 def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat(timespec="seconds")
@@ -66,6 +70,11 @@ def connect(path: Path) -> sqlite3.Connection:
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
     conn.executescript(SCHEMA)
+    for table, column, decl in MIGRATIONS:
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    conn.commit()
     return conn
 
 

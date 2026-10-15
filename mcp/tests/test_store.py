@@ -63,6 +63,7 @@ def _save(conn, fair_value=10.0, reason="", price=None, critic="checked assumpti
     return valuations.save_full_valuation(
         conn, "EAST", fair_value, fair_value * 0.8, fair_value * 1.2, "balanced", period, METHODS,
         {"wacc": 0.25}, SOURCES, PASSING_SANITY, "thesis", critic, reason, price, macro,
+        report=f"# EAST\nFair value {fair_value}",
     )
 
 
@@ -79,7 +80,10 @@ def test_save_and_change_log(conn):
 def test_save_refuses_failed_sanity_missing_critic_and_missing_reason(conn):
     with pytest.raises(ValuationInputError):
         valuations.save_full_valuation(conn, "EAST", 10, 8, 12, "safe", "FY2025", METHODS, {}, SOURCES,
-                                       {"overall": "fail"}, "t", "c", "")
+                                       {"overall": "fail"}, "t", "c", "", report="r")
+    with pytest.raises(ValuationInputError):
+        valuations.save_full_valuation(conn, "EAST", 10, 8, 12, "safe", "FY2025", METHODS, {}, SOURCES,
+                                       PASSING_SANITY, "t", "c", "", report="  ")
     with pytest.raises(ValuationInputError):
         _save(conn, critic="  ")
     _save(conn, 10.0)
@@ -158,3 +162,58 @@ def test_derived_metrics_and_quality_scores(provider):
     assert scores["altman_z2"]["zone"] == "safe"
     assert 0 <= scores["piotroski_f"]["score"] <= 9
     assert "m_score" in scores["beneish_m"]
+
+
+def test_archive_listing_filters_and_change(conn):
+    _save(conn, 10.0)
+    _save(conn, 12.0, reason="results")
+    valuations.record_light_update(conn, "EAST", 11.0, "weekly check")
+    listing = valuations.list_valuations(conn)
+    assert listing["total"] == 2
+    assert [i["fair_value"] for i in listing["items"]] == [12.0, 10.0]
+    assert listing["items"][0]["change_pct"] == pytest.approx(0.2)
+    assert listing["items"][1]["change_pct"] is None
+    assert listing["symbols"] == ["EAST"]
+    assert valuations.list_valuations(conn, kind=None)["total"] == 3
+    assert valuations.list_valuations(conn, risk_rating="safe")["total"] == 0
+    assert valuations.list_valuations(conn, symbol="comi.ca")["total"] == 0
+    assert valuations.list_valuations(conn, date_from="2099-01-01")["total"] == 0
+    with pytest.raises(ValuationInputError):
+        valuations.list_valuations(conn, risk_rating="cheap")
+
+
+def test_get_valuation_returns_report_and_change(conn):
+    _save(conn, 10.0)
+    second = _save(conn, 11.0, reason="new period")
+    full = valuations.get_valuation(conn, second["valuation_id"])
+    assert full["report"].startswith("# EAST")
+    assert full["assumptions"] == {"wacc": 0.25}
+    assert full["change"]["reason"] == "new period"
+    with pytest.raises(ValuationInputError):
+        valuations.get_valuation(conn, 999)
+
+
+def test_fair_value_series_in_time_order(conn):
+    _save(conn, 10.0, price=9.0)
+    _save(conn, 12.0, reason="results", price=11.0)
+    series = valuations.fair_value_series(conn, "EAST")
+    assert [p["fair_value"] for p in series["points"]] == [10.0, 12.0]
+    assert [p["price_at_valuation"] for p in series["points"]] == [9.0, 11.0]
+    assert len(series["changes"]) == 1
+
+
+def test_migration_adds_report_column_to_old_database(tmp_path):
+    import sqlite3
+    path = tmp_path / "old.sqlite"
+    old = sqlite3.connect(path)
+    old.execute("CREATE TABLE valuations (id INTEGER PRIMARY KEY, symbol TEXT NOT NULL, created_at TEXT NOT NULL,"
+                " kind TEXT NOT NULL, fair_value REAL NOT NULL, entry_price REAL NOT NULL,"
+                " protection_price REAL NOT NULL)")
+    old.execute("INSERT INTO valuations VALUES (1, 'EAST', '2026-01-01T00:00:00+00:00', 'full', 10, 10, 8)")
+    old.commit()
+    old.close()
+    conn = connect(path)
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(valuations)")}
+    assert "report" in columns
+    assert conn.execute("SELECT report FROM valuations WHERE id = 1").fetchone()[0] is None
+    conn.close()

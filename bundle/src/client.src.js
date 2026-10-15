@@ -1,0 +1,651 @@
+// Source of client.js (run `node build-client.mjs`). EGX panels for the Harness
+// Web/Desktop client: sidebar entries plus pages in the main area. Data comes from
+// the host half's /egx/api routes, which run the same Python logic as the
+// mcp__egx__* tools. LightweightCharts is inlined by the build at the marker below.
+window.__ModuleLoader__.load({
+  id: 'dsh-egx-bundle',
+  factory(require) {
+    /* @inline lightweight-charts */
+    const React = require('react')
+    const { useState, useEffect, useCallback } = React
+    const h = React.createElement
+    const PANEL_ID = 'egx-portfolio'
+    const ANALYSES_ID = 'egx-analyses'
+
+    const num = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 2 })
+    const qtyFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 4 })
+    const pct = new Intl.NumberFormat('ar-EG-u-nu-latn', { style: 'percent', maximumFractionDigits: 1, signDisplay: 'exceptZero' })
+    const weightFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { style: 'percent', maximumFractionDigits: 1 })
+    const RATING = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
+    const STATUS = {
+      above_fair_value: 'أعلى من السعر العادل',
+      at_or_below_fair_value: 'بين سعر الحماية والسعر العادل',
+      below_protection: 'تحت سعر الحماية — يحتاج مراجعة',
+    }
+    const money = (v) => (v == null ? '—' : num.format(v))
+    const tone = (v) => (v > 0 ? 'egxp-gain' : v < 0 ? 'egxp-loss' : '')
+
+    async function api(method, path, body) {
+      const init = { method, headers: {} }
+      if (body !== undefined) {
+        init.headers['content-type'] = 'application/json'
+        init.headers['x-egx-request'] = '1'
+        init.body = JSON.stringify(body)
+      }
+      const res = await fetch(path, init)
+      const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }))
+      if (!res.ok || (data && data.error)) throw new Error(data.error || `HTTP ${res.status}`)
+      return data
+    }
+
+    const CSS = `
+.egxp-page { height: 100%; overflow: auto; box-sizing: border-box; padding: 0 clamp(24px, 4vw, 48px) 48px;
+  color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; align-items: center; gap: 24px; }
+.egxp-page > * { width: 100%; max-width: 1100px; }
+.egxp-head { padding-top: 28px; display: flex; flex-direction: column; gap: 4px; }
+[data-platform='darwin'] .egxp-head { padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px)); }
+.egxp-title { margin: 0; font-size: 20px; font-weight: 500; line-height: 28px; }
+.egxp-intro { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.egxp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
+.egxp-card { border: 1px solid var(--dsw-alias-border-l3); border-radius: 12px; padding: 12px 16px; background: var(--dsw-alias-bg-layer-2); }
+.egxp-card-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.egxp-card-value { font-size: 20px; font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.egxp-card-note { font-size: 12px; color: var(--dsw-alias-label-tertiary); margin-top: 2px; }
+.egxp-section { border: 1px solid var(--dsw-alias-border-l3); border-radius: 12px; padding: 16px; }
+.egxp-section-title { margin: 0 0 12px; font-size: 14px; font-weight: 500; }
+.egxp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
+.egxp-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.egxp-input { font: inherit; font-size: 13px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 6px 10px; min-width: 0; height: 32px; box-sizing: border-box; }
+.egxp-input:focus-visible, .egxp-btn:focus-visible, .egxp-seg button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
+.egxp-seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; height: 32px; box-sizing: border-box; }
+.egxp-seg button { flex: 1; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; cursor: pointer; }
+.egxp-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
+.egxp-btn { font: inherit; font-size: 13px; height: 32px; padding: 0 14px; border-radius: 8px; cursor: pointer;
+  border: 1px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-primary); }
+.egxp-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.egxp-btn-primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); border-color: transparent; }
+.egxp-btn-primary:hover { background: var(--dsw-alias-button-primary-hover); }
+.egxp-btn-small { height: 26px; padding: 0 10px; font-size: 12px; }
+.egxp-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger); color: var(--dsw-alias-state-error-primary); }
+.egxp-btn:disabled { opacity: .55; cursor: default; }
+.egxp-error { color: var(--dsw-alias-state-error-primary); font-size: 13px; margin-top: 8px; }
+.egxp-table-wrap { overflow-x: auto; }
+.egxp-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.egxp-table th { font-weight: 500; font-size: 12px; color: var(--dsw-alias-label-secondary); text-align: start; padding: 8px; white-space: nowrap; border-bottom: 1px solid var(--dsw-alias-border-l3); }
+.egxp-table td { padding: 10px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); white-space: nowrap; vertical-align: middle; }
+.egxp-table tr:last-child td { border-bottom: 0; }
+.egxp-num { text-align: end !important; }
+.egxp-sym { font-weight: 500; }
+.egxp-sub { font-size: 11px; color: var(--dsw-alias-label-tertiary); }
+.egxp-gain { color: var(--dsw-alias-state-success-primary); }
+.egxp-loss { color: var(--dsw-alias-state-error-primary); }
+.egxp-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid currentColor; }
+.egxp-safe { color: var(--dsw-alias-state-success-primary); }
+.egxp-balanced { color: var(--dsw-alias-state-warn-primary); }
+.egxp-high_risk { color: var(--dsw-alias-state-error-primary); }
+.egxp-status-below_protection { color: var(--dsw-alias-state-error-primary); font-weight: 500; }
+.egxp-status-at_or_below_fair_value { color: var(--dsw-alias-state-success-primary); }
+.egxp-status-above_fair_value { color: var(--dsw-alias-state-warn-primary); }
+.egxp-empty { padding: 24px 8px; text-align: center; color: var(--dsw-alias-label-tertiary); }
+.egxp-actions { display: flex; gap: 6px; }
+.egxp-cell-input { width: 90px; }
+.egxp-foot { font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+.egxp-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
+.egxp-filters .egxp-field { min-width: 140px; }
+.egxp-row-link { cursor: pointer; }
+.egxp-row-link:hover td { background: var(--dsw-alias-interactive-bg-hover); }
+.egxp-reason { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
+.egxp-back { align-self: flex-start; }
+.egxp-chart { height: 260px; direction: ltr; }
+.egxp-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+.egxp-kv { width: 100%; border-collapse: collapse; font-size: 13px; }
+.egxp-kv td { padding: 6px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); vertical-align: top; }
+.egxp-kv td:first-child { color: var(--dsw-alias-label-secondary); white-space: nowrap; width: 40%; }
+.egxp-check-pass { color: var(--dsw-alias-state-success-primary); }
+.egxp-check-warn { color: var(--dsw-alias-state-warn-primary); }
+.egxp-check-fail { color: var(--dsw-alias-state-error-primary); }
+.egxp-pre { white-space: pre-wrap; font-size: 13px; line-height: 1.7; margin: 0; }
+.egxp-md { font-size: 14px; line-height: 1.8; }
+.egxp-md h1 { font-size: 18px; font-weight: 500; margin: 8px 0; }
+.egxp-md h2 { font-size: 16px; font-weight: 500; margin: 16px 0 6px; }
+.egxp-md h3 { font-size: 14px; font-weight: 500; margin: 12px 0 4px; }
+.egxp-md p { margin: 6px 0; }
+.egxp-md ul, .egxp-md ol { margin: 6px 0; padding-inline-start: 22px; }
+.egxp-md blockquote { margin: 8px 0; padding: 6px 12px; border-inline-start: 3px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
+.egxp-md code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--dsw-alias-bg-layer-3); }
+.egxp-md table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
+.egxp-md th, .egxp-md td { border: 1px solid var(--dsw-alias-border-l3); padding: 4px 10px; text-align: start; }
+.egxp-md hr { border: 0; border-top: 1px solid var(--dsw-alias-border-l3); margin: 12px 0; }
+.egxp-legend { display: flex; gap: 16px; font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 6px; }
+.egxp-swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-inline-end: 4px; }
+`
+
+    function PortfolioIcon({ size }) {
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+      },
+      h('path', { d: 'M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1 1 0 0 1 1 1v2' }),
+      h('rect', { x: 3.5, y: 8, width: 17, height: 11, rx: 2.5 }),
+      h('path', { d: 'M16 13.5h2' }),
+      h('path', { d: 'M7 16l2.5-2.5 2 1.5L14 12' }))
+    }
+
+    function Cards({ totals }) {
+      const unpriced = totals.unpriced_holdings
+      return h('div', { className: 'egxp-cards' },
+        h('div', { className: 'egxp-card' },
+          h('div', { className: 'egxp-card-label' }, 'إجمالي التكلفة'),
+          h('div', { className: 'egxp-card-value' }, money(totals.cost), ' ', h('span', { className: 'egxp-sub' }, 'ج.م'))),
+        h('div', { className: 'egxp-card' },
+          h('div', { className: 'egxp-card-label' }, 'القيمة الحالية'),
+          h('div', { className: 'egxp-card-value' }, money(totals.market_value), ' ', h('span', { className: 'egxp-sub' }, 'ج.م'))),
+        h('div', { className: 'egxp-card' },
+          h('div', { className: 'egxp-card-label' }, 'الربح / الخسارة'),
+          h('div', { className: `egxp-card-value ${tone(totals.pnl)}` }, money(totals.pnl),
+            totals.pnl_pct == null ? null : h('span', { className: 'egxp-sub' }, ' ', pct.format(totals.pnl_pct)))),
+        h('div', { className: 'egxp-card' },
+          h('div', { className: 'egxp-card-label' }, 'أسهم بدون سعر حالي'),
+          h('div', { className: 'egxp-card-value' }, String(unpriced.length)),
+          unpriced.length ? h('div', { className: 'egxp-card-note' }, `${unpriced.join('، ')} — أضف السعر في prices.csv`) : null))
+    }
+
+    function AddForm({ universe, onAdded }) {
+      const [symbol, setSymbol] = useState('')
+      const [buyPrice, setBuyPrice] = useState('')
+      const [mode, setMode] = useState('amount')
+      const [value, setValue] = useState('')
+      const [buyDate, setBuyDate] = useState('')
+      const [note, setNote] = useState('')
+      const [busy, setBusy] = useState(false)
+      const [error, setError] = useState('')
+
+      async function submit(event) {
+        event.preventDefault()
+        setError('')
+        const price = Number(buyPrice), amount = Number(value)
+        if (!symbol) return setError('اختر السهم.')
+        if (!(price > 0)) return setError('أدخل سعر شراء أكبر من صفر.')
+        if (!(amount > 0)) return setError(mode === 'amount' ? 'أدخل المبلغ المستثمر.' : 'أدخل عدد الأسهم.')
+        const body = { symbol, buy_price: price, buy_date: buyDate || null, note: note || null }
+        body[mode === 'amount' ? 'invested_amount' : 'quantity'] = amount
+        setBusy(true)
+        try {
+          await api('POST', '/egx/api/holdings', body)
+          setSymbol(''); setBuyPrice(''); setValue(''); setBuyDate(''); setNote('')
+          onAdded()
+        } catch (e) {
+          setError(e.message)
+        } finally {
+          setBusy(false)
+        }
+      }
+
+      const field = (label, control) => h('label', { className: 'egxp-field' }, label, control)
+      return h('section', { className: 'egxp-section' },
+        h('h2', { className: 'egxp-section-title' }, 'إضافة سهم'),
+        h('form', { className: 'egxp-form', onSubmit: submit, noValidate: true },
+          field('السهم', h('select', { className: 'egxp-input', value: symbol, onChange: (e) => setSymbol(e.target.value) },
+            h('option', { value: '' }, 'اختر سهمًا'),
+            universe.map((c) => h('option', { key: c.symbol, value: c.symbol }, `${c.symbol} — ${c.name}`)))),
+          field('سعر الشراء (ج.م)', h('input', { className: 'egxp-input', type: 'number', inputMode: 'decimal', min: 0, step: 'any',
+            value: buyPrice, onChange: (e) => setBuyPrice(e.target.value) })),
+          h('div', { className: 'egxp-field' },
+            h('div', { className: 'egxp-seg', role: 'group', 'aria-label': 'طريقة الإدخال' },
+              h('button', { type: 'button', 'aria-pressed': mode === 'amount', onClick: () => setMode('amount') }, 'المبلغ المستثمر'),
+              h('button', { type: 'button', 'aria-pressed': mode === 'quantity', onClick: () => setMode('quantity') }, 'عدد الأسهم')),
+            h('input', { className: 'egxp-input', type: 'number', inputMode: 'decimal', min: 0, step: 'any', value,
+              'aria-label': mode === 'amount' ? 'المبلغ المستثمر بالجنيه' : 'عدد الأسهم',
+              placeholder: mode === 'amount' ? 'مثال: 5000' : 'مثال: 100', onChange: (e) => setValue(e.target.value) })),
+          field('تاريخ الشراء (اختياري)', h('input', { className: 'egxp-input', type: 'date', value: buyDate, onChange: (e) => setBuyDate(e.target.value) })),
+          field('ملاحظة (اختياري)', h('input', { className: 'egxp-input', type: 'text', maxLength: 200, value: note, onChange: (e) => setNote(e.target.value) })),
+          h('button', { className: 'egxp-btn egxp-btn-primary', type: 'submit', disabled: busy }, busy ? 'جارٍ الإضافة…' : 'إضافة')),
+        error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null)
+    }
+
+    function HoldingRow({ row, onChanged, onError }) {
+      const [editing, setEditing] = useState(false)
+      const [confirming, setConfirming] = useState(false)
+      const [quantity, setQuantity] = useState(String(row.quantity))
+      const [buyPrice, setBuyPrice] = useState(String(row.buy_price))
+      const [busy, setBusy] = useState(false)
+
+      async function run(action) {
+        setBusy(true)
+        try { await action(); onChanged() } catch (e) { onError(e.message) } finally { setBusy(false) }
+      }
+      const save = () => run(async () => {
+        await api('PATCH', `/egx/api/holdings/${row.id}`, { quantity: Number(quantity), buy_price: Number(buyPrice) })
+        setEditing(false)
+      })
+      const remove = () => run(() => api('DELETE', `/egx/api/holdings/${row.id}`, {}))
+
+      const td = (content, numeric) => h('td', { className: numeric ? 'egxp-num' : undefined }, content)
+      const sub = (text, cls) => h('div', { className: `egxp-sub ${cls || ''}` }, text)
+      const actions = editing
+        ? [h('button', { key: 's', className: 'egxp-btn egxp-btn-small egxp-btn-primary', disabled: busy, onClick: save }, 'حفظ'),
+           h('button', { key: 'c', className: 'egxp-btn egxp-btn-small', onClick: () => setEditing(false) }, 'إلغاء')]
+        : confirming
+          ? [h('button', { key: 'd', className: 'egxp-btn egxp-btn-small egxp-btn-danger', disabled: busy, onClick: remove }, 'تأكيد الحذف'),
+             h('button', { key: 'c', className: 'egxp-btn egxp-btn-small', onClick: () => setConfirming(false) }, 'إلغاء')]
+          : [h('button', { key: 'e', className: 'egxp-btn egxp-btn-small', onClick: () => setEditing(true) }, 'تعديل'),
+             h('button', { key: 'r', className: 'egxp-btn egxp-btn-small egxp-btn-danger', onClick: () => setConfirming(true) }, 'حذف')]
+
+      return h('tr', null,
+        td([h('div', { key: 's', className: 'egxp-sym' }, row.symbol), sub(row.name || '')]),
+        td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: quantity,
+          'aria-label': 'الكمية', onChange: (e) => setQuantity(e.target.value) }) : qtyFmt.format(row.quantity), true),
+        td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: buyPrice,
+          'aria-label': 'سعر الشراء', onChange: (e) => setBuyPrice(e.target.value) }) : money(row.buy_price), true),
+        td(money(row.cost), true),
+        td([money(row.current_price), row.price_as_of ? sub(row.price_as_of) : null], true),
+        td(money(row.market_value), true),
+        td([h('span', { key: 'p', className: tone(row.pnl) }, money(row.pnl)),
+          row.pnl_pct == null ? null : sub(pct.format(row.pnl_pct), tone(row.pnl_pct))], true),
+        td(row.weight == null ? '—' : weightFmt.format(row.weight), true),
+        td(money(row.fair_value), true),
+        td(money(row.protection_price), true),
+        td(row.risk_rating
+          ? h('span', { className: `egxp-badge egxp-${row.risk_rating}` }, RATING[row.risk_rating] || row.risk_rating)
+          : h('span', { className: 'egxp-sub' }, 'لم يُقيَّم')),
+        td(row.status ? h('span', { className: `egxp-status-${row.status}` }, STATUS[row.status] || row.status) : '—'),
+        td(h('div', { className: 'egxp-actions' }, actions)))
+    }
+
+    function PortfolioPage() {
+      const [data, setData] = useState(null)
+      const [universe, setUniverse] = useState([])
+      const [error, setError] = useState('')
+
+      const load = useCallback(async () => {
+        setError('')
+        try { setData(await api('GET', '/egx/api/portfolio')) } catch (e) { setError(e.message) }
+      }, [])
+
+      useEffect(() => {
+        load()
+        api('GET', '/egx/api/universe')
+          .then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol))))
+          .catch((e) => setError(`تعذّر تحميل قائمة الأسهم: ${e.message}`))
+      }, [load])
+
+      const headers = ['السهم', 'الكمية', 'سعر الشراء', 'التكلفة', 'السعر الحالي', 'القيمة', 'الربح/الخسارة', 'الوزن',
+        'السعر العادل', 'سعر الحماية', 'التصنيف', 'الموقع من التقييم', '']
+      const numericHeader = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
+
+      let body
+      if (!data) body = h('tr', null, h('td', { colSpan: 13, className: 'egxp-empty' }, error ? 'تعذّر تحميل المحفظة.' : 'جارٍ التحميل…'))
+      else if (!data.holdings.length) body = h('tr', null, h('td', { colSpan: 13, className: 'egxp-empty' }, 'لا توجد أسهم بعد. أضف أول سهم من النموذج أعلاه.'))
+      else body = data.holdings.map((row) => h(HoldingRow, { key: `${row.id}:${row.updated_at}`, row, onChanged: load, onError: setError }))
+
+      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, CSS),
+        h('header', { className: 'egxp-head', 'data-window-drag': true },
+          h('h1', { className: 'egxp-title' }, 'محفظتي'),
+          h('p', { className: 'egxp-intro' }, 'أسهم EGX30 كما أدخلتها أنت. الأرقام مسؤوليتك، والأداة تعرضها فقط.')),
+        data ? h(Cards, { totals: data.totals }) : null,
+        h(AddForm, { universe, onAdded: load }),
+        h('section', { className: 'egxp-section' },
+          h('h2', { className: 'egxp-section-title' }, 'الأسهم'),
+          h('div', { className: 'egxp-table-wrap' },
+            h('table', { className: 'egxp-table' },
+              h('thead', null, h('tr', null, headers.map((label, i) =>
+                h('th', { key: i, className: numericHeader.has(i) ? 'egxp-num' : undefined }, label)))),
+              h('tbody', null, body))),
+          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null),
+        h('p', { className: 'egxp-foot' },
+          'هذه الصفحة تعرض أرقامًا وتقييمات للفهم والمتابعة، وليست توصية بالشراء أو البيع. القرار قرارك. ',
+          'الأسعار من data/manual/prices.csv، والتقييمات من آخر تقييم محفوظ لكل سهم.'))
+    }
+
+    // ── Analyses archive ─────────────────────────────────────────────────────
+
+    const KIND = { full: 'تقييم كامل', light: 'مراجعة أسبوعية' }
+    const dateFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' })
+    const fmtDate = (iso) => (iso ? dateFmt.format(new Date(iso)) : '—')
+    // Numeric ranges and pairs keep their reading order inside right-to-left text.
+    const ltr = (text) => h('span', { dir: 'ltr' }, text)
+    const range = (a, b) => ltr(`${money(a)} – ${money(b)}`)
+
+    // Seconds to add to a UTC timestamp so the chart's time axis reads in Cairo time.
+    const cairoParts = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
+      hour: '2-digit', minute: '2-digit', second: '2-digit',
+    })
+    function cairoOffsetSeconds(date) {
+      const parts = Object.fromEntries(cairoParts.formatToParts(date).map((p) => [p.type, p.value]))
+      const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second)
+      return Math.round((asUtc - date.getTime()) / 1000)
+    }
+
+    function AnalysesIcon({ size }) {
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+      },
+      h('path', { d: 'M7 3.5h7l4 4V19a1.5 1.5 0 0 1-1.5 1.5h-9A1.5 1.5 0 0 1 6 19V5a1.5 1.5 0 0 1 1-1.5z' }),
+      h('path', { d: 'M14 3.5V8h4' }),
+      h('path', { d: 'M9 16.5l2-2.5 1.8 1.4L15.5 12' }))
+    }
+
+    // Minimal Markdown → React elements (no HTML injection): headings, paragraphs, lists,
+    // tables, blockquotes, rules, **bold**, *italic*, `code`. Links render as plain text.
+    function inline(text, keyBase) {
+      const parts = []
+      const pattern = /(\*\*[^*]+\*\*|`[^`]+`|\*[^*\s][^*]*\*|\[[^\]]+\]\([^)]+\))/g
+      let last = 0, match, i = 0
+      while ((match = pattern.exec(text))) {
+        if (match.index > last) parts.push(text.slice(last, match.index))
+        const token = match[0], key = `${keyBase}-${i++}`
+        if (token.startsWith('**')) parts.push(h('strong', { key }, token.slice(2, -2)))
+        else if (token.startsWith('`')) parts.push(h('code', { key }, token.slice(1, -1)))
+        else if (token.startsWith('[')) {
+          const m = /^\[([^\]]+)\]\(([^)]+)\)$/.exec(token)
+          parts.push(h('span', { key, title: m[2] }, `${m[1]} (${m[2]})`))
+        } else parts.push(h('em', { key }, token.slice(1, -1)))
+        last = match.index + token.length
+      }
+      if (last < text.length) parts.push(text.slice(last))
+      return parts
+    }
+
+    function Markdown({ text }) {
+      const lines = String(text || '').replace(/\r/g, '').split('\n')
+      const blocks = []
+      let i = 0, key = 0
+      const isTableRow = (l) => /^\s*\|.*\|\s*$/.test(l)
+      const cells = (l) => l.trim().replace(/^\||\|$/g, '').split('|').map((c) => c.trim())
+      while (i < lines.length) {
+        const line = lines[i]
+        if (!line.trim()) { i++; continue }
+        const heading = /^(#{1,3})\s+(.*)$/.exec(line)
+        if (heading) { blocks.push(h(`h${heading[1].length}`, { key: key++, dir: 'auto' }, inline(heading[2], key))); i++; continue }
+        if (/^\s*(-{3,}|\*{3,})\s*$/.test(line)) { blocks.push(h('hr', { key: key++ })); i++; continue }
+        if (isTableRow(line) && i + 1 < lines.length && /^\s*\|?\s*:?-{2,}/.test(lines[i + 1])) {
+          const header = cells(line); i += 2
+          const rows = []
+          while (i < lines.length && isTableRow(lines[i])) rows.push(cells(lines[i++]))
+          blocks.push(h('div', { key: key++, className: 'egxp-table-wrap' }, h('table', null,
+            h('thead', null, h('tr', null, header.map((c, j) => h('th', { key: j }, inline(c, `th${j}`))))),
+            h('tbody', null, rows.map((r, ri) => h('tr', { key: ri }, r.map((c, j) => h('td', { key: j, dir: 'auto' }, inline(c, `td${ri}-${j}`)))))))))
+          continue
+        }
+        if (/^\s*>/.test(line)) {
+          const quote = []
+          while (i < lines.length && /^\s*>/.test(lines[i])) quote.push(lines[i++].replace(/^\s*>\s?/, ''))
+          blocks.push(h('blockquote', { key: key++, dir: 'auto' }, inline(quote.join(' '), `q${key}`)))
+          continue
+        }
+        const ordered = /^\s*\d+[.)]\s+/, bullet = /^\s*[-*+]\s+/
+        if (ordered.test(line) || bullet.test(line)) {
+          const isOrdered = ordered.test(line), marker = isOrdered ? ordered : bullet, items = []
+          while (i < lines.length && marker.test(lines[i])) items.push(lines[i++].replace(marker, ''))
+          blocks.push(h(isOrdered ? 'ol' : 'ul', { key: key++ }, items.map((it, j) => h('li', { key: j, dir: 'auto' }, inline(it, `li${key}-${j}`)))))
+          continue
+        }
+        const para = []
+        while (i < lines.length && lines[i].trim() && !/^(#{1,3}\s|\s*>|\s*[-*+]\s|\s*\d+[.)]\s|\s*\|)/.test(lines[i])) para.push(lines[i++])
+        if (!para.length) para.push(lines[i++])
+        blocks.push(h('p', { key: key++, dir: 'auto' }, inline(para.join(' '), `p${key}`)))
+      }
+      return h('div', { className: 'egxp-md', dir: 'rtl' }, blocks)
+    }
+
+    function chartTheme() {
+      const css = getComputedStyle(document.documentElement)
+      const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback
+      return {
+        text: token('--dsw-alias-label-secondary', '#888'),
+        grid: token('--dsw-alias-border-l4', 'rgba(128,128,128,.15)'),
+        fair: token('--dsw-alias-state-success-primary', '#2f9a7f'),
+        price: token('--dsw-alias-label-primary', '#444'),
+        band: token('--dsw-alias-label-tertiary', '#999'),
+        protection: token('--dsw-alias-state-error-primary', '#c0362c'),
+      }
+    }
+
+    function FairValueChart({ points }) {
+      const ref = React.useRef(null)
+      useEffect(() => {
+        if (!points.length) return undefined
+        const theme = chartTheme()
+        const chart = LightweightCharts.createChart(ref.current, {
+          autoSize: true,
+          layout: { background: { color: 'transparent' }, textColor: theme.text },
+          grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
+          timeScale: { timeVisible: true, secondsVisible: false },
+          localization: { locale: 'en-US' },
+        })
+        // Lightweight Charts needs strictly increasing times; nudge same-second records apart.
+        let lastTime = 0
+        const rows = points.map((p) => {
+          const at = new Date(p.created_at)
+          let t = Math.floor(at.getTime() / 1000) + cairoOffsetSeconds(at)
+          if (t <= lastTime) t = lastTime + 1
+          lastTime = t
+          return { ...p, time: t }
+        })
+        const line = (color, width, style, title) => chart.addSeries(LightweightCharts.LineSeries, {
+          color, lineWidth: width, lineStyle: style, title, lastValueVisible: true, priceLineVisible: false,
+          pointMarkersVisible: rows.length < 40,
+        })
+        line(theme.fair, 2, 0, 'السعر العادل').setData(rows.map((r) => ({ time: r.time, value: r.fair_value })))
+        line(theme.band, 1, 2, 'متشائم').setData(rows.filter((r) => r.bear != null).map((r) => ({ time: r.time, value: r.bear })))
+        line(theme.band, 1, 2, 'متفائل').setData(rows.filter((r) => r.bull != null).map((r) => ({ time: r.time, value: r.bull })))
+        line(theme.protection, 1, 1, 'الحماية').setData(rows.map((r) => ({ time: r.time, value: r.protection_price })))
+        line(theme.price, 2, 0, 'السعر').setData(rows.filter((r) => r.price_at_valuation != null).map((r) => ({ time: r.time, value: r.price_at_valuation })))
+        chart.timeScale().fitContent()
+        return () => chart.remove()
+      }, [points])
+      if (!points.length) return null
+      const theme = chartTheme()
+      const swatch = (color, label) => h('span', null, h('span', { className: 'egxp-swatch', style: { background: color } }), label)
+      return h('div', null,
+        h('div', { ref, className: 'egxp-chart' }),
+        h('div', { className: 'egxp-legend' },
+          swatch(theme.fair, 'السعر العادل'), swatch(theme.price, 'السعر وقت التقييم'),
+          swatch(theme.band, 'نطاق المتشائم/المتفائل'), swatch(theme.protection, 'سعر الحماية')))
+    }
+
+    function KeyValues({ data }) {
+      const rows = []
+      const walk = (value, path) => {
+        if (value && typeof value === 'object' && !Array.isArray(value)) {
+          Object.entries(value).forEach(([k, v]) => walk(v, path ? `${path}.${k}` : k))
+        } else {
+          rows.push([path, Array.isArray(value) ? value.join('، ') : typeof value === 'number' ? num.format(value) : String(value)])
+        }
+      }
+      walk(data || {}, '')
+      if (!rows.length) return h('div', { className: 'egxp-sub' }, '—')
+      return h('table', { className: 'egxp-kv' }, h('tbody', null,
+        rows.map(([k, v], i) => h('tr', { key: i }, h('td', { dir: 'ltr' }, k), h('td', { dir: 'auto' }, v)))))
+    }
+
+    function Section({ title, children }) {
+      return h('section', { className: 'egxp-section' }, h('h2', { className: 'egxp-section-title' }, title), children)
+    }
+
+    function AnalysisDetail({ id, onBack }) {
+      const [item, setItem] = useState(null)
+      const [series, setSeries] = useState({ points: [], changes: [] })
+      const [error, setError] = useState('')
+      useEffect(() => {
+        let alive = true
+        setError('')
+        api('GET', `/egx/api/valuations/${id}`)
+          .then((v) => {
+            if (!alive) return
+            setItem(v)
+            return api('GET', `/egx/api/valuations/series/${encodeURIComponent(v.symbol)}`).then((s) => alive && setSeries(s))
+          })
+          .catch((e) => alive && setError(e.message))
+        return () => { alive = false }
+      }, [id])
+
+      const back = h('button', { className: 'egxp-btn egxp-btn-small egxp-back', onClick: onBack }, '→ كل التحليلات')
+      if (!item) return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, CSS),
+        h('header', { className: 'egxp-head', 'data-window-drag': true }, back),
+        h('div', { className: error ? 'egxp-error' : 'egxp-empty' }, error || 'جارٍ التحميل…'))
+
+      const upside = item.price_at_valuation ? item.fair_value / item.price_at_valuation - 1 : null
+      const card = (label, value, note, cls) => h('div', { className: 'egxp-card' },
+        h('div', { className: 'egxp-card-label' }, label),
+        h('div', { className: `egxp-card-value ${cls || ''}` }, value),
+        note ? h('div', { className: 'egxp-card-note' }, note) : null)
+      const methods = item.methods || []
+      const sources = item.sources || []
+      const checks = (item.sanity && item.sanity.checks) || []
+      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, CSS),
+        h('header', { className: 'egxp-head', 'data-window-drag': true },
+          back,
+          h('h1', { className: 'egxp-title' }, `${item.symbol} — ${KIND[item.kind] || item.kind}`),
+          h('p', { className: 'egxp-intro' }, `${fmtDate(item.created_at)} · الفترة المالية ${item.financial_period || '—'}`)),
+        h('div', { className: 'egxp-cards' },
+          card('السعر العادل', money(item.fair_value), item.bear != null ? h('span', null, 'النطاق ', range(item.bear, item.bull)) : null),
+          card('سعر الدخول', money(item.entry_price), h('span', null, 'سعر الحماية ', ltr(money(item.protection_price)))),
+          card('السعر وقت التقييم', money(item.price_at_valuation), upside == null ? null : `الفجوة للسعر العادل ${pct.format(upside)}`),
+          card('التصنيف', item.risk_rating ? RATING[item.risk_rating] || item.risk_rating : '—', null, item.risk_rating ? `egxp-${item.risk_rating}` : '')),
+        h(Section, { title: `تاريخ السعر العادل لسهم ${item.symbol}` },
+          series.points.length > 1 ? h(FairValueChart, { points: series.points }) : h('div', { className: 'egxp-sub' }, 'تقييم واحد فقط حتى الآن.'),
+          series.changes.length ? h('table', { className: 'egxp-table', style: { marginTop: 12 } },
+            h('thead', null, h('tr', null, ['التاريخ', 'من', 'إلى', 'التغير', 'السبب'].map((t, i) => h('th', { key: i, className: i && i < 4 ? 'egxp-num' : undefined }, t)))),
+            h('tbody', null, series.changes.map((c) => h('tr', { key: c.id },
+              h('td', null, fmtDate(c.created_at)), h('td', { className: 'egxp-num' }, money(c.previous_fair_value)),
+              h('td', { className: 'egxp-num' }, money(c.new_fair_value)),
+              h('td', { className: `egxp-num ${tone(c.change_pct)}` }, pct.format(c.change_pct)),
+              h('td', { dir: 'auto' }, c.reason))))) : null),
+        item.report
+          ? h(Section, { title: 'التقرير' }, h(Markdown, { text: item.report }))
+          : h(Section, { title: item.kind === 'light' ? 'ما تمت مراجعته' : 'التقرير' },
+            h('p', { className: 'egxp-pre', dir: 'auto' }, item.reason || 'لا يوجد تقرير محفوظ لهذا التقييم.')),
+        item.kind === 'full' ? h('div', { className: 'egxp-grid2' },
+          h(Section, { title: 'الأطروحة' }, h('p', { className: 'egxp-pre', dir: 'auto' }, item.thesis || '—')),
+          h(Section, { title: 'ملاحظات الناقد' }, h('p', { className: 'egxp-pre', dir: 'auto' }, item.critic_notes || '—'))) : null,
+        methods.length ? h(Section, { title: 'طرق التقييم' }, h('table', { className: 'egxp-table' },
+          h('thead', null, h('tr', null, ['الطريقة', 'الوزن', 'متشائم', 'أساسي', 'متفائل'].map((t, i) => h('th', { key: i, className: i ? 'egxp-num' : undefined }, t)))),
+          h('tbody', null, methods.map((m, i) => h('tr', { key: i },
+            h('td', { dir: 'ltr' }, m.method), h('td', { className: 'egxp-num' }, num.format(m.weight)),
+            h('td', { className: 'egxp-num' }, money(m.bear)), h('td', { className: 'egxp-num' }, money(m.base)),
+            h('td', { className: 'egxp-num' }, money(m.bull))))))) : null,
+        item.kind === 'full' ? h('div', { className: 'egxp-grid2' },
+          h(Section, { title: 'الافتراضات' }, h(KeyValues, { data: item.assumptions })),
+          h(Section, { title: 'فحوصات المنطق' }, checks.length
+            ? h('ul', { style: { margin: 0, paddingInlineStart: 18, fontSize: 13 } }, checks.map((c, i) => h('li', { key: i },
+              h('span', { className: `egxp-check-${c.status}` }, c.status === 'pass' ? 'سليم' : c.status === 'warn' ? 'تحذير' : 'فشل'),
+              ' — ', h('span', { dir: 'auto' }, c.message))))
+            : h('div', { className: 'egxp-sub' }, '—'))) : null,
+        sources.length ? h(Section, { title: 'المصادر' }, h('table', { className: 'egxp-table' },
+          h('thead', null, h('tr', null, ['البند', 'القيمة', 'المصدر', 'التاريخ'].map((t, i) => h('th', { key: i }, t)))),
+          h('tbody', null, sources.map((src, i) => h('tr', { key: i },
+            h('td', { dir: 'auto' }, src.item), h('td', { dir: 'auto' }, src.value),
+            h('td', { dir: 'auto', style: { whiteSpace: 'normal' } }, src.source), h('td', null, src.as_of)))))) : null,
+        h('p', { className: 'egxp-foot' }, 'تحليل تقييمي للفهم والمتابعة، وليس توصية بالشراء أو البيع. القرار قرارك.'))
+    }
+
+    function AnalysesList({ onOpen }) {
+      const [filters, setFilters] = useState({ symbol: '', risk_rating: '', kind: 'full', date_from: '', date_to: '' })
+      const [data, setData] = useState(null)
+      const [items, setItems] = useState([])
+      const [error, setError] = useState('')
+      const [loadingMore, setLoadingMore] = useState(false)
+
+      const query = useCallback((offset) => {
+        const q = new URLSearchParams({ limit: '50', offset: String(offset), kind: filters.kind })
+        for (const k of ['symbol', 'risk_rating', 'date_from', 'date_to']) if (filters[k]) q.set(k, filters[k])
+        return api('GET', `/egx/api/valuations?${q}`)
+      }, [filters])
+
+      useEffect(() => {
+        let alive = true
+        setError('')
+        query(0).then((d) => { if (alive) { setData(d); setItems(d.items) } }).catch((e) => alive && setError(e.message))
+        return () => { alive = false }
+      }, [query])
+
+      async function more() {
+        setLoadingMore(true)
+        try { const d = await query(items.length); setItems((prev) => prev.concat(d.items)) } catch (e) { setError(e.message) } finally { setLoadingMore(false) }
+      }
+      const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }))
+      const field = (label, control) => h('label', { className: 'egxp-field' }, label, control)
+      const headers = ['التاريخ', 'السهم', 'النوع', 'السعر العادل', 'النطاق', 'السعر وقت التقييم', 'الفجوة', 'التغير عن السابق', 'التصنيف', 'السبب']
+      const numeric = new Set([3, 4, 5, 6, 7])
+
+      let body
+      if (!data) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' }, error ? 'تعذّر تحميل التحليلات.' : 'جارٍ التحميل…'))
+      else if (!items.length) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' },
+        data.total === 0 && !filters.symbol && !filters.risk_rating && !filters.date_from && !filters.date_to
+          ? 'لا توجد تحليلات محفوظة بعد. اطلب من المحلل تقييم سهم، وسيظهر هنا تلقائيًا بعد الحفظ.'
+          : 'لا توجد نتائج لهذه الفلاتر.'))
+      else body = items.map((v) => {
+        const gap = v.price_at_valuation ? v.fair_value / v.price_at_valuation - 1 : null
+        const open = () => onOpen(v.id)
+        return h('tr', { key: v.id, className: 'egxp-row-link', tabIndex: 0, onClick: open,
+          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } } },
+          h('td', null, fmtDate(v.created_at)),
+          h('td', null, h('span', { className: 'egxp-sym' }, v.symbol)),
+          h('td', null, KIND[v.kind] || v.kind),
+          h('td', { className: 'egxp-num' }, money(v.fair_value)),
+          h('td', { className: 'egxp-num' }, v.bear != null ? range(v.bear, v.bull) : '—'),
+          h('td', { className: 'egxp-num' }, money(v.price_at_valuation)),
+          h('td', { className: `egxp-num ${tone(gap)}` }, gap == null ? '—' : pct.format(gap)),
+          h('td', { className: `egxp-num ${tone(v.change_pct)}` }, v.change_pct == null ? '—' : pct.format(v.change_pct)),
+          h('td', null, v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating] || v.risk_rating) : '—'),
+          h('td', { className: 'egxp-reason', dir: 'auto', title: v.reason || '' }, v.reason || '—'))
+      })
+
+      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, CSS),
+        h('header', { className: 'egxp-head', 'data-window-drag': true },
+          h('h1', { className: 'egxp-title' }, 'التحليلات'),
+          h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.')),
+        h('section', { className: 'egxp-section' },
+          h('div', { className: 'egxp-filters' },
+            field('السهم', h('select', { className: 'egxp-input', value: filters.symbol, onChange: set('symbol') },
+              h('option', { value: '' }, 'كل الأسهم'),
+              ((data && data.symbols) || []).map((s) => h('option', { key: s, value: s }, s)))),
+            field('التصنيف', h('select', { className: 'egxp-input', value: filters.risk_rating, onChange: set('risk_rating') },
+              h('option', { value: '' }, 'الكل'),
+              Object.entries(RATING).map(([k, label]) => h('option', { key: k, value: k }, label)))),
+            field('النوع', h('select', { className: 'egxp-input', value: filters.kind, onChange: set('kind') },
+              h('option', { value: 'full' }, 'التقييمات الكاملة'),
+              h('option', { value: 'light' }, 'المراجعات الأسبوعية'),
+              h('option', { value: '' }, 'الكل'))),
+            field('من تاريخ', h('input', { className: 'egxp-input', type: 'date', value: filters.date_from, onChange: set('date_from') })),
+            field('إلى تاريخ', h('input', { className: 'egxp-input', type: 'date', value: filters.date_to, onChange: set('date_to') }))),
+          h('div', { className: 'egxp-table-wrap' },
+            h('table', { className: 'egxp-table' },
+              h('thead', null, h('tr', null, headers.map((t, i) => h('th', { key: i, className: numeric.has(i) ? 'egxp-num' : undefined }, t)))),
+              h('tbody', null, body))),
+          data && items.length < data.total
+            ? h('div', { style: { marginTop: 12 } }, h('button', { className: 'egxp-btn', disabled: loadingMore, onClick: more },
+              loadingMore ? 'جارٍ التحميل…' : `تحميل المزيد (${data.total - items.length})`))
+            : null,
+          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null))
+    }
+
+    function AnalysesPage() {
+      const [openId, setOpenId] = useState(null)
+      return openId == null
+        ? h(AnalysesList, { onOpen: setOpenId })
+        : h(AnalysisDetail, { id: openId, onBack: () => setOpenId(null) })
+    }
+
+    return {
+      inject: ['slots'],
+      apply(ctx) {
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist', id: ANALYSES_ID, order: 9, label: 'التحليلات',
+        }, AnalysesIcon))
+        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: ANALYSES_ID }, AnalysesPage))
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist', id: PANEL_ID, order: 10, label: 'المحفظة',
+        }, PortfolioIcon))
+        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: PANEL_ID }, PortfolioPage))
+      },
+    }
+  },
+})

@@ -1,10 +1,13 @@
-"""JSON command line used by the portfolio screen, sharing the MCP server's portfolio logic.
+"""JSON command line used by the EGX panels (portfolio, analyses), sharing the MCP server logic.
 
     egx-cli universe
     egx-cli portfolio-summary
     egx-cli portfolio-add '{"symbol": "COMI", "buy_price": 80, "invested_amount": 5000}'
     egx-cli portfolio-update '{"holding_id": 3, "quantity": 120}'
     egx-cli portfolio-remove '{"holding_id": 3}'
+    egx-cli valuations-list '{"symbol": "COMI", "risk_rating": "safe", "limit": 50}'
+    egx-cli valuation-get '{"valuation_id": 7}'
+    egx-cli valuation-series '{"symbol": "COMI"}'
 
 Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.
 """
@@ -16,7 +19,7 @@ from contextlib import closing
 from .config import db_path
 from .data import default_provider
 from .errors import ValuationInputError
-from .store import portfolio
+from .store import portfolio, valuations
 from .store.db import connect
 from .universe import load_universe
 
@@ -48,6 +51,16 @@ def run(command: str, raw: str | None) -> object:
             )
         if command == "portfolio-remove":
             return portfolio.remove_holding(conn, int(args["holding_id"]))
+        if command == "valuations-list":
+            return valuations.list_valuations(
+                conn, args.get("symbol") or None, args.get("risk_rating") or None,
+                args.get("kind", "full") or None, args.get("date_from") or None, args.get("date_to") or None,
+                int(args.get("limit", 50)), int(args.get("offset", 0)),
+            )
+        if command == "valuation-get":
+            return valuations.get_valuation(conn, int(args["valuation_id"]))
+        if command == "valuation-series":
+            return valuations.fair_value_series(conn, args["symbol"])
     raise ValuationInputError(f"unknown command {command}")
 
 

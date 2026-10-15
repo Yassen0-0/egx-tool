@@ -137,6 +137,10 @@ with closing(connect(path)) as conn:
          "والثاني أن السوق متشائم أكثر من اللازم بعد هبوط الشهر",
          risk=EAST_RISK)
 
+    # Marks this database as demo data: the panels show «بيانات تجريبية» while it exists.
+    conn.execute("CREATE TABLE IF NOT EXISTS dev_seed (created_by TEXT)")
+    conn.execute("INSERT INTO dev_seed VALUES ('scripts/seed-dev.py')")
+    conn.commit()
     portfolio.add_holding(conn, "COMI", buy_price=100.0, quantity=50, buy_date="2026-03-02", note=SAMPLE)
     portfolio.add_holding(conn, "EAST", buy_price=31.0, quantity=200, note=SAMPLE)
     portfolio.add_holding(conn, "ETEL", buy_price=120.0, quantity=20, note=SAMPLE)

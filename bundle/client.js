@@ -311,6 +311,149 @@ function fmtCompact(v) {
       return data
     }
 
+    // ── inlined from src/identity.js ──
+// «قيمة» identity: the dynamic icon (UP / DOWN / NEUTRAL from today's portfolio move), the
+// shared portfolio store the icon and the screens read, the sidebar entry and the panel header.
+// Inlined into client.js's factory scope (h, React, api, N and the format.mjs helpers are in scope).
+
+// ── Shared portfolio store ─────────────────────────────────────────────────────
+// One fetch of /egx/api/portfolio feeds the sidebar icon and every screen, so they always agree.
+// Refreshed on first use, every few minutes (the desktop app syncs prices every 5), after each
+// market sync and after any holding change.
+const qima = {
+  portfolio: undefined, // undefined = not loaded yet, null = unavailable
+  listeners: new Set(),
+  pending: null,
+  set(next) {
+    this.portfolio = next
+    this.listeners.forEach((listener) => listener())
+  },
+  refresh() {
+    if (!this.pending) {
+      this.pending = api('GET', '/egx/api/portfolio')
+        .then((p) => this.set(p))
+        .catch(() => this.set(this.portfolio || null))
+        .finally(() => { this.pending = null })
+    }
+    return this.pending
+  },
+}
+const QIMA_REFRESH_MS = 3 * 60 * 1000
+
+function useQima() {
+  const [, bump] = useState(0)
+  useEffect(() => {
+    const listener = () => bump((n) => n + 1)
+    qima.listeners.add(listener)
+    if (qima.portfolio === undefined) qima.refresh()
+    return () => { qima.listeners.delete(listener) }
+  }, [])
+  return qima.portfolio
+}
+
+// ── Icon ─────────────────────────────────────────────────────────────────────
+// A rounded square with the glyph cut out in the page background. 16px uses the hand-tuned
+// 16-grid glyphs (2px strokes on whole pixels); larger sizes use the 24-grid ones.
+const ICON_FILL = {
+  up: 'var(--dsw-alias-file-diff-added-marker)',
+  down: 'var(--dsw-alias-file-diff-deleted-marker)',
+  neutral: 'var(--dsw-alias-label-primary)',
+}
+
+function QimaIcon({ state = 'neutral', size = 22 }) {
+  const cut = { fill: 'none', stroke: 'var(--dsw-alias-bg-base)', strokeLinecap: 'round', strokeLinejoin: 'round' }
+  const small = size <= 16
+  const arrowWidth = size >= 64 ? 2.6 : size >= 28 ? 2.8 : 3
+  let glyph
+  if (small) {
+    glyph = state === 'up' ? h('path', { ...cut, d: 'M8 12V4M4 8l4-4 4 4', strokeWidth: 2 })
+      : state === 'down' ? h('path', { ...cut, d: 'M8 4v8M4 8l4 4 4-4', strokeWidth: 2 })
+        : [h('path', { key: 'p', ...cut, d: 'M4 8h8M4 5.5v5M12 5.5v5', strokeWidth: 2 }),
+          h('circle', { key: 'c', cx: 8, cy: 8, r: 2, fill: 'var(--dsw-alias-bg-base)' })]
+  } else {
+    glyph = state === 'up' ? h('path', { ...cut, d: 'M12 18.5V6M6.5 11.5L12 6l5.5 5.5', strokeWidth: arrowWidth })
+      : state === 'down' ? h('path', { ...cut, d: 'M12 5.5V18M6.5 12.5L12 18l5.5-5.5', strokeWidth: arrowWidth })
+        : [h('path', { key: 'p', ...cut, d: 'M5.5 12h13M5.5 9v6M18.5 9v6', strokeWidth: size >= 28 ? 2.2 : 2.4 }),
+          h('circle', { key: 'c', cx: 12, cy: 12, r: 2.6, fill: 'var(--dsw-alias-bg-base)' })]
+  }
+  const box = small ? 16 : 24
+  return h('svg', {
+    width: size, height: size, viewBox: `0 0 ${box} ${box}`, 'aria-hidden': true, style: { flex: 'none', display: 'block' },
+    shapeRendering: small ? 'geometricPrecision' : undefined,
+  },
+  h('rect', { width: box, height: box, rx: small ? 4 : 6, fill: ICON_FILL[state] }), glyph)
+}
+
+function todayOf(portfolio) {
+  const totals = portfolio && portfolio.totals
+  return { state: iconState(portfolio), change: totals && totals.today_change, pct: totals && totals.today_change_pct }
+}
+
+// ── Sidebar entry ──────────────────────────────────────────────────────────────
+// The Harness row renders our icon (16px wide, 18px in the collapsed rail) and the static label
+// «قيمة». In the up/down states the row also shows today's % beside the label, and the row's
+// tooltip and accessible name become «قيمة — السوق».
+const SIDEBAR_PCT_CLASS = 'qima-sidebar-pct'
+
+function SidebarQimaIcon({ size }) {
+  const portfolio = useQima()
+  const ref = React.useRef(null)
+  const { state, pct } = todayOf(portfolio)
+  useEffect(() => {
+    const timer = setInterval(() => qima.refresh(), QIMA_REFRESH_MS)
+    return () => clearInterval(timer)
+  }, [])
+  useEffect(() => {
+    const row = ref.current && ref.current.closest('button')
+    if (!row) return undefined
+    const name = state === 'neutral' || pct == null ? 'قيمة — السوق' : `قيمة — السوق، محفظتي اليوم ${fmtPct(pct, { digits: 2, signed: true })}`
+    row.setAttribute('title', 'قيمة — السوق')
+    row.setAttribute('aria-label', name)
+    const wide = size <= 16
+    if (!wide || state === 'neutral' || pct == null) return undefined
+    const tag = document.createElement('span')
+    tag.className = SIDEBAR_PCT_CLASS
+    tag.setAttribute('aria-hidden', 'true')
+    tag.textContent = fmtPct(pct, { digits: 2, signed: true })
+    Object.assign(tag.style, {
+      marginInlineStart: '8px', direction: 'ltr', unicodeBidi: 'isolate', fontVariantNumeric: 'tabular-nums',
+      fontFamily: 'var(--ds-font-family-code)', fontSize: '12px', flex: 'none',
+      color: state === 'up' ? 'var(--dsw-alias-file-diff-added-marker)' : 'var(--dsw-alias-file-diff-deleted-marker)',
+    })
+    row.append(tag)
+    return () => tag.remove()
+  }, [state, pct, size])
+  return h('span', { ref, style: { display: 'inline-flex' } }, h(QimaIcon, { state, size }))
+}
+
+// ── Panel header ──────────────────────────────────────────────────────────────
+// Right: icon 22 + «قيمة» / screen (with breadcrumb links before it). Left: actions.
+function PanelHeader({ here, crumbs = [], actions = null, demo = false, children = null }) {
+  const portfolio = useQima()
+  const { state } = todayOf(portfolio)
+  return h('header', { className: 'q-head', 'data-window-drag': true },
+    h('div', { className: 'q-head-in' },
+      h(QimaIcon, { state, size: 22 }),
+      h('nav', { className: 'q-crumbs', 'aria-label': 'المسار' },
+        h('span', { className: 'q-brand' }, 'قيمة'),
+        crumbs.map((c, i) => [
+          h('span', { key: `s${i}`, className: 'q-sep', 'aria-hidden': true }, '/'),
+          c.onClick ? h('button', { key: `c${i}`, type: 'button', className: 'q-crumb', onClick: c.onClick }, c.label)
+            : h('span', { key: `c${i}`, className: 'q-sec' }, c.label),
+        ]),
+        h('span', { className: 'q-sep', 'aria-hidden': true }, '/'),
+        h('h1', { className: 'q-here q-h1', 'aria-current': 'page' }, here)),
+      demo ? h('span', { className: 'q-chip', title: 'البيانات من قاعدة التطوير (scripts/seed-dev.py)' }, 'بيانات تجريبية') : null,
+      children,
+      actions ? h('div', { className: 'q-head-actions' }, actions) : null))
+}
+
+const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
+function Disclaimer({ extra }) {
+  return h('p', { className: 'q-foot' }, extra ? `${extra} ` : null, DISCLAIMER)
+}
+
+
     const CSS = `
 .egxp-page { height: 100%; overflow: auto; box-sizing: border-box; padding: 0 clamp(24px, 4vw, 48px) 48px;
   color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; align-items: center; gap: 24px; }
@@ -528,7 +671,11 @@ function fmtCompact(v) {
 
       const load = useCallback(async () => {
         setError('')
-        try { setData(await api('GET', '/egx/api/portfolio')) } catch (e) { setError(e.message) }
+        try {
+          const next = await api('GET', '/egx/api/portfolio')
+          setData(next)
+          qima.set(next)
+        } catch (e) { setError(e.message) }
       }, [])
 
       useEffect(() => {
@@ -549,9 +696,7 @@ function fmtCompact(v) {
 
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'محفظتي'),
-          h('p', { className: 'egxp-intro' }, 'أسهم EGX30 كما أدخلتها أنت. الأرقام مسؤوليتك، والأداة تعرضها فقط.')),
+        h(PanelHeader, { here: 'المحفظة', demo: Boolean(data && data.demo_data) }),
         data ? h(Cards, { totals: data.totals }) : null,
         h(AddForm, { universe, onAdded: load }),
         h('section', { className: 'egxp-section' },
@@ -770,9 +915,9 @@ function fmtCompact(v) {
         return () => { alive = false }
       }, [id])
 
-      const back = h('button', { className: 'egxp-btn egxp-btn-small egxp-back', onClick: onBack }, '→ كل التحليلات')
+      const crumbs = [{ label: 'التحليلات', onClick: onBack }]
       if (!item) return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true }, back),
+        h(PanelHeader, { here: '…', crumbs }),
         h('div', { className: error ? 'egxp-error' : 'egxp-empty' }, error || 'جارٍ التحميل…'))
 
       const margin = marginSentence(item.price_at_valuation, item.fair_value)
@@ -785,10 +930,8 @@ function fmtCompact(v) {
       const checks = (item.sanity && item.sanity.checks) || []
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          back,
-          h('h1', { className: 'egxp-title' }, `${item.symbol} — ${KIND[item.kind] || item.kind}`),
-          h('p', { className: 'egxp-intro' }, N(fmtDate(item.created_at)), ` · الفترة المالية ${item.financial_period || '—'}`)),
+        h(PanelHeader, { crumbs, here: h('span', null, h('span', { className: 'q-sym' }, item.symbol), ' — ', N(fmtDate(item.created_at))) }),
+        h('p', { className: 'egxp-intro' }, `${KIND[item.kind] || item.kind} · الفترة المالية ${item.financial_period || '—'}`),
         h('div', { className: 'egxp-cards' },
           card('السعر العادل', money(item.fair_value), item.bear != null ? h('span', null, 'النطاق ', range(item.bear, item.bull)) : null),
           card('سعر الحماية', money(item.protection_price), 'مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.'),
@@ -885,9 +1028,8 @@ function fmtCompact(v) {
 
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'التحليلات'),
-          h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.')),
+        h(PanelHeader, { here: 'التحليلات', demo: Boolean(data && data.demo_data) }),
+        h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.'),
         h('section', { className: 'egxp-section' },
           h('div', { className: 'egxp-filters' },
             field('السهم', h('select', { className: 'egxp-input', value: filters.symbol, onChange: set('symbol') },
@@ -997,15 +1139,6 @@ function fmtCompact(v) {
 .egxp-page ::selection { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent); }
 `
 
-    function MarketIcon({ size }) {
-      return h('svg', {
-        width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-        strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
-      },
-      h('path', { d: 'M7 5v14M7 8h0' }), h('rect', { x: 5, y: 9, width: 4, height: 6, rx: 1 }),
-      h('path', { d: 'M17 4v16' }), h('rect', { x: 15, y: 7, width: 4, height: 8, rx: 1 }),
-      h('path', { d: 'M12 6v12' }), h('rect', { x: 10, y: 11, width: 4, height: 4, rx: 1 }))
-    }
 
     function periodValue(row, period) {
       return period === 'day' ? row.change_pct : (row.returns || {})[period]
@@ -1263,8 +1396,16 @@ function fmtCompact(v) {
       const [heldOnly, setHeldOnly] = useState(false)
       const [expanded, setExpanded] = useState(null)
 
+      const lastSyncSeen = React.useRef(undefined)
       const load = useCallback(async () => {
-        try { setData(await api('GET', '/egx/api/market')); setError('') } catch (e) { setError(e.message) }
+        try {
+          const next = await api('GET', '/egx/api/market')
+          setData(next); setError('')
+          // A finished sync means new prices: refresh the shared portfolio (icon + header) too.
+          const finished = next.last_sync && next.last_sync.finished_at
+          if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) qima.refresh()
+          lastSyncSeen.current = finished
+        } catch (e) { setError(e.message) }
       }, [])
       useEffect(() => {
         load()
@@ -1285,6 +1426,7 @@ function fmtCompact(v) {
             setSyncNote(parts.join(' · '))
           }
           await load()
+          qima.refresh()
         } catch (e) {
           setSyncNote(e.message)
         } finally {
@@ -1330,8 +1472,10 @@ function fmtCompact(v) {
       const noKey = data && !data.last_sync && b && b.no_data === data.rows.length
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS + MARKET_CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'السوق'),
+        h(PanelHeader, { here: 'السوق', demo: Boolean(data && data.demo_data),
+          actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
+            syncing ? 'جارٍ التحديث…' : 'تحديث الأسعار الآن') }),
+        h('div', null,
           h('div', { className: 'egxm-meta' },
             h('span', null, h('span', { className: 'egxm-dot' }),
               data ? (data.session_open ? 'الجلسة مفتوحة' : 'الجلسة مغلقة') : '…'),
@@ -1343,7 +1487,7 @@ function fmtCompact(v) {
           h('strong', null, 'لا توجد أسعار بعد. '),
           'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
           h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
-          ' داخل مجلد المشروع، ثم اضغط «تحديث الآن».') : null,
+          ' داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن».') : null,
         b ? h('div', { className: 'egxm-breadth' },
           h('div', { className: 'egxm-breadth-bar', 'aria-hidden': true },
             priced ? [h('span', { key: 'u', style: { width: `${(b.up / priced) * 100}%`, background: 'var(--dsw-alias-state-success-primary)' } }),
@@ -1367,7 +1511,7 @@ function fmtCompact(v) {
               h('label', { className: 'egxm-check' }, 'ترتيب',
                 h('select', { className: 'egxp-input', value: sort, onChange: (e) => setSort(e.target.value) },
                   SORTS.map(([k, label]) => h('option', { key: k, value: k }, label)))),
-              h('button', { type: 'button', className: 'egxp-btn', disabled: syncing, onClick: sync }, syncing ? 'جارٍ التحديث…' : 'تحديث الآن'))),
+              null)),
           syncNote ? h('div', { className: 'egxm-notice', role: 'status', style: { marginBottom: 10 } }, syncNote) : null,
           h('div', { className: 'egxp-table-wrap' },
             h('table', { className: 'egxm-table' },
@@ -1387,8 +1531,8 @@ function fmtCompact(v) {
         nav.selectPanel = (id) => ctx.layout.selectPanel(id)
         ctx.effect(() => () => { nav.selectPanel = null })
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-          name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'السوق',
-        }, MarketIcon))
+          name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'قيمة',
+        }, SidebarQimaIcon))
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: MARKET_ID }, MarketPage))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist', id: ANALYSES_ID, order: 9, label: 'التحليلات',

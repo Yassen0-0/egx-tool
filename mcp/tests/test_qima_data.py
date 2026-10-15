@@ -181,3 +181,11 @@ def test_pinned_clock_for_demos(monkeypatch):
     from egx_mcp.market.calendar import now_cairo
     monkeypatch.setenv("EGX_NOW", "2026-10-15T09:02")
     assert now_cairo() == datetime(2026, 10, 15, 9, 2, tzinfo=CAIRO)
+
+
+def test_demo_flag_only_for_seeded_databases(db, provider):
+    assert market_summary(db, at=MORNING)["demo_data"] is False
+    db.execute("CREATE TABLE dev_seed (created_by TEXT)")
+    assert market_summary(db, at=MORNING)["demo_data"] is True
+    assert portfolio.portfolio_summary(db, provider, at=MORNING)["demo_data"] is True
+    assert valuations.list_valuations(db)["demo_data"] is True

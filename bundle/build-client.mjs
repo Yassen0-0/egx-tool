@@ -2,8 +2,8 @@
 //   /* @inline lightweight-charts */  the vendored Lightweight Charts standalone build. The library
 //       assigns window.LightweightCharts; the wrapper captures it into a module-local constant and
 //       restores the global, so nothing leaks and the code only runs when the factory materializes.
-//   /* @inline <file>.mjs */           a helper module from src/, with its `export` keywords dropped
-//       so its functions join the factory scope (the same file is imported by bundle/test).
+//   /* @inline <file>.mjs|.js */       a source file from src/ (helpers, one file per screen), joined
+//       into the factory scope; `export` keywords are dropped (bundle/test imports the .mjs files).
 //   '/* @css <file>.css */'            a stylesheet from src/, as a JS string literal.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, join } from 'node:path'
@@ -16,7 +16,7 @@ const library = read('vendor', 'lightweight-charts.standalone.production.js')
 const marker = '/* @inline lightweight-charts */'
 if (!source.includes(marker)) throw new Error(`marker ${marker} not found in src/client.src.js`)
 
-source = source.replace(/\/\* @inline ([\w-]+\.mjs) \*\//g, (_, file) => {
+source = source.replace(/\/\* @inline ([\w-]+\.m?js) \*\//g, (_, file) => {
   const module = read('src', file)
   if (/^\s*import\s/m.test(module)) throw new Error(`${file}: inlined modules cannot import`)
   return `// ── inlined from src/${file} ──\n${module.replace(/^export (?=(const|function|let|class) )/gm, '')}`

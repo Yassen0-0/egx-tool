@@ -3,7 +3,7 @@ import sqlite3
 from ..errors import ValuationInputError
 from ..pricing import pricing_levels
 from ..universe import normalize_symbol
-from .db import dumps, now_iso, row_to_dict
+from .db import dumps, is_demo_db, now_iso, row_to_dict
 
 MATERIAL_CHANGE = 0.0  # every fair-value change is logged; the reason explains it
 
@@ -104,7 +104,8 @@ def list_valuations(
         item["change_pct"] = item["fair_value"] / prev - 1 if prev else None
         items.append(item)
     symbols = [r[0] for r in conn.execute("SELECT DISTINCT symbol FROM valuations ORDER BY symbol")]
-    return {"total": total, "limit": limit, "offset": offset, "items": items, "symbols": symbols}
+    return {"total": total, "limit": limit, "offset": offset, "items": items, "symbols": symbols,
+            "demo_data": is_demo_db(conn)}
 
 
 def get_valuation(conn: sqlite3.Connection, valuation_id: int) -> dict:

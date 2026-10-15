@@ -55,6 +55,8 @@ window.__ModuleLoader__.load({
       return data
     }
 
+    /* @inline identity.js */
+
     const CSS = `
 .egxp-page { height: 100%; overflow: auto; box-sizing: border-box; padding: 0 clamp(24px, 4vw, 48px) 48px;
   color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; align-items: center; gap: 24px; }
@@ -272,7 +274,11 @@ window.__ModuleLoader__.load({
 
       const load = useCallback(async () => {
         setError('')
-        try { setData(await api('GET', '/egx/api/portfolio')) } catch (e) { setError(e.message) }
+        try {
+          const next = await api('GET', '/egx/api/portfolio')
+          setData(next)
+          qima.set(next)
+        } catch (e) { setError(e.message) }
       }, [])
 
       useEffect(() => {
@@ -293,9 +299,7 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'محفظتي'),
-          h('p', { className: 'egxp-intro' }, 'أسهم EGX30 كما أدخلتها أنت. الأرقام مسؤوليتك، والأداة تعرضها فقط.')),
+        h(PanelHeader, { here: 'المحفظة', demo: Boolean(data && data.demo_data) }),
         data ? h(Cards, { totals: data.totals }) : null,
         h(AddForm, { universe, onAdded: load }),
         h('section', { className: 'egxp-section' },
@@ -514,9 +518,9 @@ window.__ModuleLoader__.load({
         return () => { alive = false }
       }, [id])
 
-      const back = h('button', { className: 'egxp-btn egxp-btn-small egxp-back', onClick: onBack }, '→ كل التحليلات')
+      const crumbs = [{ label: 'التحليلات', onClick: onBack }]
       if (!item) return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true }, back),
+        h(PanelHeader, { here: '…', crumbs }),
         h('div', { className: error ? 'egxp-error' : 'egxp-empty' }, error || 'جارٍ التحميل…'))
 
       const margin = marginSentence(item.price_at_valuation, item.fair_value)
@@ -529,10 +533,8 @@ window.__ModuleLoader__.load({
       const checks = (item.sanity && item.sanity.checks) || []
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          back,
-          h('h1', { className: 'egxp-title' }, `${item.symbol} — ${KIND[item.kind] || item.kind}`),
-          h('p', { className: 'egxp-intro' }, N(fmtDate(item.created_at)), ` · الفترة المالية ${item.financial_period || '—'}`)),
+        h(PanelHeader, { crumbs, here: h('span', null, h('span', { className: 'q-sym' }, item.symbol), ' — ', N(fmtDate(item.created_at))) }),
+        h('p', { className: 'egxp-intro' }, `${KIND[item.kind] || item.kind} · الفترة المالية ${item.financial_period || '—'}`),
         h('div', { className: 'egxp-cards' },
           card('السعر العادل', money(item.fair_value), item.bear != null ? h('span', null, 'النطاق ', range(item.bear, item.bull)) : null),
           card('سعر الحماية', money(item.protection_price), 'مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.'),
@@ -629,9 +631,8 @@ window.__ModuleLoader__.load({
 
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'التحليلات'),
-          h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.')),
+        h(PanelHeader, { here: 'التحليلات', demo: Boolean(data && data.demo_data) }),
+        h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.'),
         h('section', { className: 'egxp-section' },
           h('div', { className: 'egxp-filters' },
             field('السهم', h('select', { className: 'egxp-input', value: filters.symbol, onChange: set('symbol') },
@@ -741,15 +742,6 @@ window.__ModuleLoader__.load({
 .egxp-page ::selection { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent); }
 `
 
-    function MarketIcon({ size }) {
-      return h('svg', {
-        width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
-        strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
-      },
-      h('path', { d: 'M7 5v14M7 8h0' }), h('rect', { x: 5, y: 9, width: 4, height: 6, rx: 1 }),
-      h('path', { d: 'M17 4v16' }), h('rect', { x: 15, y: 7, width: 4, height: 8, rx: 1 }),
-      h('path', { d: 'M12 6v12' }), h('rect', { x: 10, y: 11, width: 4, height: 4, rx: 1 }))
-    }
 
     function periodValue(row, period) {
       return period === 'day' ? row.change_pct : (row.returns || {})[period]
@@ -1007,8 +999,16 @@ window.__ModuleLoader__.load({
       const [heldOnly, setHeldOnly] = useState(false)
       const [expanded, setExpanded] = useState(null)
 
+      const lastSyncSeen = React.useRef(undefined)
       const load = useCallback(async () => {
-        try { setData(await api('GET', '/egx/api/market')); setError('') } catch (e) { setError(e.message) }
+        try {
+          const next = await api('GET', '/egx/api/market')
+          setData(next); setError('')
+          // A finished sync means new prices: refresh the shared portfolio (icon + header) too.
+          const finished = next.last_sync && next.last_sync.finished_at
+          if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) qima.refresh()
+          lastSyncSeen.current = finished
+        } catch (e) { setError(e.message) }
       }, [])
       useEffect(() => {
         load()
@@ -1029,6 +1029,7 @@ window.__ModuleLoader__.load({
             setSyncNote(parts.join(' · '))
           }
           await load()
+          qima.refresh()
         } catch (e) {
           setSyncNote(e.message)
         } finally {
@@ -1074,8 +1075,10 @@ window.__ModuleLoader__.load({
       const noKey = data && !data.last_sync && b && b.no_data === data.rows.length
       return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
         h('style', null, QM_CSS + CSS + MARKET_CSS),
-        h('header', { className: 'egxp-head', 'data-window-drag': true },
-          h('h1', { className: 'egxp-title' }, 'السوق'),
+        h(PanelHeader, { here: 'السوق', demo: Boolean(data && data.demo_data),
+          actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
+            syncing ? 'جارٍ التحديث…' : 'تحديث الأسعار الآن') }),
+        h('div', null,
           h('div', { className: 'egxm-meta' },
             h('span', null, h('span', { className: 'egxm-dot' }),
               data ? (data.session_open ? 'الجلسة مفتوحة' : 'الجلسة مغلقة') : '…'),
@@ -1087,7 +1090,7 @@ window.__ModuleLoader__.load({
           h('strong', null, 'لا توجد أسعار بعد. '),
           'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
           h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
-          ' داخل مجلد المشروع، ثم اضغط «تحديث الآن».') : null,
+          ' داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن».') : null,
         b ? h('div', { className: 'egxm-breadth' },
           h('div', { className: 'egxm-breadth-bar', 'aria-hidden': true },
             priced ? [h('span', { key: 'u', style: { width: `${(b.up / priced) * 100}%`, background: 'var(--dsw-alias-state-success-primary)' } }),
@@ -1111,7 +1114,7 @@ window.__ModuleLoader__.load({
               h('label', { className: 'egxm-check' }, 'ترتيب',
                 h('select', { className: 'egxp-input', value: sort, onChange: (e) => setSort(e.target.value) },
                   SORTS.map(([k, label]) => h('option', { key: k, value: k }, label)))),
-              h('button', { type: 'button', className: 'egxp-btn', disabled: syncing, onClick: sync }, syncing ? 'جارٍ التحديث…' : 'تحديث الآن'))),
+              null)),
           syncNote ? h('div', { className: 'egxm-notice', role: 'status', style: { marginBottom: 10 } }, syncNote) : null,
           h('div', { className: 'egxp-table-wrap' },
             h('table', { className: 'egxm-table' },
@@ -1131,8 +1134,8 @@ window.__ModuleLoader__.load({
         nav.selectPanel = (id) => ctx.layout.selectPanel(id)
         ctx.effect(() => () => { nav.selectPanel = null })
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
-          name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'السوق',
-        }, MarketIcon))
+          name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'قيمة',
+        }, SidebarQimaIcon))
         ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: MARKET_ID }, MarketPage))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist', id: ANALYSES_ID, order: 9, label: 'التحليلات',

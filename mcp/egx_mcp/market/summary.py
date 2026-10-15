@@ -6,6 +6,7 @@ import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 from ..pricing import pricing_levels, status_of
+from ..store.db import is_demo_db
 from ..store.valuations import latest_valuation
 from ..universe import constituent, load_universe, normalize_symbol
 from . import store
@@ -182,6 +183,7 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
         "rows": rows,
         "last_sync": last_run,
         "universe_as_of": load_universe()["as_of"],
+        "demo_data": is_demo_db(conn),
     }
 
 

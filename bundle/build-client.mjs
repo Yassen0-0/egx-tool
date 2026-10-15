@@ -17,7 +17,8 @@ const marker = '/* @inline lightweight-charts */'
 if (!source.includes(marker)) throw new Error(`marker ${marker} not found in src/client.src.js`)
 
 source = source.replace(/\/\* @inline ([\w-]+\.m?js) \*\//g, (_, file) => {
-  const module = read('src', file)
+  // Imports between src/ modules only serve the tests: inlined, everything shares one scope.
+  const module = read('src', file).replace(/^import \{[^}]*\} from '\.\/[\w-]+\.mjs'\n/gm, '')
   if (/^\s*import\s/m.test(module)) throw new Error(`${file}: inlined modules cannot import`)
   return `// ── inlined from src/${file} ──\n${module.replace(/^export (?=(const|function|let|class) )/gm, '')}`
 })

@@ -95,7 +95,7 @@ def bank_methods(bear, fair, bull):
     # P/B–ROE 60% and dividend discount 40%; the weighted totals are exactly bear / fair / bull.
     pb = (bear * 0.98, fair * 0.9924, bull * 1.0076)
     ddm = tuple((t - 0.6 * p) / 0.4 for t, p in zip((bear, fair, bull), pb))
-    return [{"method": "bank_pb_roe", "weight": 0.6, "bear": round(pb[0], 2), "base": round(pb[1], 2), "bull": round(pb[2], 2)},
+    return [{"method": "bank_justified_pb", "weight": 0.6, "bear": round(pb[0], 2), "base": round(pb[1], 2), "bull": round(pb[2], 2)},
             {"method": "ddm", "weight": 0.4, "bear": round(ddm[0], 2), "base": round(ddm[1], 2), "bull": round(ddm[2], 2)}]
 
 
@@ -122,7 +122,7 @@ with closing(connect(path)) as conn:
          risk=BANK_RISK)
 
     save(conn, "TMGH", "2026-09-10T09:00:00+00:00", 95.0, 70.0, 118.75, 99.05, "balanced",
-         [{"method": "rnav", "weight": 0.7, "bear": 68.0, "base": 95.0, "bull": 120.0},
+         [{"method": "nav", "weight": 0.7, "bear": 68.0, "base": 95.0, "bull": 120.0},
           {"method": "dcf_fcff", "weight": 0.3, "bear": 74.67, "base": 95.0, "bull": 115.83}],
          {"land_bank_value_per_share": {"value": 61.0, "source": SAMPLE}, "wacc": {"value": 0.26, "source": SAMPLE}},
          "أطروحة تجريبية: محفظة أراضٍ كبيرة ومبيعات مسبقة قوية.", "راجع الناقد تسعير الأراضي", risk=RE_RISK)

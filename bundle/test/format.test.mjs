@@ -127,3 +127,33 @@ test('session line', async () => {
   assert.equal(rangePosition(98.3, 145.01, 122), (122 - 98.3) / (145.01 - 98.3) * 100)
   assert.equal(rangePosition(null, 1, 1), null)
 })
+
+test('labels: every abbreviation is spelled out and values read naturally', async () => {
+  const L = await import('../src/labels.mjs')
+  for (const [key, [name, explain]] of Object.entries(L.RISK_LABEL)) {
+    assert.ok(/[\u0600-\u06FF]/.test(name) && explain.length > 10, key)
+  }
+  assert.ok(L.RISK_LABEL.npl_ratio[0].includes('القروض المتعثرة'))
+  assert.equal(L.riskValue(0.198, 'pct'), '19.8%')
+  assert.equal(L.riskValue(false, 'auditor'), 'غير متحفّظ')
+  assert.equal(L.riskValue('grey', 'zone'), 'منطقة رمادية')
+  const rows = L.assumptionRows({ cost_of_equity: { value: 0.245, source: 'x' }, beta: 0.8, note: 'n' })
+  assert.deepEqual(rows.map((r) => [r.label, r.value]), [['تكلفة حقوق الملكية', '24.5%'], ['بيتا السهم (حساسيته لحركة السوق)', '0.80'], ['ملاحظة', 'n']])
+  assert.ok(rows.every((r) => r.known))
+  assert.equal(L.methodLabel('bank_justified_pb')[0], 'مضاعف القيمة الدفترية المبرَّر')
+  for (const word of ['شراء', 'بيع', 'فرصة', 'رخيص', 'هدف سعري']) {
+    assert.ok(!JSON.stringify([L.RISK_LABEL, L.CHECK_LABEL, L.METHOD_LABEL]).includes(word), word)
+  }
+})
+
+test('stylesheets have balanced braces', () => {
+  for (const name of readdirSync(src).filter((f) => f.endsWith('.css'))) {
+    let depth = 0
+    for (const ch of readFileSync(join(src, name), 'utf8').replace(/\/\*[\s\S]*?\*\//g, '')) {
+      if (ch === '{') depth++
+      if (ch === '}') depth--
+      assert.ok(depth >= 0 && depth <= 2, `${name}: unbalanced braces`)
+    }
+    assert.equal(depth, 0, `${name}: unclosed rule`)
+  }
+})

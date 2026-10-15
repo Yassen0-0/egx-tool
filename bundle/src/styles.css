@@ -146,6 +146,15 @@
 .qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
 .qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }
 
+/* Large valuation ruler with labels (Market detail, Analysis summary) */
+.qm .m-bigruler { position: relative; height: 112px; direction: ltr; margin: 0 24px; }
+.qm .m-bigruler .lg { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 12px; text-align: center; line-height: 1.4; }
+.qm .m-bigruler .bar { position: absolute; top: 46px; height: 12px; border-radius: 6px; }
+.qm .m-bigruler .edge { position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; background: var(--dsw-alias-label-tertiary); }
+.qm .m-bigruler .tk { position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; }
+.qm .m-bigruler .dt { position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; border-radius: 50%; background: var(--dsw-alias-label-primary);
+  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }
+
 /* 52-week range */
 .qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }
 .qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }

@@ -85,3 +85,10 @@ function MineChip({ long = false }) {
 function Skeleton({ width = 80 }) {
   return h('span', { className: 'q-skel', style: { width } })
 }
+
+/** Free text with every number (and its sign / %) isolated in its own `.num` span. */
+function NumText({ text }) {
+  const s = String(text == null ? '' : text)
+  const parts = s.split(/([+−-]?\d[\d,]*(?:\.\d+)?%?(?:\/\d+(?:\/\d+)?)?)/)
+  return h(React.Fragment, null, parts.map((p, i) => (i % 2 ? h('span', { key: i, className: 'num' }, p.replace(/^-/, MINUS)) : p)))
+}

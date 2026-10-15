@@ -317,22 +317,6 @@ window.__ModuleLoader__.load({
 
     // ── Analyses archive ─────────────────────────────────────────────────────
 
-    const KIND = { full: 'تقييم كامل', light: 'مراجعة أسبوعية' }
-    // Numeric ranges and pairs keep their reading order inside right-to-left text.
-    const ltr = (text) => N(text)
-    const range = (a, b) => N(`${fmtPrice(a)} – ${fmtPrice(b)}`)
-
-    // Seconds to add to a UTC timestamp so the chart's time axis reads in Cairo time.
-    const cairoParts = new Intl.DateTimeFormat('en-US', {
-      timeZone: 'Africa/Cairo', hourCycle: 'h23', year: 'numeric', month: '2-digit', day: '2-digit',
-      hour: '2-digit', minute: '2-digit', second: '2-digit',
-    })
-    function cairoOffsetSeconds(date) {
-      const parts = Object.fromEntries(cairoParts.formatToParts(date).map((p) => [p.type, p.value]))
-      const asUtc = Date.UTC(+parts.year, +parts.month - 1, +parts.day, +parts.hour, +parts.minute, +parts.second)
-      return Math.round((asUtc - date.getTime()) / 1000)
-    }
-
     function AnalysesIcon({ size }) {
       return h('svg', {
         width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
@@ -403,7 +387,7 @@ window.__ModuleLoader__.load({
         if (!para.length) para.push(lines[i++])
         blocks.push(h('p', { key: key++, dir: 'auto' }, inline(para.join(' '), `p${key}`)))
       }
-      return h('div', { className: 'egxp-md', dir: 'rtl' }, blocks)
+      return h('div', { className: 'a-md', dir: 'rtl' }, blocks)
     }
 
     // Canvas charts can't read CSS variables, so resolve the Harness tokens (set on body) to
@@ -437,236 +421,6 @@ window.__ModuleLoader__.load({
         upSoft: tokenColor('--dsw-alias-state-success-primary', 0.4),
         downSoft: tokenColor('--dsw-alias-state-error-primary', 0.4),
       }
-    }
-
-    function FairValueChart({ points }) {
-      const ref = React.useRef(null)
-      useEffect(() => {
-        if (!points.length) return undefined
-        const theme = chartTheme()
-        const chart = LightweightCharts.createChart(ref.current, {
-          autoSize: true,
-          layout: { background: { color: 'transparent' }, textColor: theme.text },
-          grid: { vertLines: { color: theme.grid }, horzLines: { color: theme.grid } },
-          timeScale: { timeVisible: true, secondsVisible: false },
-          localization: { locale: 'en-US' },
-        })
-        // Lightweight Charts needs strictly increasing times; nudge same-second records apart.
-        let lastTime = 0
-        const rows = points.map((p) => {
-          const at = new Date(p.created_at)
-          let t = Math.floor(at.getTime() / 1000) + cairoOffsetSeconds(at)
-          if (t <= lastTime) t = lastTime + 1
-          lastTime = t
-          return { ...p, time: t }
-        })
-        const line = (color, width, style, title) => chart.addSeries(LightweightCharts.LineSeries, {
-          color, lineWidth: width, lineStyle: style, title, lastValueVisible: true, priceLineVisible: false,
-          pointMarkersVisible: rows.length < 40,
-        })
-        line(theme.fair, 2, 0, 'السعر العادل').setData(rows.map((r) => ({ time: r.time, value: r.fair_value })))
-        line(theme.band, 1, 2, 'متشائم').setData(rows.filter((r) => r.bear != null).map((r) => ({ time: r.time, value: r.bear })))
-        line(theme.band, 1, 2, 'متفائل').setData(rows.filter((r) => r.bull != null).map((r) => ({ time: r.time, value: r.bull })))
-        line(theme.protection, 1, 1, 'الحماية').setData(rows.map((r) => ({ time: r.time, value: r.protection_price })))
-        line(theme.price, 2, 0, 'السعر').setData(rows.filter((r) => r.price_at_valuation != null).map((r) => ({ time: r.time, value: r.price_at_valuation })))
-        chart.timeScale().fitContent()
-        return () => chart.remove()
-      }, [points])
-      if (!points.length) return null
-      const theme = chartTheme()
-      const swatch = (color, label) => h('span', null, h('span', { className: 'egxp-swatch', style: { background: color } }), label)
-      return h('div', null,
-        h('div', { ref, className: 'egxp-chart' }),
-        h('div', { className: 'egxp-legend' },
-          swatch(theme.fair, 'السعر العادل'), swatch(theme.price, 'السعر وقت التقييم'),
-          swatch(theme.band, 'نطاق المتشائم/المتفائل'), swatch(theme.protection, 'سعر الحماية')))
-    }
-
-    function KeyValues({ data }) {
-      const rows = []
-      const walk = (value, path) => {
-        if (value && typeof value === 'object' && !Array.isArray(value)) {
-          Object.entries(value).forEach(([k, v]) => walk(v, path ? `${path}.${k}` : k))
-        } else {
-          rows.push([path, Array.isArray(value) ? value.join('، ') : typeof value === 'number' ? N(fmtNumber(value, 4).replace(/\.?0+$/, '')) : String(value)])
-        }
-      }
-      walk(data || {}, '')
-      if (!rows.length) return h('div', { className: 'egxp-sub' }, '—')
-      return h('table', { className: 'egxp-kv' }, h('tbody', null,
-        rows.map(([k, v], i) => h('tr', { key: i }, h('td', { dir: 'ltr' }, k), h('td', { dir: 'auto' }, v)))))
-    }
-
-    function Section({ title, children }) {
-      return h('section', { className: 'egxp-section' }, h('h2', { className: 'egxp-section-title' }, title), children)
-    }
-
-    function AnalysisDetail({ id, onBack }) {
-      const [item, setItem] = useState(null)
-      const [series, setSeries] = useState({ points: [], changes: [] })
-      const [error, setError] = useState('')
-      useEffect(() => {
-        let alive = true
-        setError('')
-        api('GET', `/egx/api/valuations/${id}`)
-          .then((v) => {
-            if (!alive) return
-            setItem(v)
-            return api('GET', `/egx/api/valuations/series/${encodeURIComponent(v.symbol)}`).then((s) => alive && setSeries(s))
-          })
-          .catch((e) => alive && setError(e.message))
-        return () => { alive = false }
-      }, [id])
-
-      const crumbs = [{ label: 'التحليلات', onClick: onBack }]
-      if (!item) return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + CSS),
-        h(PanelHeader, { here: '…', crumbs }),
-        h('div', { className: error ? 'egxp-error' : 'egxp-empty' }, error || 'جارٍ التحميل…'))
-
-      const margin = marginSentence(item.price_at_valuation, item.fair_value)
-      const card = (label, value, note, cls) => h('div', { className: 'egxp-card' },
-        h('div', { className: 'egxp-card-label' }, label),
-        h('div', { className: `egxp-card-value ${cls || ''}` }, value),
-        note ? h('div', { className: 'egxp-card-note' }, note) : null)
-      const methods = item.methods || []
-      const sources = item.sources || []
-      const checks = (item.sanity && item.sanity.checks) || []
-      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, QM_CSS + CSS),
-        h(PanelHeader, { crumbs, here: h('span', null, h('span', { className: 'q-sym' }, item.symbol), ' — ', N(fmtDate(item.created_at))) }),
-        h('p', { className: 'egxp-intro' }, `${KIND[item.kind] || item.kind} · الفترة المالية ${item.financial_period || '—'}`),
-        h('div', { className: 'egxp-cards' },
-          card('السعر العادل', money(item.fair_value), item.bear != null ? h('span', null, 'النطاق ', range(item.bear, item.bull)) : null),
-          card('سعر الحماية', money(item.protection_price), 'مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.'),
-          card('السعر وقت التقييم', money(item.price_at_valuation), margin == null ? null : h('span', null, margin.text, ' ', margin.value ? N(margin.value) : null)),
-          card('التصنيف', item.risk_rating ? RATING[item.risk_rating] || item.risk_rating : '—', null, item.risk_rating ? `egxp-${item.risk_rating}` : '')),
-        h(Section, { title: `تاريخ السعر العادل لسهم ${item.symbol}` },
-          series.points.length > 1 ? h(FairValueChart, { points: series.points }) : h('div', { className: 'egxp-sub' }, 'تقييم واحد فقط حتى الآن.'),
-          series.changes.length ? h('table', { className: 'egxp-table', style: { marginTop: 12 } },
-            h('thead', null, h('tr', null, ['التاريخ', 'من', 'إلى', 'التغير', 'السبب'].map((t, i) => h('th', { key: i, className: i && i < 4 ? 'egxp-num' : undefined }, t)))),
-            h('tbody', null, series.changes.map((c) => h('tr', { key: c.id },
-              h('td', null, N(fmtDate(c.created_at))), h('td', { className: 'egxp-num' }, money(c.previous_fair_value)),
-              h('td', { className: 'egxp-num' }, money(c.new_fair_value)),
-              h('td', { className: 'egxp-num' }, pctSigned(c.change_pct)),
-              h('td', { dir: 'auto' }, c.reason))))) : null),
-        item.report
-          ? h(Section, { title: 'التقرير' }, h(Markdown, { text: item.report }))
-          : h(Section, { title: item.kind === 'light' ? 'ما تمت مراجعته' : 'التقرير' },
-            h('p', { className: 'egxp-pre', dir: 'auto' }, item.reason || 'لا يوجد تقرير محفوظ لهذا التقييم.')),
-        item.kind === 'full' ? h('div', { className: 'egxp-grid2' },
-          h(Section, { title: 'الأطروحة' }, h('p', { className: 'egxp-pre', dir: 'auto' }, item.thesis || '—')),
-          h(Section, { title: 'ملاحظات الناقد' }, h('p', { className: 'egxp-pre', dir: 'auto' }, item.critic_notes || '—'))) : null,
-        methods.length ? h(Section, { title: 'طرق التقييم' }, h('table', { className: 'egxp-table' },
-          h('thead', null, h('tr', null, ['الطريقة', 'الوزن', 'متشائم', 'أساسي', 'متفائل'].map((t, i) => h('th', { key: i, className: i ? 'egxp-num' : undefined }, t)))),
-          h('tbody', null, methods.map((m, i) => h('tr', { key: i },
-            h('td', { dir: 'ltr' }, m.method), h('td', { className: 'egxp-num' }, N(fmtPct(m.weight, { digits: 0 }))),
-            h('td', { className: 'egxp-num' }, money(m.bear)), h('td', { className: 'egxp-num' }, money(m.base)),
-            h('td', { className: 'egxp-num' }, money(m.bull))))))) : null,
-        item.kind === 'full' ? h('div', { className: 'egxp-grid2' },
-          h(Section, { title: 'الافتراضات' }, h(KeyValues, { data: item.assumptions })),
-          h(Section, { title: 'فحوصات المنطق' }, checks.length
-            ? h('ul', { style: { margin: 0, paddingInlineStart: 18, fontSize: 13 } }, checks.map((c, i) => h('li', { key: i },
-              h('span', { className: `egxp-check-${c.status}` }, c.status === 'pass' ? 'سليم' : c.status === 'warn' ? 'تحذير' : 'فشل'),
-              ' — ', h('span', { dir: 'auto' }, c.message))))
-            : h('div', { className: 'egxp-sub' }, '—'))) : null,
-        sources.length ? h(Section, { title: 'المصادر' }, h('table', { className: 'egxp-table' },
-          h('thead', null, h('tr', null, ['البند', 'القيمة', 'المصدر', 'التاريخ'].map((t, i) => h('th', { key: i }, t)))),
-          h('tbody', null, sources.map((src, i) => h('tr', { key: i },
-            h('td', { dir: 'auto' }, src.item), h('td', { dir: 'auto' }, src.value),
-            h('td', { dir: 'auto', style: { whiteSpace: 'normal' } }, src.source), h('td', null, src.as_of)))))) : null,
-        h('p', { className: 'egxp-foot' }, 'تحليل تقييمي للفهم والمتابعة، وليس توصية بالشراء أو البيع. القرار قرارك.'))
-    }
-
-    function AnalysesList({ onOpen }) {
-      const [filters, setFilters] = useState({ symbol: '', risk_rating: '', kind: 'full', date_from: '', date_to: '' })
-      const [data, setData] = useState(null)
-      const [items, setItems] = useState([])
-      const [error, setError] = useState('')
-      const [loadingMore, setLoadingMore] = useState(false)
-
-      const query = useCallback((offset) => {
-        const q = new URLSearchParams({ limit: '50', offset: String(offset), kind: filters.kind })
-        for (const k of ['symbol', 'risk_rating', 'date_from', 'date_to']) if (filters[k]) q.set(k, filters[k])
-        return api('GET', `/egx/api/valuations?${q}`)
-      }, [filters])
-
-      useEffect(() => {
-        let alive = true
-        setError('')
-        query(0).then((d) => { if (alive) { setData(d); setItems(d.items) } }).catch((e) => alive && setError(e.message))
-        return () => { alive = false }
-      }, [query])
-
-      async function more() {
-        setLoadingMore(true)
-        try { const d = await query(items.length); setItems((prev) => prev.concat(d.items)) } catch (e) { setError(e.message) } finally { setLoadingMore(false) }
-      }
-      const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }))
-      const field = (label, control) => h('label', { className: 'egxp-field' }, label, control)
-      const headers = ['التاريخ', 'السهم', 'النوع', 'السعر العادل', 'النطاق', 'السعر وقت التقييم', 'الفرق عن العادل وقتها', 'التغير عن السابق', 'التصنيف', 'السبب']
-      const numeric = new Set([3, 4, 5, 7])
-
-      let body
-      if (!data) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' }, error ? 'تعذّر تحميل التحليلات.' : 'جارٍ التحميل…'))
-      else if (!items.length) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' },
-        data.total === 0 && !filters.symbol && !filters.risk_rating && !filters.date_from && !filters.date_to
-          ? 'لا توجد تحليلات محفوظة بعد. اطلب من المحلل تقييم سهم، وسيظهر هنا تلقائيًا بعد الحفظ.'
-          : 'لا توجد نتائج لهذه الفلاتر.'))
-      else body = items.map((v) => {
-        const margin = marginSentence(v.price_at_valuation, v.fair_value)
-        const open = () => onOpen(v.id)
-        return h('tr', { key: v.id, className: 'egxp-row-link', tabIndex: 0, onClick: open,
-          onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } } },
-          h('td', null, N(fmtDate(v.created_at))),
-          h('td', null, h('span', { className: 'egxp-sym' }, v.symbol)),
-          h('td', null, KIND[v.kind] || v.kind),
-          h('td', { className: 'egxp-num' }, money(v.fair_value)),
-          h('td', { className: 'egxp-num' }, v.bear != null ? range(v.bear, v.bull) : '—'),
-          h('td', { className: 'egxp-num' }, money(v.price_at_valuation)),
-          h('td', null, margin == null ? '—' : h('span', null, margin.text, ' ', margin.value ? N(margin.value) : null)),
-          h('td', { className: 'egxp-num' }, v.change_pct == null ? '—' : N(fmtPct(v.change_pct, { signed: true }))),
-          h('td', null, v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating] || v.risk_rating) : '—'),
-          h('td', { className: 'egxp-reason', dir: 'auto', title: v.reason || '' }, v.reason || '—'))
-      })
-
-      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, QM_CSS + CSS),
-        h(PanelHeader, { here: 'التحليلات', demo: Boolean(data && data.demo_data) }),
-        h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.'),
-        h('section', { className: 'egxp-section' },
-          h('div', { className: 'egxp-filters' },
-            field('السهم', h('select', { className: 'egxp-input', value: filters.symbol, onChange: set('symbol') },
-              h('option', { value: '' }, 'كل الأسهم'),
-              ((data && data.symbols) || []).map((s) => h('option', { key: s, value: s }, s)))),
-            field('التصنيف', h('select', { className: 'egxp-input', value: filters.risk_rating, onChange: set('risk_rating') },
-              h('option', { value: '' }, 'الكل'),
-              Object.entries(RATING).map(([k, label]) => h('option', { key: k, value: k }, label)))),
-            field('النوع', h('select', { className: 'egxp-input', value: filters.kind, onChange: set('kind') },
-              h('option', { value: 'full' }, 'التقييمات الكاملة'),
-              h('option', { value: 'light' }, 'المراجعات الأسبوعية'),
-              h('option', { value: '' }, 'الكل'))),
-            field('من تاريخ', h('input', { className: 'egxp-input', type: 'date', value: filters.date_from, onChange: set('date_from') })),
-            field('إلى تاريخ', h('input', { className: 'egxp-input', type: 'date', value: filters.date_to, onChange: set('date_to') }))),
-          h('div', { className: 'egxp-table-wrap' },
-            h('table', { className: 'egxp-table' },
-              h('thead', null, h('tr', null, headers.map((t, i) => h('th', { key: i, className: numeric.has(i) ? 'egxp-num' : undefined }, t)))),
-              h('tbody', null, body))),
-          data && items.length < data.total
-            ? h('div', { style: { marginTop: 12 } }, h('button', { className: 'egxp-btn', disabled: loadingMore, onClick: more },
-              loadingMore ? 'جارٍ التحميل…' : `تحميل المزيد (${data.total - items.length})`))
-            : null,
-          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null))
-    }
-
-    function AnalysesPage() {
-      const [openId, setOpenId] = useState(() => {
-        const pending = nav.pendingAnalysisId
-        nav.pendingAnalysisId = null
-        return pending
-      })
-      return openId == null
-        ? h(AnalysesList, { onOpen: setOpenId })
-        : h(AnalysisDetail, { id: openId, onBack: () => setOpenId(null) })
     }
 
 
@@ -732,7 +486,9 @@ window.__ModuleLoader__.load({
     }
 
 
+    /* @inline labels.mjs */
     /* @inline components.js */
+    /* @inline analyses.js */
     /* @inline market.js */
 
     return {

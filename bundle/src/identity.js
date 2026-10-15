@@ -136,7 +136,7 @@ function PanelHeader({ here, crumbs = [], actions = null, demo = false, children
 
 const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
 function Disclaimer({ extra }) {
-  return h('p', { className: 'q-foot' }, extra ? `${extra} ` : null, DISCLAIMER)
+  return h('p', { className: 'q-foot' }, extra || null, extra ? ' ' : null, h('b', { style: { fontWeight: 600 } }, DISCLAIMER))
 }
 
 // ── «قيّم سهم X» ──────────────────────────────────────────────────────────────

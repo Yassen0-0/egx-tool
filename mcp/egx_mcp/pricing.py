@@ -1,6 +1,32 @@
 from .errors import ValuationInputError
 
 PROTECTION_DISCOUNT = 0.20
+# Prices are quoted to the piaster: compare at that precision so a price of 104.80 is not
+# "under" a protection of 131 × 0.8 = 104.80000000000001.
+EPSILON = 1e-6
+
+
+def margin_to_fair(fair_value: float, price: float) -> float:
+    """Difference from fair as a share of fair: (fair − price) / fair. Positive when price is under fair."""
+    return (fair_value - price) / fair_value
+
+
+def below_protection_by(protection_price: float, price: float) -> float | None:
+    """How far price is under protection, as a share of protection; None when it is not under."""
+    if price >= protection_price - EPSILON:
+        return None
+    return (protection_price - price) / protection_price
+
+
+def status_of(fair_value: float, protection_price: float, price: float) -> str:
+    """above_fair_value (price ≥ fair), at_or_below_fair_value (protection ≤ price < fair),
+    below_protection (price < protection). The middle name predates the UI wording
+    «بين الحماية والعادل» and is kept for the MCP tools."""
+    if price >= fair_value - EPSILON:
+        return "above_fair_value"
+    if price >= protection_price - EPSILON:
+        return "at_or_below_fair_value"
+    return "below_protection"
 
 
 def pricing_levels(fair_value: float, current_price: float | None = None) -> dict:
@@ -22,15 +48,13 @@ def pricing_levels(fair_value: float, current_price: float | None = None) -> dic
     if current_price is not None:
         if current_price <= 0:
             raise ValuationInputError("current_price must be positive")
-        if current_price < protection:
-            status = "below_protection"
-        elif current_price <= entry:
-            status = "at_or_below_fair_value"
-        else:
-            status = "above_fair_value"
+        status = status_of(fair_value, protection, current_price)
         result.update({
             "current_price": current_price,
+            # Kept for the MCP tools; the UI shows margin_to_fair, measured against fair value.
             "upside_to_fair_value": fair_value / current_price - 1,
+            "margin_to_fair": margin_to_fair(fair_value, current_price),
+            "below_protection_by": below_protection_by(protection, current_price),
             "status": status,
             "review_required": status == "below_protection",
         })

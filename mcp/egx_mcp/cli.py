@@ -9,6 +9,7 @@
     egx-cli valuation-get '{"valuation_id": 7}'
     egx-cli valuation-series '{"symbol": "COMI"}'
     egx-cli market-summary
+    egx-cli market-digest
     egx-cli market-history '{"symbol": "COMI", "days": 365}'
     egx-cli market-sync '{"force_quotes": false}'
 
@@ -23,7 +24,7 @@ from .config import db_path
 from .data import default_provider
 from .errors import ValuationInputError
 from .market.eodhd import EodhdClient, MarketDataError, resolve_api_key
-from .market.summary import market_summary, symbol_history
+from .market.summary import market_digest, market_summary, symbol_history
 from .market.sync import sync_market
 from .store import portfolio, valuations
 from .store.db import connect
@@ -71,6 +72,8 @@ def run(command: str, raw: str | None) -> object:
             return valuations.fair_value_series(conn, args["symbol"])
         if command == "market-summary":
             return market_summary(conn)
+        if command == "market-digest":
+            return market_digest(conn)
         if command == "market-history":
             return symbol_history(conn, args["symbol"], int(args.get("days", 365)))
     raise ValuationInputError(f"unknown command {command}")

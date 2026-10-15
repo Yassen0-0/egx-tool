@@ -103,6 +103,10 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('market-summary')
     return sendJson(res, status, body)
   }
+  if (method === 'GET' && path === '/egx/api/market/digest') {
+    const { status, body } = await runCli('market-digest')
+    return sendJson(res, status, body)
+  }
   const history = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/history$/.exec(path)
   if (method === 'GET' && history) {
     const { status, body } = await runCli('market-history', { symbol: history[1], days: Number(query.get('days') || 365) })

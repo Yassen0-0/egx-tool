@@ -1,9 +1,12 @@
 """Holdings the user types in. The tool never checks them against a broker: the user owns their accuracy."""
 
 import sqlite3
+from datetime import datetime
 
 from ..data.provider import DataProvider
 from ..errors import ValuationInputError
+from ..market.calendar import now_cairo
+from ..market.summary import portfolio_today, price_state
 from ..pricing import pricing_levels
 from ..universe import constituent, normalize_symbol
 from .db import now_iso
@@ -83,13 +86,20 @@ def remove_holding(conn: sqlite3.Connection, holding_id: int) -> dict:
     return {"removed": holding}
 
 
-def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider) -> dict:
-    """Value, P/L and weight per holding, alongside the latest fair value, rating and protection price."""
+def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider, at: datetime | None = None) -> dict:
+    """Value, P/L, today's move and share per holding, alongside the latest fair value, rating and
+    protection price. Today's change counts fresh prices only (same rule as the market breadth).
+    Rows are ordered by P/L contribution, largest first; unpriced holdings go last."""
+    at = at or now_cairo()
     holdings = [dict(r) for r in conn.execute("SELECT * FROM holdings ORDER BY symbol, id")]
-    rows = []
+    rows, positions = [], []
     for h in holdings:
         cost = h["quantity"] * h["buy_price"]
         price = provider.get_price(h["symbol"])
+        state = price_state(conn, h["symbol"], at)
+        # The day move only applies when the price shown is the one the move belongs to.
+        same_price = price is not None and state["price"] is not None and abs(state["price"] - price.value) < 1e-9
+        fresh = same_price and state["stale"] is False and state["change"] is not None
         valuation = latest_valuation(conn, h["symbol"])
         entry = constituent(h["symbol"]) or {}
         row = {
@@ -101,22 +111,38 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider) -> dict:
             "current_price": price.value if price else None,
             "price_as_of": price.as_of if price else None,
             "price_source": price.source if price else None,
+            "price_stale": state["stale"] if same_price else None,
             "market_value": h["quantity"] * price.value if price else None,
             "pnl": h["quantity"] * price.value - cost if price else None,
             "pnl_pct": price.value / h["buy_price"] - 1 if price else None,
+            "day_change": state["change"] if same_price else None,
+            "day_change_pct": state["change_pct"] if same_price else None,
+            "today_change": h["quantity"] * state["change"] if fresh else None,
             "fair_value": None,
+            "bear": None,
+            "bull": None,
             "risk_rating": None,
             "protection_price": None,
             "status": None,
+            "margin_to_fair": None,
+            "below_protection_by": None,
+            "valuation_id": None,
             "valuation_date": None,
         }
+        if same_price:
+            positions.append((h["quantity"], state))
         if valuation:
             levels = pricing_levels(valuation["fair_value"], price.value if price else None)
             row.update({
                 "fair_value": valuation["fair_value"],
+                "bear": valuation["bear"],
+                "bull": valuation["bull"],
                 "risk_rating": valuation["risk_rating"],
                 "protection_price": levels["protection_price"],
                 "status": levels.get("status"),
+                "margin_to_fair": levels.get("margin_to_fair"),
+                "below_protection_by": levels.get("below_protection_by"),
+                "valuation_id": valuation["id"],
                 "valuation_date": valuation["created_at"],
             })
         rows.append(row)
@@ -125,7 +151,12 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider) -> dict:
     total_value = sum(r["market_value"] for r in priced)
     total_cost_priced = sum(r["cost"] for r in priced)
     for r in rows:
-        r["weight"] = r["market_value"] / total_value if r["market_value"] is not None and total_value else None
+        share = r["market_value"] / total_value if r["market_value"] is not None and total_value else None
+        r["share_of_portfolio"] = share
+        r["weight"] = share  # older name, kept for the MCP tool
+        r["pnl_contribution"] = r["pnl"] / total_cost_priced if r["pnl"] is not None and total_cost_priced else None
+    rows.sort(key=lambda r: (r["pnl"] is None, -(r["pnl"] or 0)))
+    today = portfolio_today(positions)
     return {
         "holdings": rows,
         "totals": {
@@ -133,6 +164,11 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider) -> dict:
             "market_value": total_value if priced else None,
             "pnl": total_value - total_cost_priced if priced else None,
             "pnl_pct": total_value / total_cost_priced - 1 if priced and total_cost_priced else None,
+            "today_change": today["change"],
+            "today_change_pct": today["change_pct"],
+            "today_has_fresh": today["has_fresh"],
+            "today_as_of": today["as_of"],
+            "below_protection": [r["symbol"] for r in rows if r["status"] == "below_protection"],
             "unpriced_holdings": [r["symbol"] for r in rows if r["market_value"] is None],
         },
         "disclaimer": "Values are based on the amounts and prices the user entered; the user is responsible for their accuracy.",

@@ -1,0 +1,667 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>السوق</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+.t-light,.t-dark{font-family:var(--dsw-font-family);--dsw-font-family:-apple-system,BlinkMacSystemFont,"SF Arabic","Segoe UI","Geeza Pro",sans-serif;--ds-font-family-code:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--dsw-radius-xs:4px;--dsw-radius-sm:8px;--dsw-radius-md:12px;--dsw-radius-lg:16px;--dsw-radius-xl:20px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);min-height:100vh;direction:rtl}
+.t-light{--dsw-alias-bg-base:#FFFFFF;--dsw-alias-bg-layer-1:#FFFFFF;--dsw-alias-bg-layer-2:#FFFFFF;--dsw-alias-bg-layer-3:#FFFFFF;--dsw-alias-bg-module-platform:#F5F6F7;--dsw-alias-bg-overlay:#E9ECF2;--dsw-alias-bg-skeleton:rgba(0,0,0,.04);--dsw-alias-border-l1:rgba(0,0,0,.04);--dsw-alias-border-l2:rgba(0,0,0,.10);--dsw-alias-border-l3:rgba(0,0,0,.12);--dsw-alias-border-l4:rgba(0,0,0,.16);--dsw-alias-brand-primary:#0F1115;--dsw-alias-button-primary-fill:#0F1115;--dsw-alias-button-primary-hover:#43454A;--dsw-alias-label-primary-foreground:#FFFFFF;--dsw-alias-button-ghost-active-fill:#EBEEF2;--dsw-alias-button-ghost-active-border:#979DA6;--dsw-alias-interactive-bg-hover:rgba(38,49,72,.06);--dsw-alias-interactive-bg-active:rgba(38,49,72,.10);--dsw-alias-label-primary:#0F1115;--dsw-alias-label-secondary:#61666B;--dsw-alias-label-tertiary:#81858C;--dsw-alias-label-caption:#ADB2B8;--dsw-alias-link:#4176E6;--dsw-alias-state-business-primary:#4176E6;--dsw-alias-state-business-tertiary:#E4EDFD;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#E6FAED;--dsw-alias-state-error-primary:#EC1313;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#FEF5E7;--dsw-alias-file-diff-added-marker:#01A241;--dsw-alias-file-diff-deleted-marker:#BA2723;--dsw-alias-markdown-code-block:#F9FAFB;--dsw-alias-markdown-tag:#F1F3F5;--dsw-specific-sidebar-fill:#F9FAFB;--dsw-specific-sidebar-nav-item-active:#EBEEF2;--dsw-specific-sidebar-nav-item-hover:#F1F3F5;--dsw-specific-input-major:#FFFFFF;--dsw-alias-tooltip-bg:#2C2C2E}
+.t-dark{--dsw-alias-bg-base:#151517;--dsw-alias-bg-layer-1:#232324;--dsw-alias-bg-layer-2:#2C2C2E;--dsw-alias-bg-layer-3:#353638;--dsw-alias-bg-module-platform:#353638;--dsw-alias-bg-overlay:#61666B;--dsw-alias-bg-skeleton:rgba(255,255,255,.08);--dsw-alias-border-l1:rgba(255,255,255,.06);--dsw-alias-border-l2:rgba(255,255,255,.12);--dsw-alias-border-l3:rgba(255,255,255,.16);--dsw-alias-border-l4:rgba(255,255,255,.20);--dsw-alias-brand-primary:#F9FAFB;--dsw-alias-button-primary-fill:#F9FAFB;--dsw-alias-button-primary-hover:#EBEEF2;--dsw-alias-label-primary-foreground:#0F1115;--dsw-alias-button-ghost-active-fill:#43454A;--dsw-alias-button-ghost-active-border:#81858C;--dsw-alias-interactive-bg-hover:rgba(255,255,255,.08);--dsw-alias-interactive-bg-active:rgba(255,255,255,.14);--dsw-alias-label-primary:#F9FAFB;--dsw-alias-label-secondary:#CFD3D6;--dsw-alias-label-tertiary:#ADB2B8;--dsw-alias-label-caption:#81858C;--dsw-alias-link:#7AAAFF;--dsw-alias-state-business-primary:#7AAAFF;--dsw-alias-state-business-tertiary:#34415B;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#233C2C;--dsw-alias-state-error-primary:#F25A5A;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#27241F;--dsw-alias-file-diff-added-marker:#41C977;--dsw-alias-file-diff-deleted-marker:#FA423E;--dsw-alias-markdown-code-block:#1B1B1C;--dsw-alias-markdown-tag:#2C2C2E;--dsw-specific-sidebar-fill:#1B1B1C;--dsw-specific-sidebar-nav-item-active:#43454A;--dsw-specific-sidebar-nav-item-hover:#2C2C2E;--dsw-specific-input-major:#2C2C2E;--dsw-alias-tooltip-bg:#43454A}
+.num{font-family:var(--ds-font-family-code);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+button,input,select{font:inherit;color:inherit}
+sc-if,sc-for{display:contents}
+.up{color:var(--dsw-alias-file-diff-added-marker)}
+.down{color:var(--dsw-alias-file-diff-deleted-marker)}
+.flat{color:var(--dsw-alias-label-secondary)}
+.sec{color:var(--dsw-alias-label-secondary)}
+.ter{color:var(--dsw-alias-label-tertiary)}
+.blue{color:var(--dsw-alias-state-business-primary)}
+.amber{color:var(--dsw-alias-state-warn-label)}
+a{color:var(--dsw-alias-link);text-decoration:none}
+a:hover{text-decoration:underline}
+:focus-visible{outline:2px solid var(--dsw-alias-state-business-primary);outline-offset:1px}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px 24px}
+.card{background:var(--dsw-alias-bg-layer-1);border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md)}
+.btn{appearance:none;height:32px;padding:0 14px;border-radius:var(--dsw-radius-sm);border:1px solid var(--dsw-alias-border-l3);background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:8px;font-size:13px;white-space:nowrap}
+.btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.btn-p{background:var(--dsw-alias-button-primary-fill);border-color:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);font-weight:500}
+.btn-p:hover{background:var(--dsw-alias-button-primary-hover);border-color:var(--dsw-alias-button-primary-hover)}
+.field{display:flex;align-items:center;gap:8px;height:32px;padding:0 10px;border:1px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-input-major);font-size:13px}
+.field input[type=search]{border:0;background:transparent;outline:none;width:176px}
+.field select{border:0;background:transparent;outline:none;cursor:pointer}
+.field:focus-within{border-color:var(--dsw-alias-state-business-primary)}
+.seg{display:flex;padding:2px;gap:2px;background:var(--dsw-alias-bg-module-platform);border-radius:var(--dsw-radius-sm)}
+.seg button{appearance:none;border:0;background:transparent;height:28px;padding:0 12px;border-radius:6px;cursor:pointer;color:var(--dsw-alias-label-secondary);font-size:13px;white-space:nowrap}
+.seg button:hover{color:var(--dsw-alias-label-primary)}
+.seg button[aria-pressed="true"]{background:var(--dsw-alias-bg-layer-1);color:var(--dsw-alias-label-primary);font-weight:500;box-shadow:0 1px 2px rgba(0,0,0,.04),0 0 0 1px var(--dsw-alias-border-l2)}
+.chip{display:inline-flex;align-items:center;gap:4px;height:20px;padding:0 6px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-secondary);font-size:12px;white-space:nowrap}
+.chip-line{background:transparent;border:1px solid var(--dsw-alias-border-l4)}
+.chip-biz{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}
+.chip-warn{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label);font-weight:500}
+.demo{background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);border-radius:var(--dsw-radius-xs);height:20px;padding:0 8px;display:inline-flex;align-items:center;font-size:12px}
+.fchips{display:flex;flex-wrap:wrap;gap:8px}
+.fchip{appearance:none;height:32px;padding:0 10px;border-radius:16px;border:1px solid var(--dsw-alias-border-l3);background:transparent;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:13px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.fchip:hover{background:var(--dsw-alias-interactive-bg-hover);color:var(--dsw-alias-label-primary)}
+.fchip[aria-pressed="true"]{background:var(--dsw-alias-button-primary-fill);border-color:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);font-weight:500}
+.fchip .n{font-size:12px;opacity:.85}
+.fchip.warn:not([aria-pressed="true"]) .n{color:var(--dsw-alias-state-warn-label);opacity:1;font-weight:600}
+.g{display:grid;grid-template-columns:minmax(212px,1.5fr) 96px 148px 80px minmax(268px,2.5fr) 100px 124px;align-items:center;min-width:1040px;column-gap:4px}
+.g>*{padding:0 8px;min-width:0}
+.th{height:40px;background:var(--dsw-alias-bg-module-platform);border-bottom:1px solid var(--dsw-alias-border-l2);font-size:12px;color:var(--dsw-alias-label-secondary)}
+.th button{appearance:none;border:0;background:transparent;padding:0;min-height:32px;cursor:pointer;color:inherit;display:inline-flex;align-items:center;gap:4px;font-size:12px}
+.th button:hover{color:var(--dsw-alias-label-primary)}
+.th button.on{color:var(--dsw-alias-label-primary);font-weight:600}
+.th svg{flex:none}
+.row{min-height:64px;border-bottom:1px solid var(--dsw-alias-border-l1);cursor:pointer;font-size:13px;position:relative}
+.row:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.row.sel{background:var(--dsw-alias-interactive-bg-active);box-shadow:inset 3px 0 0 var(--dsw-alias-state-business-primary)}
+.c2{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.c52{display:block}
+.b52{display:block}
+.row>.num,.g>.num{justify-self:start;white-space:nowrap}
+.c2 small{font-size:12px;color:var(--dsw-alias-label-secondary);line-height:1.35}
+.sym b{font-weight:600;font-size:13px;font-family:var(--ds-font-family-code);direction:ltr;unicode-bidi:isolate;display:inline-block}
+.sym .l1{display:flex;align-items:center;gap:8px;min-width:0}
+.sym .nm{font-size:13px;color:var(--dsw-alias-label-primary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+.pf{display:inline-flex;align-items:center;gap:4px;height:18px;padding:0 5px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-secondary);font-size:12px;font-weight:400;flex:none}
+.rl{position:relative;display:block;height:18px;direction:ltr}
+.rl .tr{position:absolute;left:0;right:0;top:6px;height:6px;border-radius:3px;background:var(--dsw-alias-border-l4)}
+.rl .sg{position:absolute;top:6px;height:6px;border-radius:3px;background:var(--dsw-alias-state-business-primary);opacity:.3}
+.rl .tk{position:absolute;top:1px;width:3px;height:16px;margin-left:-1.5px;border-radius:1px}
+.rl .dt{position:absolute;top:2px;width:10px;height:10px;margin-left:-8px;border-radius:50%;background:var(--dsw-alias-label-primary);border:3px solid var(--dsw-alias-bg-base);box-sizing:content-box;box-shadow:0 0 0 1px var(--dsw-alias-label-primary)}
+.vt{display:flex;align-items:center;gap:10px;font-size:12px;white-space:nowrap;margin-top:6px}
+.vc{display:flex;flex-direction:column;padding-inline:8px}
+.st{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.st svg{flex:none}
+.st-under{color:var(--dsw-alias-state-warn-label);font-weight:600}
+.b52{position:relative;height:6px;border-radius:3px;background:var(--dsw-alias-border-l4);direction:ltr}
+.b52 .fl{position:absolute;left:0;top:0;height:6px;border-radius:3px;background:var(--dsw-alias-label-secondary);opacity:.55}
+.b52 .dt2{position:absolute;top:-3px;width:8px;height:8px;margin-left:-7px;border-radius:50%;background:var(--dsw-alias-label-primary);border:3px solid var(--dsw-alias-bg-base);box-sizing:content-box;box-shadow:0 0 0 1px var(--dsw-alias-label-primary)}
+.b52n{display:flex;justify-content:space-between;direction:ltr;font-size:12px;margin-top:8px;color:var(--dsw-alias-label-secondary)}
+.bars{display:flex;gap:2px;align-items:flex-end;direction:ltr;height:12px}
+.bars b{width:3px;border-radius:1px;background:var(--dsw-alias-border-l3)}
+.bars b:nth-child(1){height:5px}.bars b:nth-child(2){height:8px}.bars b:nth-child(3){height:12px}
+.r1 .bars b:nth-child(-n+1),.r2 .bars b:nth-child(-n+2),.r3 .bars b:nth-child(-n+3){background:var(--dsw-alias-label-secondary)}
+.rt{display:inline-flex;align-items:center;gap:6px;font-size:12px;white-space:nowrap}
+.tlink{appearance:none;border:0;background:transparent;padding:0 4px;min-height:32px;display:inline-flex;align-items:center;white-space:nowrap;flex:none;cursor:pointer;color:var(--dsw-alias-link);font-size:13px;font-weight:500}
+.tlink:hover{text-decoration:underline}
+.qbtn{appearance:none;height:28px;padding:0 12px;border-radius:var(--dsw-radius-sm);border:1px solid var(--dsw-alias-border-l4);background:transparent;cursor:pointer;color:var(--dsw-alias-link);font-size:13px;font-weight:500}
+.qbtn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.grp{appearance:none;width:100%;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-module-platform);display:flex;align-items:center;gap:12px;min-height:48px;padding:0 16px;text-align:start;cursor:pointer;font-size:13px}
+.grp:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.tkgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:0;padding:8px 16px 12px;background:var(--dsw-alias-bg-module-platform);border-bottom:1px solid var(--dsw-alias-border-l1)}
+.tkgrid button{appearance:none;border:0;background:transparent;display:flex;gap:8px;align-items:baseline;min-height:36px;padding:0 8px;border-radius:var(--dsw-radius-sm);cursor:pointer;text-align:start;font-size:13px}
+.tkgrid button:hover,.tkgrid button.sel{background:var(--dsw-alias-interactive-bg-hover)}
+.tkgrid button.sel{background:var(--dsw-alias-interactive-bg-active)}
+.dg{appearance:none;width:100%;border:0;border-bottom:1px solid var(--dsw-alias-border-l1);background:transparent;display:flex;align-items:center;gap:12px;min-height:44px;padding:0 16px;text-align:start;cursor:pointer;font-size:13px}
+.dg:last-child{border-bottom:0}
+.dg:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.dg .ic{width:20px;height:20px;border-radius:var(--dsw-radius-xs);display:grid;place-items:center;background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-secondary);flex:none}
+.dg .ic.w{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label)}
+.dg .ic.b{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}
+.dg .tx{min-width:0}
+.di{appearance:none;border:0;background:transparent;display:inline-flex;align-items:center;gap:6px;min-height:36px;padding:0 10px;border-radius:var(--dsw-radius-sm);cursor:pointer;font-size:13px;white-space:nowrap;text-align:start}
+.di:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.di .ic{width:18px;height:18px;border-radius:var(--dsw-radius-xs);display:grid;place-items:center;background:var(--dsw-alias-markdown-tag);color:var(--dsw-alias-label-secondary);flex:none}
+.di .ic.w{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label)}
+.di .ic.b{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-state-business-primary)}
+.tabs{display:flex;gap:4px;padding:0 16px;border-bottom:1px solid var(--dsw-alias-border-l2);overflow-x:auto}
+.tab{appearance:none;border:0;background:transparent;height:40px;padding:0 12px;cursor:pointer;color:var(--dsw-alias-label-secondary);border-bottom:2px solid transparent;margin-bottom:-1px;font-size:14px;white-space:nowrap}
+.tab:hover{color:var(--dsw-alias-label-primary)}
+.tab.on{color:var(--dsw-alias-label-primary);font-weight:600;border-bottom-color:var(--dsw-alias-label-primary)}
+.kv{display:flex;flex-direction:column;gap:2px}
+.kv small{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.kv b{font-weight:500;font-size:14px}
+.lg{position:absolute;transform:translateX(-50%);white-space:nowrap;font-size:12px;text-align:center;line-height:1.4}
+.cu{fill:var(--dsw-alias-state-success-primary);stroke:var(--dsw-alias-state-success-primary)}
+.cd{fill:var(--dsw-alias-state-error-primary);stroke:var(--dsw-alias-state-error-primary)}
+.gl{stroke:var(--dsw-alias-border-l2);stroke-width:1}
+.ax{fill:var(--dsw-alias-label-secondary);font:12px var(--ds-font-family-code)}
+.axd{fill:var(--dsw-alias-label-secondary);font:13px var(--dsw-font-family)}
+.tv{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);background:var(--dsw-alias-bg-module-platform);display:flex;flex-direction:column;min-height:320px}
+.tvh{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;border-bottom:1px solid var(--dsw-alias-border-l2);font-size:12px;color:var(--dsw-alias-label-secondary)}
+.sk{display:grid;grid-template-columns:repeat(auto-fit,minmax(104px,1fr));gap:0;border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);overflow:hidden}
+.sk>div{padding:8px 10px;border-inline-start:1px solid var(--dsw-alias-border-l1);border-bottom:1px solid var(--dsw-alias-border-l1);display:flex;flex-direction:column;gap:2px;font-size:13px}
+.sec-t{font-size:14px;font-weight:600}
+.hq{appearance:none;width:20px;height:20px;border-radius:50%;border:1px solid var(--dsw-alias-border-l4);background:transparent;color:var(--dsw-alias-label-secondary);font-size:12px;line-height:1;cursor:pointer;padding:0;display:inline-grid;place-items:center}
+.hq:hover{background:var(--dsw-alias-interactive-bg-hover)}
+</style>
+</helmet>
+<div class="t-{{theme}}">
+<div class="wrap">
+
+  <!-- panel header -->
+  <header style="display: flex; align-items: center; gap: 12px; height: 56px">
+    <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true" style="flex: none"><rect width="24" height="24" rx="6" style="fill: var(--dsw-alias-file-diff-added-marker)"></rect><path d="M12 18.5V6M6.5 11.5L12 6l5.5 5.5" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--dsw-alias-bg-base)"></path></svg>
+    <span style="font-size: 14px; font-weight: 600">قيمة</span>
+    <span class="ter" aria-hidden="true">/</span>
+    <h1 style="margin: 0; font-size: 20px; font-weight: 600">السوق</h1>
+    <span class="demo">بيانات تجريبية</span>
+    <span style="flex: 1"></span>
+    <button class="btn btn-p" onClick="{{refresh}}"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3"></path></svg>تحديث الأسعار الآن</button>
+  </header>
+
+  <!-- session + data freshness (compact) -->
+  <section class="card" aria-label="حالة الجلسة والبيانات" style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px">
+    <div style="display: flex; align-items: center; gap: 8px">
+      <span style="width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary)"></span>
+      <div class="kv"><b>الجلسة مغلقة · تفتح اليوم <span class="num">10:00</span></b><small>آخر إغلاق الأربعاء <span class="num">14/10/2026</span></small></div>
+    </div>
+    <div class="kv"><small>تحديثات الأسعار اليوم · المصدر EODHD (أسعار نهاية اليوم)</small>
+      <b style="display: flex; align-items: center; gap: 8px; font-size: 13px"><span><span class="num">14</span> من <span class="num">20</span></span>
+        <span style="width: 40px; height: 4px; border-radius: 2px; background: var(--dsw-alias-border-l4); overflow: hidden; direction: ltr; display: block"><span style="display: block; width: 70%; height: 100%; background: var(--dsw-alias-label-secondary)"></span></span>
+        <span class="sec" style="font-weight: 400; font-size: 12px">آخر تحديث <span class="num">09:02</span></span></b></div>
+    <div class="kv"><small>صاعد / هابط اليوم</small>
+      <div style="display: flex; align-items: center; gap: 10px; font-size: 13px; font-weight: 500">
+        <span style="display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none"><span style="flex: 8; background: var(--dsw-alias-state-success-primary)"></span><span style="flex: 6; background: var(--dsw-alias-state-error-primary)"></span><span style="flex: 1; background: var(--dsw-alias-label-tertiary)"></span><span style="flex: 16; background: var(--dsw-alias-border-l4)"></span></span>
+        <span class="up">صاعد <span class="num">8</span></span><span class="down">هابط <span class="num">6</span></span><span class="sec" title="آخر سعر له من جلسة سابقة، فلا يدخل في حساب اليوم">قديم <span class="num">1</span></span><span class="sec">بدون سعر <span class="num">16</span></span></div></div>
+    <div class="kv"><small>محفظتي اليوم</small><b class="num up">+50.00 (+0.34%)</b></div>
+  </section>
+
+  <!-- digest: one compact card, 3 one-line items -->
+  <section class="card" aria-label="منذ آخر إغلاق" style="margin-top: 8px; display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px">
+    <span class="sec-t" style="margin-inline-end: 8px">منذ آخر إغلاق</span>
+    <button class="di" onClick="{{dg1}}" title="EAST بسعر 27.77 مقابل سعر الحماية 28.80"><span class="ic w"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true"><path d="M6 1.5 10.5 6 6 10.5 1.5 6Z" fill="currentColor"></path></svg></span><b class="num" style="font-weight: 600">EAST</b> <span class="amber" style="font-weight: 600">تحت سعر الحماية بـ <span class="num">3.6%</span></span></button>
+    <button class="di" onClick="{{dg2}}" title="تقييم COMI اتعدّل لأعلى"><span class="ic b"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2 9l3-3 2 2 3-4"></path></svg></span>تقييم <b class="num" style="font-weight: 600">COMI</b> <span class="num blue" style="font-weight: 600">118.00 → 131.00</span></button>
+    <button class="di" onClick="{{dg3}}"><span class="ic"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3.5" width="9" height="6" rx="1.5"></rect><path d="M4 3.5V2.5h4v1"></path></svg></span>سهمك <b class="num" style="font-weight: 600">COMI</b> <span class="num up" style="font-weight: 500">+1.00 (+0.83%)</span></button>
+  </section>
+
+  <!-- toolbar: one row (wraps) -->
+  <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 8px 0">
+    <label class="field"><svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true" fill="none" stroke="var(--dsw-alias-label-secondary)" stroke-width="1.6" stroke-linecap="round"><circle cx="7" cy="7" r="5"></circle><path d="M11 11l3.5 3.5"></path></svg><span style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">بحث</span><input type="search" placeholder="ابحث بالرمز أو الاسم" value="{{q}}" onInput="{{onQ}}" style="width: 128px"></label>
+    <div class="fchips" role="group" aria-label="تصفية سريعة" style="gap: 6px">
+      <sc-for list="{{chips}}" as="c" hint-placeholder-count="6"><button class="fchip {{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.label}} <span class="n num">{{c.n}}</span></button></sc-for>
+      <button class="fchip" aria-pressed="{{mine}}" onClick="{{toggleMine}}">محفظتي <span class="n num">3</span></button>
+    </div>
+    <span style="flex: 1"></span>
+    <div class="seg" role="group" aria-label="فترة الأداء">
+      <sc-for list="{{periods}}" as="p" hint-placeholder-count="3"><button aria-pressed="{{p.on}}" onClick="{{p.pick}}">{{p.label}}</button></sc-for>
+    </div>
+    <label class="field" title="ترتيب حسب"><select aria-label="ترتيب حسب" onChange="{{onSort}}"><sc-for list="{{sortOpts}}" as="o" hint-placeholder-count="5"><option value="{{o.v}}" selected="{{o.sel}}">{{o.label}}</option></sc-for></select></label>
+    <button class="btn" style="padding: 0; width: 32px; justify-content: center" onClick="{{flipDir}}" aria-label="{{dirLabel}}" title="{{dirLabel}}">
+      <sc-if value="{{sortDesc}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v8M3 7l3 3 3-3"></path></svg></sc-if>
+      <sc-if value="{{sortAsc}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10V2M3 5l3-3 3 3"></path></svg></sc-if>
+    </button>
+    <sc-if value="{{prefillNote}}" hint-placeholder-val="{{false}}"><span class="chip chip-biz" role="status">جُهّزت الرسالة في المحادثة: «{{prefillNote}}»</span></sc-if>
+  </div>
+
+  <!-- table -->
+  <section class="card" aria-label="جدول الأسهم" style="overflow: hidden">
+    <div style="overflow-x: auto">
+      <div class="g th" role="row">
+        <sc-for list="{{cols}}" as="c" hint-placeholder-count="7">
+          <span role="columnheader" aria-sort="{{c.aria}}">
+            <sc-if value="{{c.sortable}}" hint-placeholder-val="{{true}}">
+              <button class="{{c.cls}}" onClick="{{c.pick}}">{{c.label}}
+                <sc-if value="{{c.desc}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 2v8M3 7l3 3 3-3"></path></svg></sc-if>
+                <sc-if value="{{c.asc}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 10V2M3 5l3-3 3 3"></path></svg></sc-if>
+              </button>
+            </sc-if>
+            <sc-if value="{{c.plain}}" hint-placeholder-val="{{false}}">{{c.label}}</sc-if>
+          </span>
+        </sc-for>
+      </div>
+      <sc-for list="{{rows}}" as="r" hint-placeholder-count="15">
+        <div class="g row {{r.cls}}" role="row" tabindex="0" aria-selected="{{r.sel}}" onClick="{{r.pick}}">
+          <span class="sym c2"><span class="l1"><b>{{r.sym}}</b><span class="nm">{{r.name}}</span><sc-if value="{{r.mine}}"><span class="pf" title="في محفظتك"><svg width="10" height="10" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="1.5" y="3.5" width="9" height="6" rx="1.5"></rect><path d="M4 3.5V2.5h4v1"></path></svg>محفظتي</span></sc-if></span><small style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%">{{r.sector}} · <span class="num">{{r.w}}</span> من المؤشر</small></span>
+          <span class="c2"><b class="num" style="font-weight: 500">{{r.price}}</b>
+            <small><sc-if value="{{r.stale}}" hint-placeholder-val="{{false}}"><span class="chip chip-warn" title="هذا السعر أقدم من آخر جلسة">سعر قديم</span></sc-if><sc-if value="{{r.fresh}}" hint-placeholder-val="{{true}}"><span class="num">{{r.date}}</span></sc-if></small></span>
+          <span class="c2"><span class="num {{r.dir}}" style="font-weight: 500">{{r.dayTxt}}</span><sc-if value="{{r.stale}}" hint-placeholder-val="{{false}}"><small>جلسة <span class="num">{{r.date}}</span></small></sc-if></span>
+          <span class="num {{r.perDir}}">{{r.per}}</span>
+          <sc-if value="{{r.valued}}" hint-placeholder-val="{{true}}">
+            <span class="vc">
+              <span class="rl" aria-hidden="true"><span class="tr"></span><span class="sg" style="left: {{r.bePos}}%; width: {{r.segW}}%"></span><span class="tk" style="left: {{r.prPos}}%; background: var(--dsw-alias-state-warn-primary)"></span><span class="tk" style="left: {{r.fPos}}%; background: var(--dsw-alias-state-business-primary)"></span><span class="dt" style="left: {{r.pPos}}%"></span></span>
+              <span class="vt"><span><span class="sec">عادل</span> <b class="num blue" style="font-weight: 600; font-size: 13px">{{r.fair}}</b></span>
+                <sc-if value="{{r.stUnder}}" hint-placeholder-val="{{false}}"><span class="st st-under" title="{{r.stTip}}"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1 9 5 5 9 1 5Z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>تحت سعر الحماية بـ <span class="num">{{r.protGap}}</span></span></sc-if>
+                <sc-if value="{{r.stBelow}}" hint-placeholder-val="{{true}}"><span class="st" title="{{r.stTip}}"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.3" fill="none" stroke="currentColor" stroke-width="1.4"></circle></svg>أقل من العادل بـ <span class="num">{{r.gapPct}}</span></span></sc-if>
+                <sc-if value="{{r.stAbove}}" hint-placeholder-val="{{false}}"><span class="st" title="{{r.stTip}}"><svg width="10" height="10" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.3" fill="currentColor" stroke="currentColor" stroke-width="1.4"></circle></svg>أعلى من العادل بـ <span class="num">{{r.gapPct}}</span></span></sc-if>
+              </span>
+            </span>
+            <span><span class="rt {{r.rCls}}"><span class="bars" aria-hidden="true"><b></b><b></b><b></b></span>{{r.rating}}</span></span>
+          </sc-if>
+          <sc-if value="{{r.unvalued}}" hint-placeholder-val="{{false}}">
+            <span class="vc" style="flex-direction: row; align-items: center; gap: 12px"><span class="sec" style="font-size: 12px">لم يُقيَّم بعد</span><button class="qbtn" onClick="{{r.prefill}}">قيّم</button></span>
+            <span class="ter" aria-hidden="true">—</span>
+          </sc-if>
+          <span class="c52"><span class="b52" aria-label="موضع السعر في نطاق 52 أسبوعًا"><span class="fl" style="width: {{r.pos52}}%"></span><span class="dt2" style="left: {{r.pos52}}%"></span></span><span class="b52n num"><span>{{r.lo}}</span><span>{{r.hi}}</span></span></span>
+        </div>
+      </sc-for>
+
+      <!-- folded group: no price yet -->
+      <sc-if value="{{grpShow}}" hint-placeholder-val="{{true}}">
+        <button class="grp" onClick="{{toggleGrp}}" aria-expanded="{{grpOpen}}">
+          <sc-if value="{{grpClosed}}" hint-placeholder-val="{{true}}"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M7.5 2.5 4 6l3.5 3.5"></path></svg></sc-if>
+          <sc-if value="{{grpOpen}}" hint-placeholder-val="{{false}}"><svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" style="flex: none"><path d="M2.5 4.5 6 8l3.5-3.5"></path></svg></sc-if>
+          <b style="font-weight: 600"><span class="num">{{grpN}}</span> سهمًا بانتظار السعر</b>
+          <span class="sec">— تُستكمل في التحديث القادم</span>
+          <sc-if value="{{grpClosed}}" hint-placeholder-val="{{true}}"><span class="ter num" style="font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0">{{grpPreview}}</span></sc-if>
+          <span style="flex: 1"></span>
+          <span class="tlink" style="min-height: 0">{{grpAction}}</span>
+        </button>
+        <sc-if value="{{grpOpen}}" hint-placeholder-val="{{false}}">
+          <div class="tkgrid">
+            <sc-for list="{{grpItems}}" as="t" hint-placeholder-count="16"><button class="{{t.cls}}" onClick="{{t.pick}}"><b class="num" style="font-weight: 600; font-size: 13px">{{t.sym}}</b><span class="sec" style="font-size: 12px">{{t.name}}</span></button></sc-for>
+          </div>
+        </sc-if>
+      </sc-if>
+      <sc-if value="{{empty}}" hint-placeholder-val="{{false}}"><div style="padding: 32px; text-align: center" class="sec">لا توجد أسهم مطابقة. جرّب إزالة البحث أو تغيير التصفية.</div></sc-if>
+    </div>
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2); font-size: 12px" class="sec">
+      <span>عرض <span class="num">{{shown}}</span> من <span class="num">31</span><sc-if value="{{foldedN}}" hint-placeholder-val="{{true}}"> · <span class="num">{{foldedN}}</span> مطويّة بانتظار السعر</sc-if></span>
+      <span>المسطرة لكل سهم بمقياسه:</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 10px; height: 10px; border-radius: 50%; background: var(--dsw-alias-label-primary); display: inline-block"></span>السعر</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 3px; height: 14px; border-radius: 1px; background: var(--dsw-alias-state-warn-primary); display: inline-block"></span>سعر الحماية</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 3px; height: 14px; border-radius: 1px; background: var(--dsw-alias-state-business-primary); display: inline-block"></span>السعر العادل</span>
+      <span style="display: inline-flex; align-items: center; gap: 6px"><span style="width: 18px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .35; display: inline-block"></span>من المتشائم إلى المتفائل</span>
+      <span style="flex: 1"></span>
+      <span>اضغط على أي صف لعرض تفاصيله أسفل الجدول</span>
+    </div>
+  </section>
+
+  <!-- detail (docked below the list) -->
+  <section class="card" aria-label="تفاصيل السهم المحدد" style="margin-top: 16px; overflow: hidden">
+    <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px">
+      <div style="display: flex; flex-direction: column; gap: 2px">
+        <div style="display: flex; align-items: center; gap: 8px"><b class="num" style="font-size: 20px; font-weight: 600">{{d.sym}}</b><span style="font-size: 16px; font-weight: 500">{{d.name}}</span><sc-if value="{{d.mine}}"><span class="chip">في محفظتك</span></sc-if></div>
+        <span class="sec" style="font-size: 12px">{{d.sector}} · حصته <span class="num">{{d.w}}</span> من المؤشر</span>
+      </div>
+      <sc-if value="{{d.hasPrice}}">
+        <div class="kv"><small>آخر إغلاق · <span class="num">{{d.date}}</span></small><b class="num" style="font-size: 20px; font-weight: 600">{{d.price}}</b></div>
+        <div class="kv"><small>{{d.dayLabel}}</small><b class="num {{d.dir}}">{{d.dayTxt}}</b></div>
+        <sc-if value="{{d.stale}}"><span class="chip chip-warn">سعر قديم خارج حساب اليوم</span></sc-if>
+      </sc-if>
+      <sc-if value="{{d.noPrice}}"><span class="chip chip-line">لا يوجد سعر بعد · يُستكمل في التحديث القادم</span></sc-if>
+      <span style="flex: 1"></span>
+      <sc-if value="{{d.valued}}">
+        <sc-if value="{{d.stUnder}}"><span class="st st-under" title="{{d.stTip}}" style="font-size: 14px"><svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><path d="M5 1 9 5 5 9 1 5Z" fill="currentColor" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"></path></svg>تحت سعر الحماية بـ <span class="num">{{d.protGap}}</span> — يحتاج مراجعة</span></sc-if>
+        <sc-if value="{{d.stBelow}}"><span class="st" title="{{d.stTip}}" style="font-size: 14px"><svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.3" fill="none" stroke="currentColor" stroke-width="1.4"></circle></svg>أقل من العادل بـ <span class="num">{{d.gapPct}}</span></span></sc-if>
+        <sc-if value="{{d.stAbove}}"><span class="st" title="{{d.stTip}}" style="font-size: 14px"><svg width="12" height="12" viewBox="0 0 10 10" aria-hidden="true"><circle cx="5" cy="5" r="3.3" fill="currentColor" stroke="currentColor" stroke-width="1.4"></circle></svg>أعلى من العادل بـ <span class="num">{{d.gapPct}}</span></span></sc-if>
+      </sc-if>
+    </div>
+    <sc-if value="{{d.hasPrice}}">
+      <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform)">
+        <div class="kv" style="min-width: 240px; flex: 0 1 280px"><small>موضع السعر في نطاق 52 أسبوعًا</small>
+          <span class="c52" style="padding-top: 6px"><span class="b52"><span class="fl" style="width: {{d.pos52}}%"></span><span class="dt2" style="left: {{d.pos52}}%"></span></span><span class="b52n num"><span>{{d.lo}}</span><span>{{d.hi}}</span></span></span></div>
+        <div class="kv"><small>حجم تداول آخر جلسة</small><b class="num">{{d.vol}}</b></div>
+        <div class="kv"><small>أداء <span>{{perLabel}}</span></small><b class="num {{d.perDir}}">{{d.per}}</b></div>
+      </div>
+    </sc-if>
+    <div class="tabs" role="tablist" aria-label="أقسام السهم">
+      <sc-for list="{{tabs}}" as="t" hint-placeholder-count="4"><button role="tab" class="tab {{t.cls}}" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.label}}</button></sc-for>
+    </div>
+
+    <!-- tab 0: our valuation -->
+    <sc-if value="{{tab0}}" hint-placeholder-val="{{true}}">
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px">
+        <div style="display: flex; flex-wrap: wrap; gap: 16px">
+          <div style="flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+            <sc-if value="{{d.valued}}">
+              <div style="border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px">
+                <div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+                  <span class="sec">السعر العادل</span>
+                  <span class="sec" style="font-size: 12px">تاريخ التقييم <span class="num">{{d.vdate}}</span><sc-if value="{{d.light}}"> · تحديث خفيف <span class="num">15/10</span></sc-if></span>
+                </div>
+                <div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-top: -8px"><span class="num blue" style="font-size: 32px; font-weight: 600; line-height: 1">{{d.fair}}</span>
+                  <sc-if value="{{d.stUnder}}"><span class="amber" style="font-weight: 600">تحت سعر الحماية بـ <span class="num">{{d.protGap}}</span></span></sc-if>
+                  <sc-if value="{{d.stBelow}}"><span class="sec">السعر أقل من العادل بـ <b class="num" style="font-weight: 600">{{d.gapPct}}</b></span></sc-if>
+                  <sc-if value="{{d.stAbove}}"><span class="sec">السعر أعلى من العادل بـ <b class="num" style="font-weight: 600">{{d.gapPct}}</b></span></sc-if>
+                </div>
+                <!-- big ruler -->
+                <div style="position: relative; height: 112px; direction: ltr; margin: 0 8px">
+                  <div class="lg" style="left: {{d.pLab}}%; top: 0"><span class="num" style="font-weight: 700; font-size: 14px">{{d.price}}</span><br><span class="sec">السعر</span></div>
+                  <div style="position: absolute; left: 0; right: 0; top: 46px; height: 12px; border-radius: 6px; background: var(--dsw-alias-border-l4)"></div>
+                  <div style="position: absolute; top: 46px; height: 12px; left: {{d.bePos}}%; width: {{d.segW}}%; background: var(--dsw-alias-state-business-primary); opacity: .3; border-radius: 6px"></div>
+                  <div style="position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; left: {{d.bePos}}%; background: var(--dsw-alias-label-tertiary)"></div>
+                  <div style="position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; left: {{d.bPos}}%; background: var(--dsw-alias-label-tertiary)"></div>
+                  <div style="position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; left: {{d.prPos}}%; background: var(--dsw-alias-state-warn-primary); border-radius: 2px"></div>
+                  <div style="position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; left: {{d.fPos}}%; background: var(--dsw-alias-state-business-primary); border-radius: 2px"></div>
+                  
+                  <div style="position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; left: {{d.pPos}}%; border-radius: 50%; background: var(--dsw-alias-label-primary); border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary)"></div>
+                  <div class="lg" style="left: {{d.beLab}}%; top: 72px"><span class="sec">المتشائم</span><br><span class="num" style="font-weight: 500">{{d.bear}}</span></div>
+                  <div class="lg" style="left: {{d.prLab}}%; top: 72px"><span class="amber" style="font-weight: 600">سعر الحماية</span><br><span class="num" style="font-weight: 500">{{d.prot}}</span></div>
+                  <div class="lg" style="left: {{d.fLab}}%; top: 72px"><span class="blue" style="font-weight: 600">السعر العادل</span><br><span class="num" style="font-weight: 500">{{d.fair}}</span></div>
+                  <div class="lg" style="left: {{d.bLab}}%; top: 72px"><span class="sec">المتفائل</span><br><span class="num" style="font-weight: 500">{{d.bull}}</span></div>
+                </div>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1)">
+                  <div class="kv"><small>السعر العادل</small><b class="num blue">{{d.fair}}</b></div>
+                  <div class="kv"><small>النطاق (المتشائم – المتفائل)</small><b class="num">{{d.range}}</b></div>
+                  <div class="kv"><small style="display: flex; align-items: center; gap: 6px">سعر الحماية <button class="hq" aria-label="ما هو سعر الحماية؟" aria-expanded="{{helpOn}}" onClick="{{toggleHelp}}">؟</button></small><b class="num amber">{{d.prot}}</b></div>
+                  <div class="kv"><small>التصنيف</small><b>{{d.rating}}</b></div>
+                  <div class="kv"><small>تاريخ التقييم</small><b class="num">{{d.vdate}}</b></div>
+                  <div class="kv"><small>السعر وقت التقييم</small><b class="num">{{d.vprice}}</b><small>{{d.vnote}}</small></div>
+                  <div class="kv"><small>الفرق عن العادل</small><b style="font-size: 13px"><sc-if value="{{d.stAbove}}">أعلى من العادل بـ </sc-if><sc-if value="{{d.stBelowAny}}">أقل من العادل بـ </sc-if><span class="num">{{d.gapPct}}</span></b></div>
+                </div>
+                <div>
+                  <div class="sec" style="font-size: 12px; margin-bottom: 4px">كل التقييمات والسعر وقت كل واحد</div>
+                  <div style="display: grid; grid-template-columns: 88px 1fr 1fr 1.2fr; gap: 8px; padding: 4px 0; font-size: 12px" class="sec"><span>التاريخ</span><span>العادل</span><span>السعر وقتها</span><span>الفرق</span></div>
+                  <sc-for list="{{d.hist}}" as="h" hint-placeholder-count="3"><div style="display: grid; grid-template-columns: 88px 1fr 1fr 1.2fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px"><span class="num sec">{{h.date}}</span><b class="num blue" style="font-weight: 600">{{h.fair}}</b><b class="num" style="font-weight: 500">{{h.price}}</b><span class="sec" style="white-space: nowrap">{{h.rel}} <b class="num" style="font-weight: 600; color: var(--dsw-alias-label-primary)">{{h.pct}}</b></span></div></sc-for>
+                  <sc-if value="{{d.light}}"><div class="sec" style="font-size: 12px; line-height: 1.7">التحديث الخفيف = مراجعة أسبوعية سريعة للأخبار والأسعار بدون إعادة تقييم كامل، والسعر العادل فيه لم يتغير.</div></sc-if>
+                </div>
+                <sc-if value="{{helpOn}}" hint-placeholder-val="{{true}}">
+                  <div role="note" style="padding: 10px 12px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-state-warn-tertiary); font-size: 13px; line-height: 1.7">سعر الحماية = <span class="num">80%</span> من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع.</div>
+                </sc-if>
+                <div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+                  <span class="sec" style="font-size: 12px">مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.</span>
+                  <a href="Analysis.dc.html" style="font-size: 13px; font-weight: 500">افتح التحليل الكامل ←</a>
+                </div>
+              </div>
+            </sc-if>
+            <sc-if value="{{d.unvalued}}">
+              <div style="border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px">
+                <span style="font-size: 16px; font-weight: 600">لم يُقيَّم {{d.sym}} بعد</span>
+                <span class="sec">لا يوجد سعر عادل ولا سعر حماية. اكتب في المحادثة: <b style="font-weight: 500">قيّم سهم <span class="num">{{d.sym}}</span></b></span>
+                <button class="btn" onClick="{{d.prefill}}">جهّز الرسالة في المحادثة</button>
+              </div>
+            </sc-if>
+            <sc-if value="{{d.noPrice}}">
+              <div style="border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column; align-items: flex-start; gap: 12px">
+                <span style="font-size: 16px; font-weight: 600">{{d.sym}} بانتظار السعر</span>
+                <span class="sec">وصلنا للحد اليومي (<span class="num">20</span> تحديثًا) قبل ما نجيب سعر السهم ده. هيتحدّث في التحديث القادم، وبعدها تقدر تطلب تقييمه.</span>
+              </div>
+            </sc-if>
+          </div>
+
+          <div style="flex: 2 1 520px; min-width: 0; align-self: flex-start; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 12px">
+            <div style="display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px">
+              <b style="font-weight: 600; font-size: 14px"><span class="num">{{d.sym}}</span> · شموع يومية</b><span class="sec"><span class="num">60</span> جلسة من <span class="num">20/07</span> إلى <span class="num">14/10</span></span>
+              <span style="flex: 1"></span>
+              <span class="sec" style="display: flex; align-items: center; gap: 6px"><svg width="20" height="4" aria-hidden="true"><path d="M0 2h20" stroke="var(--dsw-alias-state-business-primary)" stroke-width="2" stroke-dasharray="4 3"></path></svg>السعر العادل</span>
+              <span class="sec" style="display: flex; align-items: center; gap: 6px"><svg width="20" height="4" aria-hidden="true"><path d="M0 2h20" stroke="var(--dsw-alias-state-warn-primary)" stroke-width="2"></path></svg>سعر الحماية</span>
+              <span class="sec" style="display: flex; align-items: center; gap: 6px"><svg width="12" height="12" aria-hidden="true"><circle cx="6" cy="6" r="4.5" fill="var(--dsw-alias-label-primary)"></circle></svg>تقييم جديد</span>
+            </div>
+            <sc-if value="{{chartComi}}" hint-placeholder-val="{{true}}">
+              <svg viewBox="0 0 762 266" style="width: 100%; height: auto; direction: ltr" role="img" aria-label="شارت شموع يومية لسهم COMI من 20/07 إلى 14/10 مع السعر العادل وسعر الحماية حسب تاريخ كل تقييم">
+                <rect x="650" y="0" width="52" height="240" fill="var(--dsw-alias-bg-module-platform)"></rect>
+                <path class="gl" d="M0 25.7H702M0 68.6H702M0 111.4H702M0 154.3H702M0 197.1H702"></path>
+                <text class="ax" x="2" y="21.7">140</text><text class="ax" x="2" y="107.4">120</text><text class="ax" x="2" y="193.1">100</text>
+                <path d="M648 0V240" stroke="var(--dsw-alias-border-l4)" stroke-width="1" stroke-dasharray="2 3"></path>
+                <path class="cu" stroke-width="1" d="M5.4 38.8V40.2M5.4 51.4V52.2M2.2 40.2h6.48V51.4h-6.48ZM16.2 24.0V25.9M16.2 40.2V40.2M13.0 25.9h6.48V40.2h-6.48ZM27.0 24.4V25.7M27.0 26.5V31.3M23.8 25.7h6.48V26.5h-6.48ZM48.6 19.7V25.7M48.6 31.3V32.1M45.4 25.7h6.48V31.3h-6.48ZM59.4 14.8V20.4M59.4 25.7V26.9M56.2 20.4h6.48V25.7h-6.48ZM81.0 21.4V21.4M81.0 24.4V32.6M77.8 21.4h6.48V24.4h-6.48ZM91.8 15.0V19.3M91.8 21.4V22.0M88.6 19.3h6.48V21.4h-6.48ZM135.0 21.4V25.1M135.0 29.3V29.3M131.8 25.1h6.48V29.3h-6.48ZM145.8 21.4V23.6M145.8 25.1V26.3M142.6 23.6h6.48V25.1h-6.48ZM178.2 25.8V25.8M178.2 30.0V33.0M175.0 25.8h6.48V30.0h-6.48ZM199.8 25.7V25.9M199.8 28.8V32.6M196.6 25.9h6.48V28.8h-6.48ZM243.0 32.3V38.6M243.0 45.4V45.7M239.8 38.6h6.48V45.4h-6.48ZM253.8 25.7V30.9M253.8 37.7V37.9M250.6 30.9h6.48V37.7h-6.48ZM264.6 26.1V27.9M264.6 29.9V31.7M261.4 27.9h6.48V29.9h-6.48ZM275.4 21.4V21.6M275.4 27.9V28.3M272.2 21.6h6.48V27.9h-6.48ZM318.6 25.7V30.0M318.6 38.5V38.5M315.4 30.0h6.48V38.5h-6.48ZM340.2 21.4V21.4M340.2 30.1V30.8M337.0 21.4h6.48V30.1h-6.48ZM351.0 15.0V17.2M351.0 21.4V25.7M347.8 17.2h6.48V21.4h-6.48ZM448.2 51.4V57.8M448.2 60.9V62.9M445.0 57.8h6.48V60.9h-6.48ZM459.0 49.3V52.7M459.0 55.7V57.3M455.8 52.7h6.48V55.7h-6.48ZM469.8 51.6V55.1M469.8 55.9V57.9M466.6 55.1h6.48V55.9h-6.48ZM502.2 74.0V76.3M502.2 77.1V82.2M499.0 76.3h6.48V77.1h-6.48ZM556.2 76.5V78.4M556.2 81.3V84.6M553.0 78.4h6.48V81.3h-6.48Z"></path>
+                <path class="cd" stroke-width="1" d="M37.8 24.4V25.7M37.8 31.3V32.1M34.6 25.7h6.48V31.3h-6.48ZM70.2 13.4V20.4M70.2 24.4V24.4M67.0 20.4h6.48V24.4h-6.48ZM102.6 16.7V19.3M102.6 21.9V26.5M99.4 19.3h6.48V21.9h-6.48ZM113.4 21.4V21.9M113.4 24.7V28.8M110.2 21.9h6.48V24.7h-6.48ZM124.2 21.4V24.7M124.2 29.3V29.8M121.0 24.7h6.48V29.3h-6.48ZM156.6 23.6V23.6M156.6 25.7V29.2M153.4 23.6h6.48V25.7h-6.48ZM167.4 25.7V25.7M167.4 30.0V32.1M164.2 25.7h6.48V30.0h-6.48ZM189.0 25.8V25.8M189.0 28.8V30.9M185.8 25.8h6.48V28.8h-6.48ZM210.6 21.4V25.9M210.6 30.6V32.0M207.4 25.9h6.48V30.6h-6.48ZM221.4 28.3V30.6M221.4 32.1V34.2M218.2 30.6h6.48V32.1h-6.48ZM232.2 30.0V31.7M232.2 42.9V42.9M229.0 31.7h6.48V42.9h-6.48ZM286.2 17.2V21.9M286.2 28.8V34.3M283.0 21.9h6.48V28.8h-6.48ZM297.0 28.3V28.5M297.0 33.8V43.1M293.8 28.5h6.48V33.8h-6.48ZM307.8 30.4V30.4M307.8 41.6V41.6M304.6 30.4h6.48V41.6h-6.48ZM329.4 27.8V30.0M329.4 30.8V35.1M326.2 30.0h6.48V30.8h-6.48ZM361.8 13.7V16.7M361.8 25.5V25.5M358.6 16.7h6.48V25.5h-6.48ZM372.6 21.4V23.4M372.6 32.0V32.0M369.4 23.4h6.48V32.0h-6.48ZM383.4 23.3V27.8M383.4 29.2V33.8M380.2 27.8h6.48V29.2h-6.48ZM394.2 27.5V27.8M394.2 33.6V33.6M391.0 27.8h6.48V33.6h-6.48ZM405.0 34.7V38.6M405.0 42.6V42.6M401.8 38.6h6.48V42.6h-6.48ZM415.8 40.7V42.5M415.8 54.4V56.1M412.6 42.5h6.48V54.4h-6.48ZM426.6 51.4V54.4M426.6 57.8V61.8M423.4 54.4h6.48V57.8h-6.48ZM437.4 53.7V55.7M437.4 61.0V63.8M434.2 55.7h6.48V61.0h-6.48ZM480.6 53.8V54.7M480.6 62.2V62.2M477.4 54.7h6.48V62.2h-6.48ZM491.4 60.0V60.0M491.4 76.7V76.7M488.2 60.0h6.48V76.7h-6.48ZM513.0 68.7V68.8M513.0 74.0V75.0M509.8 68.8h6.48V74.0h-6.48ZM523.8 68.6V74.2M523.8 75.0V81.0M520.6 74.2h6.48V75.0h-6.48ZM534.6 70.7V74.7M534.6 77.1V77.1M531.4 74.7h6.48V77.1h-6.48ZM545.4 76.3V76.3M545.4 84.4V92.1M542.2 76.3h6.48V84.4h-6.48ZM567.0 73.7V77.1M567.0 81.5V81.5M563.8 77.1h6.48V81.5h-6.48ZM577.8 77.1V78.0M577.8 85.5V87.5M574.6 78.0h6.48V85.5h-6.48ZM588.6 80.6V83.6M588.6 89.3V89.8M585.4 83.6h6.48V89.3h-6.48ZM599.4 86.1V87.7M599.4 91.5V93.7M596.2 87.7h6.48V91.5h-6.48ZM610.2 89.5V90.8M610.2 99.9V99.9M607.0 90.8h6.48V99.9h-6.48ZM621.0 92.4V99.4M621.0 100.8V106.7M617.8 99.4h6.48V100.8h-6.48ZM631.8 94.4V101.6M631.8 107.1V111.4M628.6 101.6h6.48V107.1h-6.48ZM642.6 94.3V101.6M642.6 102.8V105.8M639.4 101.6h6.48V102.8h-6.48Z"></path>
+                <path d="M0 120.0H676V64.3H702" stroke="var(--dsw-alias-state-business-primary)" stroke-width="1.6" stroke-dasharray="6 4" fill="none"></path>
+                <path d="M0 221.1H676V176.6H702" stroke="var(--dsw-alias-state-warn-primary)" stroke-width="1.6" fill="none"></path>
+                <circle cx="676" cy="64.3" r="5" fill="var(--dsw-alias-state-business-primary)" stroke="var(--dsw-alias-bg-base)" stroke-width="2"></circle>
+                <circle cx="676" cy="176.6" r="5" fill="var(--dsw-alias-state-warn-primary)" stroke="var(--dsw-alias-bg-base)" stroke-width="2"></circle>
+                <text class="axd" x="676" y="52.3" text-anchor="middle" style="fill: var(--dsw-alias-label-primary); font-weight: 600">تقييم <tspan class="ax" style="fill: var(--dsw-alias-label-primary); font-weight: 600">15/10</tspan> </text>
+                <text class="axd" x="8" y="137.0" text-anchor="start" style="fill: var(--dsw-alias-state-business-primary); font-weight: 600">العادل <tspan class="ax" style="fill: var(--dsw-alias-state-business-primary); font-weight: 600">118.00</tspan> منذ <tspan class="ax" style="fill: var(--dsw-alias-state-business-primary); font-weight: 600">20/07</tspan> </text>
+                <text class="axd" x="8" y="214.1" text-anchor="start" style="fill: var(--dsw-alias-state-warn-label); font-weight: 600">الحماية <tspan class="ax" style="fill: var(--dsw-alias-state-warn-label); font-weight: 600">94.40</tspan> منذ <tspan class="ax" style="fill: var(--dsw-alias-state-warn-label); font-weight: 600">20/07</tspan> </text>
+                <rect x="706" y="55.3" width="52" height="18" rx="3" fill="var(--dsw-alias-state-business-tertiary)" stroke="var(--dsw-alias-state-business-primary)"></rect><text x="732.0" y="68.3" text-anchor="middle" fill="var(--dsw-alias-label-primary)" style="font: 600 11px var(--ds-font-family-code)">131.00</text>
+                <rect x="706" y="93.9" width="52" height="18" rx="3" fill="var(--dsw-alias-label-primary)"></rect><text x="732.0" y="106.9" text-anchor="middle" fill="var(--dsw-alias-label-primary-foreground)" style="font: 600 11px var(--ds-font-family-code)">122.00</text>
+                <rect x="706" y="167.6" width="52" height="18" rx="3" fill="var(--dsw-alias-state-warn-tertiary)" stroke="var(--dsw-alias-state-warn-primary)"></rect><text x="732.0" y="180.6" text-anchor="middle" fill="var(--dsw-alias-label-primary)" style="font: 600 11px var(--ds-font-family-code)">104.80</text>
+                <path class="gl" d="M91.8 240v4M329.4 240v4M556.2 240v4M676 240v4"></path>
+                <text class="axd" x="91.8" y="259" text-anchor="middle">أغسطس</text><text class="axd" x="329.4" y="259" text-anchor="middle">سبتمبر</text><text class="axd" x="556.2" y="259" text-anchor="middle">أكتوبر</text><text class="ax" x="676" y="259" text-anchor="middle">15/10</text>
+              </svg>
+              <div class="sec" style="font-size: 12px; line-height: 1.7">الخطوط تتبع تاريخ كل تقييم: العادل <span class="num blue">118.00</span> من <span class="num">20/07</span> ثم <span class="num blue">131.00</span> من <span class="num">15/10</span>، أي بعد آخر شمعة. لا نرسم التقييم الجديد على أيام سبقته.</div>
+            </sc-if>
+            <sc-if value="{{chartEast}}" hint-placeholder-val="{{false}}">
+              <svg viewBox="0 0 762 286" style="width: 100%; height: auto; direction: ltr" role="img" aria-label="شارت شموع يومية لسهم EAST مع علامة تقييم 15/10 عند الحافة اليمنى فقط">
+                <rect x="650" y="0" width="52" height="262" fill="var(--dsw-alias-bg-module-platform)"></rect>
+                <rect x="650" y="208" width="52" height="54" fill="var(--dsw-alias-state-warn-primary)" opacity=".16"></rect>
+                <path class="gl" d="M0 1H702M0 74.3H702M0 148.6H702M0 222.9H702"></path>
+                <text class="ax" x="2" y="13">40</text><text class="ax" x="2" y="145.6">32</text>
+                <path d="M648 0V262" stroke="var(--dsw-alias-border-l4)" stroke-width="1" stroke-dasharray="2 3"></path>
+                <path class="cu" stroke-width="1" d="M5.4 48.3V57.2M5.4 59.6V59.6M2.2 57.2h6.48V59.6h-6.48ZM16.2 46.4V47.0M16.2 57.2V59.1M13.0 47.0h6.48V57.2h-6.48ZM27.0 44.4V46.6M27.0 47.6V51.6M23.8 46.6h6.48V47.6h-6.48ZM70.2 59.4V60.2M70.2 71.5V72.4M67.0 60.2h6.48V71.5h-6.48ZM91.8 59.4V66.3M91.8 67.3V70.2M88.6 66.3h6.48V67.3h-6.48ZM124.2 60.9V69.6M124.2 72.2V72.2M121.0 69.6h6.48V72.2h-6.48ZM135.0 61.3V61.3M135.0 69.6V69.6M131.8 61.3h6.48V69.6h-6.48ZM145.8 51.3V54.6M145.8 61.3V63.1M142.6 54.6h6.48V61.3h-6.48ZM178.2 64.3V68.7M178.2 70.6V70.6M175.0 68.7h6.48V70.6h-6.48ZM199.8 61.3V61.5M199.8 69.5V69.5M196.6 61.5h6.48V69.5h-6.48ZM243.0 69.3V73.9M243.0 74.9V74.3M239.8 73.9h6.48V74.9h-6.48ZM253.8 66.9V66.9M253.8 72.4V73.0M250.6 66.9h6.48V72.4h-6.48ZM307.8 68.9V78.0M307.8 87.5V91.0M304.6 78.0h6.48V87.5h-6.48ZM318.6 69.5V71.1M318.6 78.0V87.1M315.4 71.1h6.48V78.0h-6.48ZM340.2 70.6V73.7M340.2 78.0V79.7M337.0 73.7h6.48V78.0h-6.48ZM351.0 65.4V71.3M351.0 72.3V76.3M347.8 71.3h6.48V72.3h-6.48ZM426.6 109.8V125.9M426.6 126.9V126.3M423.4 125.9h6.48V126.9h-6.48ZM491.4 140.4V153.4M491.4 154.4V156.0M488.2 153.4h6.48V154.4h-6.48ZM556.2 195.6V195.6M556.2 207.1V215.1M553.0 195.6h6.48V207.1h-6.48ZM631.8 228.1V230.5M631.8 232.1V241.2M628.6 230.5h6.48V232.1h-6.48ZM642.6 223.8V227.1M642.6 230.3V236.6M639.4 227.1h6.48V230.3h-6.48Z"></path>
+                <path class="cd" stroke-width="1" d="M37.8 44.9V46.6M37.8 59.1V59.1M34.6 46.6h6.48V59.1h-6.48ZM48.6 54.4V59.1M48.6 67.4V72.2M45.4 59.1h6.48V67.4h-6.48ZM59.4 65.7V67.4M59.4 71.5V74.1M56.2 67.4h6.48V71.5h-6.48ZM81.0 61.5V61.5M81.0 66.9V72.4M77.8 61.5h6.48V66.9h-6.48ZM102.6 60.9V66.3M102.6 67.3V66.9M99.4 66.3h6.48V67.3h-6.48ZM113.4 61.3V66.5M113.4 72.2V72.2M110.2 66.5h6.48V72.2h-6.48ZM156.6 52.0V54.6M156.6 66.1V66.9M153.4 54.6h6.48V66.1h-6.48ZM167.4 62.4V66.1M167.4 70.6V72.4M164.2 66.1h6.48V70.6h-6.48ZM189.0 62.6V68.7M189.0 69.7V70.9M185.8 68.7h6.48V69.7h-6.48ZM210.6 53.9V61.5M210.6 62.5V63.7M207.4 61.5h6.48V62.5h-6.48ZM221.4 59.8V62.0M221.4 66.9V67.8M218.2 62.0h6.48V66.9h-6.48ZM232.2 61.3V66.9M232.2 74.3V74.3M229.0 66.9h6.48V74.3h-6.48ZM264.6 65.2V66.9M264.6 78.0V78.0M261.4 66.9h6.48V78.0h-6.48ZM275.4 75.4V75.4M275.4 85.4V92.9M272.2 75.4h6.48V85.4h-6.48ZM286.2 81.7V81.7M286.2 90.1V90.3M283.0 81.7h6.48V90.1h-6.48ZM297.0 86.4V89.9M297.0 91.6V91.6M293.8 89.9h6.48V91.6h-6.48ZM329.4 66.9V71.1M329.4 78.7V78.7M326.2 71.1h6.48V78.7h-6.48ZM361.8 67.0V70.6M361.8 72.4V78.2M358.6 70.6h6.48V72.4h-6.48ZM372.6 69.6V72.4M372.6 86.4V89.3M369.4 72.4h6.48V86.4h-6.48ZM383.4 81.7V83.6M383.4 85.4V94.7M380.2 83.6h6.48V85.4h-6.48ZM394.2 84.9V84.9M394.2 96.6V100.3M391.0 84.9h6.48V96.6h-6.48ZM405.0 93.8V93.8M405.0 106.0V106.0M401.8 93.8h6.48V106.0h-6.48ZM415.8 99.5V104.0M415.8 128.1V129.3M412.6 104.0h6.48V128.1h-6.48ZM437.4 116.1V119.8M437.4 138.4V148.6M434.2 119.8h6.48V138.4h-6.48ZM448.2 126.5V139.5M448.2 148.2V148.2M445.0 139.5h6.48V148.2h-6.48ZM459.0 133.9V143.0M459.0 147.6V148.4M455.8 143.0h6.48V147.6h-6.48ZM469.8 138.4V145.8M469.8 149.5V161.4M466.6 145.8h6.48V149.5h-6.48ZM480.6 148.6V148.8M480.6 152.7V157.7M477.4 148.8h6.48V152.7h-6.48ZM502.2 145.8V152.8M502.2 154.5V174.8M499.0 152.8h6.48V154.5h-6.48ZM513.0 150.8V154.1M513.0 176.1V176.1M509.8 154.1h6.48V176.1h-6.48ZM523.8 168.3V174.8M523.8 187.6V194.1M520.6 174.8h6.48V187.6h-6.48ZM534.6 180.5V185.7M534.6 210.8V213.6M531.4 185.7h6.48V210.8h-6.48ZM545.4 195.0V204.5M545.4 213.4V224.5M542.2 204.5h6.48V213.4h-6.48ZM567.0 185.7V185.7M567.0 196.9V198.7M563.8 185.7h6.48V196.9h-6.48ZM577.8 193.1V195.0M577.8 203.9V211.7M574.6 195.0h6.48V203.9h-6.48ZM588.6 191.5V203.7M588.6 204.7V210.4M585.4 203.7h6.48V204.7h-6.48ZM599.4 200.9V204.1M599.4 219.0V219.0M596.2 204.1h6.48V219.0h-6.48ZM610.2 212.6V216.4M610.2 220.8V221.7M607.0 216.4h6.48V220.8h-6.48ZM621.0 217.3V220.1M621.0 235.1V238.5M617.8 220.1h6.48V235.1h-6.48Z"></path>
+                <path d="M654 74.3H698" stroke="var(--dsw-alias-state-business-primary)" stroke-width="1.6" stroke-dasharray="6 4" fill="none"></path>
+                <path d="M654 208H698" stroke="var(--dsw-alias-state-warn-primary)" stroke-width="1.6" fill="none"></path>
+                <circle cx="676" cy="74.3" r="5" fill="var(--dsw-alias-state-business-primary)" stroke="var(--dsw-alias-bg-base)" stroke-width="2"></circle>
+                <circle cx="676" cy="208" r="5" fill="var(--dsw-alias-state-warn-primary)" stroke="var(--dsw-alias-bg-base)" stroke-width="2"></circle>
+                <text class="axd" x="676" y="58.0" text-anchor="middle" style="fill: var(--dsw-alias-label-primary); font-weight: 600">تقييم <tspan class="ax" style="fill: var(--dsw-alias-label-primary); font-weight: 600">15/10</tspan> </text>
+                <rect x="706" y="65.3" width="52" height="18" rx="3" fill="var(--dsw-alias-state-business-tertiary)" stroke="var(--dsw-alias-state-business-primary)"></rect><text x="732.0" y="78.3" text-anchor="middle" fill="var(--dsw-alias-label-primary)" style="font: 600 11px var(--ds-font-family-code)">36.00</text>
+                <rect x="706" y="190.0" width="52" height="18" rx="3" fill="var(--dsw-alias-state-warn-tertiary)" stroke="var(--dsw-alias-state-warn-primary)"></rect><text x="732.0" y="203.0" text-anchor="middle" fill="var(--dsw-alias-label-primary)" style="font: 600 11px var(--ds-font-family-code)">28.80</text>
+                <rect x="706" y="219.0" width="52" height="18" rx="3" fill="var(--dsw-alias-label-primary)"></rect><text x="732.0" y="232.0" text-anchor="middle" fill="var(--dsw-alias-label-primary-foreground)" style="font: 600 11px var(--ds-font-family-code)">27.77</text>
+                <path class="gl" d="M91.8 262v4M329.4 262v4M556.2 262v4M676 262v4"></path>
+                <text class="axd" x="91.8" y="281" text-anchor="middle">أغسطس</text><text class="axd" x="329.4" y="281" text-anchor="middle">سبتمبر</text><text class="axd" x="556.2" y="281" text-anchor="middle">أكتوبر</text><text class="ax" x="676" y="281" text-anchor="middle">15/10</text>
+              </svg>
+              <div class="sec" style="font-size: 12px; line-height: 1.7">تقييم <span class="num">EAST</span> الوحيد بتاريخ <span class="num">15/10</span>، فالعادل والحماية يظهران عند الحافة اليمنى فقط ولا يمتدان على التاريخ السابق. المنطقة الكهرمانية تحت سعر الحماية.</div>
+            </sc-if>
+            <sc-if value="{{chartNone}}" hint-placeholder-val="{{false}}">
+              <div style="min-height: 240px; display: grid; place-items: center; text-align: center; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); padding: 24px">
+                <div style="display: flex; flex-direction: column; gap: 8px; align-items: center">
+                  <svg width="24" height="24" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="var(--dsw-alias-label-secondary)" stroke-width="1.5" stroke-linecap="round"><path d="M4 20V4M4 20h16M8 15l3-3 3 2 4-6"></path></svg>
+                  <span class="sec">لا توجد شموع محمّلة لـ <span class="num">{{d.sym}}</span> بعد</span>
+                  <span class="sec" style="font-size: 12px">يُحمَّل تاريخ الأسعار عند فتح السهم لأول مرة ويُحسب من حد التحديثات اليومي.</span>
+                </div>
+              </div>
+            </sc-if>
+        <sc-if value="{{d.hasSess}}" hint-placeholder-val="{{true}}">
+          <div>
+            <div class="sec-t" style="margin-bottom: 8px">آخر 10 جلسات</div>
+            <div class="sk">
+              <sc-for list="{{sess}}" as="s" hint-placeholder-count="10"><div><span class="num sec" style="font-size: 12px">{{s.d}}</span><b class="num" style="font-weight: 500">{{s.c}}</b><span class="num {{s.dir}}" style="font-size: 12px">{{s.p}}</span></div></sc-for>
+            </div>
+          </div>
+        </sc-if>
+            <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 8px; font-size: 12px" class="ter"><span>الأسعار يومية ومتأخرة وليست لحظية</span><a href="https://www.tradingview.com/" style="color: inherit">Lightweight Charts™ · TradingView</a></div>
+          </div>
+        </div>
+
+      </div>
+    </sc-if>
+
+    <!-- tab 1: chart -->
+    <sc-if value="{{tab1}}" hint-placeholder-val="{{false}}">
+      <div style="padding: 16px">
+        <div class="tv">
+          <div class="tvh"><span>TradingView · Advanced Chart · <span class="num">{{d.sym}}</span></span><a href="https://www.tradingview.com/" style="color: inherit">TradingView®</a></div>
+          <div style="flex: 1; display: grid; place-items: center; min-height: 270px; text-align: center" class="sec">إطار الشارت المتقدم من TradingView يظهر هنا</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- tab 2: financials -->
+    <sc-if value="{{tab2}}" hint-placeholder-val="{{false}}">
+      <div style="padding: 16px">
+        <div class="tv" style="min-height: 380px">
+          <div class="tvh"><span>TradingView · Financials · <span class="num">{{d.sym}}</span></span><a href="https://www.tradingview.com/" style="color: inherit">TradingView®</a></div>
+          <div style="flex: 1; display: grid; place-items: center; min-height: 330px; text-align: center" class="sec">إطار البيانات المالية من TradingView يظهر هنا</div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- tab 3: technical analysis -->
+    <sc-if value="{{tab3}}" hint-placeholder-val="{{false}}">
+      <div style="padding: 16px; display: flex; flex-direction: column; gap: 16px">
+        <div role="note" style="display: flex; gap: 12px; align-items: flex-start; padding: 12px 16px; border: 1px solid var(--dsw-alias-state-warn-primary); background: var(--dsw-alias-state-warn-tertiary); border-radius: var(--dsw-radius-sm)">
+          <b class="amber" style="white-space: nowrap">تنبيه</b>
+          <span>إشارة آلية من TradingView مبنية على مؤشرات فنية فقط — ليست تقييمنا وليست توصية بالشراء أو البيع.</span>
+        </div>
+        <div class="tv">
+          <div class="tvh"><span>TradingView · Technical Analysis · <span class="num">{{d.sym}}</span></span><a href="https://www.tradingview.com/" style="color: inherit">TradingView®</a></div>
+          <div style="flex: 1; display: grid; place-items: center; min-height: 270px; text-align: center" class="sec">إطار التحليل الفني من TradingView يظهر هنا</div>
+        </div>
+      </div>
+    </sc-if>
+  </section>
+
+  <p class="sec" style="font-size: 12px; margin: 16px 0 0; line-height: 1.7">الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه. التقييم ليس توصية بالشراء أو البيع.</p>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":2392}}'>
+class Component extends DCLogic {
+  constructor(p) {
+    super(p);
+    this.state = { sel: 'COMI', tab: 0, period: 'm', mine: false, q: '', sortKey: 'w', sortDir: -1, prefill: '', filter: 'all', grp: false, help: true };
+  }
+  renderVals() {
+    const S = this.state;
+    const M = '−';
+    const sg = (v, d) => (v > 0 ? '+' : v < 0 ? M : '') + Math.abs(v).toFixed(d);
+    const dir = (v) => (v > 0 ? 'up' : v < 0 ? 'down' : 'flat');
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    // sym, name, sector, close, chg, chg%, 1M%, 3M%, 1Y%, lo52, hi52, vol, weight, fair, prot, bull, rating, mine, date
+    const RAW = [
+      ['COMI','البنك التجاري الدولي','بنوك',122.00,1.00,0.83,-8.5,-12.9,8.4,98.30,145.01,'6.19M',28.76,131.00,104.80,163.75,1,true,'14/10',100.00],
+      ['TMGH','طلعت مصطفى القابضة','تطوير عقاري',83.94,-0.06,-0.07,-13.2,-15.9,21.5,56.20,103.87,'2.45M',9.72,95.00,76.00,118.75,2,false,'14/10',70.00],
+      ['ETEL','المصرية للاتصالات','اتصالات',145.00,-1.80,-1.23,14.2,9.1,71.8,48.00,156.00,'2.01M',8.94,null,null,null,0,true,'14/10'],
+      ['FWRY','فوري','تكنولوجيا مالية',18.40,-0.23,-1.23,-2.7,-6.4,11.2,13.90,21.66,'3.29M',5.74,null,null,null,0,false,'14/10'],
+      ['EFIH','إي فاينانس','تكنولوجيا مالية',23.84,0.23,0.97,3.7,5.9,24.8,12.91,25.40,'1.14M',4.99,null,null,null,0,false,'14/10'],
+      ['EAST','الشرقية للدخان','أغذية وتبغ',27.77,0.18,0.65,-16.1,-22.4,-31.5,27.01,49.99,'0.85M',4.83,36.00,28.80,45.00,3,true,'14/10',25.20],
+      ['ABUK','أبوقير للأسمدة','أسمدة',84.34,0.01,0.01,-4.8,-7.9,24.6,45.18,96.29,'0.57M',3.25,null,null,null,0,false,'14/10'],
+      ['HRHO','إي إف جي القابضة','خدمات مالية',25.36,0.16,0.63,0.4,2.8,9.7,22.81,31.50,'1.68M',3.01,null,null,null,0,false,'14/10'],
+      ['ORAS','أوراسكوم كونستراكشون','مقاولات',907.00,26.00,2.95,6.0,14.2,112.5,395.00,925.00,'0.48M',2.83,null,null,null,0,false,'14/10'],
+      ['ADIB','مصرف أبوظبي الإسلامي','بنوك',46.76,2.26,5.08,-8.9,-12.7,61.3,22.95,55.65,'2.20M',2.64,null,null,null,0,false,'12/10'],
+      ['SWDY','السويدي إليكتريك','صناعات كهربائية',56.10,0.90,1.63,5.2,9.8,21.4,38.20,59.80,'1.42M',2.51,null,null,null,0,false,'14/10'],
+      ['MFPC','موبكو','أسمدة',31.35,0.45,1.46,2.1,4.4,12.0,24.10,34.90,'0.77M',2.12,null,null,null,0,false,'14/10'],
+      ['ESRS','حديد عز','صناعات معدنية',69.40,-0.80,-1.14,-3.5,-6.2,10.3,52.00,81.50,'0.64M',1.97,null,null,null,0,false,'14/10'],
+      ['CIEB','كريدي أجريكول مصر','بنوك',52.30,-0.30,-0.57,0.8,3.1,15.5,41.00,58.20,'0.39M',1.74,null,null,null,0,false,'14/10'],
+      ['EGCH','الصناعات الكيماوية المصرية','كيماويات',21.40,-0.25,-1.15,-1.9,2.0,8.8,16.50,25.30,'0.52M',1.41,null,null,null,0,false,'14/10']
+    ];
+    const NOP = [['AMOC','الإسكندرية للزيوت المعدنية','—',1.33],['BTFH','بلتون القابضة','خدمات مالية',1.18],['CLHO','مستشفى كليوباترا','رعاية صحية',1.12],['EGAL','مصر للألومنيوم','صناعات معدنية',1.05],['EMFD','إعمار مصر للتنمية','تطوير عقاري',1.02],['GBCO','جي بي أوتو','سيارات',0.98],['HELI','مصر الجديدة للإسكان','تطوير عقاري',0.94],['ISPH','ابن سينا فارما','أدوية',0.9],['JUFO','جهينة للصناعات الغذائية','أغذية',0.87],['MCQE','مصر للأسمنت قنا','مواد بناء',0.84],['ORHD','أوراسكوم للتنمية','تطوير عقاري',0.8],['PHDC','بالم هيلز للتعمير','تطوير عقاري',0.77],['RAYA','راية القابضة','خدمات',0.73],['SKPC','سيدي كرير للبتروكيماويات','بتروكيماويات',0.7],['RMDA','العاشر من رمضان للصناعات الدوائية','أدوية',0.66],['VLMRA','فالمور القابضة','خدمات مالية',0.6]];
+    const HIST = {
+      COMI: { vdate: '15/10/2026', vprice: '122.00', vnote: 'إغلاق 14/10', rows: [
+        { date: '15/10/2026', fair: '131.00', price: '122.00', rel: 'أقل', pct: '6.9%' },
+        { date: '20/07/2026', fair: '118.00', price: '136.60', rel: 'أعلى', pct: '15.8%' },
+        { date: '15/04/2026', fair: '110.00', price: '137.50', rel: 'أعلى', pct: '25.0%' }] },
+      TMGH: { vdate: '10/09/2026', light: true, vprice: '99.05', vnote: 'وقت التقييم الكامل', rows: [
+        { date: '15/10/2026', fair: '95.00', price: '83.94', rel: 'أقل', pct: '11.6%' },
+        { date: '10/09/2026', fair: '95.00', price: '99.05', rel: 'أعلى', pct: '4.3%' }] },
+      EAST: { vdate: '15/10/2026', vprice: '27.77', vnote: 'إغلاق 14/10', rows: [
+        { date: '15/10/2026', fair: '36.00', price: '27.77', rel: 'أقل', pct: '22.9%' }] }
+    };
+    const RL = ['', 'آمن', 'متوازن', 'مرتفع المخاطر'];
+    const TIPS = {
+      above: 'السعر عند السعر العادل أو فوقه',
+      below: 'السعر أعلى من سعر الحماية وأقل من السعر العادل',
+      under: 'السعر أقل من سعر الحماية (80% من العادل) — تنبيه للمراجعة وليس أمر بيع'
+    };
+    const per = S.period;
+    const perLabel = { m: 'شهر', q: '3 شهور', y: 'سنة' }[per];
+    const perIdx = { m: 6, q: 7, y: 8 }[per];
+
+    // rows with price
+    const all = RAW.map((r) => {
+      const [sym, name, sector, price, chg, pct, p1m, p3m, p1y, lo, hi, vol, w, fair, prot, bull, rating, mine, date, bear] = r;
+      const pv = r[perIdx];
+      const valued = fair != null;
+      const o = {
+        sym, name, sector, mine, w: w.toFixed(2) + '%', wRaw: w, hasPrice: true, noPrice: false, valued, unvalued: !valued,
+        price: price.toFixed(2), date, stale: date !== '14/10', fresh: date === '14/10',
+        dayTxt: sg(chg, 2) + ' (' + sg(pct, 2) + '%)', dir: date !== '14/10' ? 'sec' : dir(chg), sortChg: date !== '14/10' ? null : pct, dayLabel: date !== '14/10' ? 'التغير في جلسة ' + date : 'التغير اليوم',
+        per: sg(pv, 1) + '%', perDir: dir(pv), sortPer: pv, sortPrice: price,
+        lo: lo.toFixed(2), hi: hi.toFixed(2), vol,
+        pos52: clamp((price - lo) / (hi - lo) * 100, 0, 100).toFixed(1),
+        hasSess: sym === 'COMI', sortW: w
+      };
+      if (valued) {
+        const pad = (bull - bear) * 0.08;
+        const lo2 = Math.min(bear, price) - pad, hi2 = Math.max(bull, price) + pad;
+        const P = (x) => ((x - lo2) / (hi2 - lo2) * 100);
+        const gapV = (fair - price) / fair * 100;
+        const status = price >= fair ? 'above' : price >= prot ? 'below' : 'under';
+        // label positions with minimum separation
+        const L = [['be', P(bear)], ['pr', P(prot)], ['f', P(fair)], ['b', P(bull)]].sort((a, b) => a[1] - b[1]);
+        const lab = {};
+        let prev = -100;
+        L.forEach(([k, v]) => { let x = clamp(v, 12, 88); if (x < prev + 22) x = prev + 22; lab[k] = x; prev = x; });
+        if (lab.b > 90) { lab.b = 90; lab.f = Math.min(lab.f, 68); lab.pr = Math.min(lab.pr, 46); lab.be = Math.min(lab.be, 24); }
+        Object.assign(o, {
+          fair: fair.toFixed(2), prot: prot.toFixed(2), bull: bull.toFixed(2), bear: bear.toFixed(2), range: bear.toFixed(2) + ' – ' + bull.toFixed(2),
+          gapPct: Math.abs(gapV).toFixed(1) + '%', protGap: ((prot - price) / prot * 100).toFixed(1) + '%', sortGap: gapV,
+          vdate: HIST[sym].vdate, vprice: HIST[sym].vprice, vnote: HIST[sym].vnote, light: !!HIST[sym].light, hist: HIST[sym].rows, rating: RL[rating], rCls: 'r' + rating,
+          bePos: P(bear).toFixed(1), prPos: P(prot).toFixed(1), fPos: P(fair).toFixed(1), bPos: P(bull).toFixed(1), pPos: P(price).toFixed(1),
+          segW: (P(bull) - P(bear)).toFixed(1),
+          pLab: clamp(P(price), 8, 92).toFixed(1), beLab: lab.be.toFixed(1), prLab: lab.pr.toFixed(1), fLab: lab.f.toFixed(1), bLab: lab.b.toFixed(1),
+          stUnder: status === 'under', stBelow: status === 'below', stAbove: status === 'above', stBelowAny: status !== 'above', stTip: TIPS[status], status
+        });
+      } else {
+        o.sortGap = null; o.fair = '—'; o.gapPct = '—'; o.status = '';
+      }
+      o.prefill = (e) => { if (e && e.stopPropagation) e.stopPropagation(); this.setState({ prefill: 'قيّم سهم ' + sym }); };
+      return o;
+    });
+    const nopAll = NOP.map(([sym, name, sector, w]) => ({ sym, name, sector, w: w.toFixed(2) + '%', hasPrice: false, noPrice: true, valued: false, unvalued: false, mine: false, price: '—', date: '', dayTxt: '', per: '', perDir: '', lo: '', hi: '', vol: '', pos52: '0', hasSess: false, stale: false, status: '', fair: '—', gapPct: '—' }));
+
+    // counts (static universe)
+    const cnt = {
+      all: all.length + nopAll.length,
+      valued: all.filter((r) => r.valued).length,
+      under: all.filter((r) => r.status === 'under').length,
+      unvalued: all.filter((r) => r.unvalued).length,
+      nop: nopAll.length,
+      stale: all.filter((r) => r.stale).length
+    };
+
+    // filter + search
+    const q = S.q.trim().toLowerCase();
+    const mq = (r) => !q || r.sym.toLowerCase().includes(q) || r.name.includes(S.q.trim());
+    const fmatch = {
+      all: () => true, valued: (r) => r.valued, under: (r) => r.status === 'under', unvalued: (r) => r.unvalued, stale: (r) => r.stale, nop: () => false
+    }[S.filter];
+    let rows = all.filter((r) => (!S.mine || r.mine) && mq(r) && fmatch(r));
+    const key = { w: 'sortW', chg: 'sortChg', per: 'sortPer', gap: 'sortGap', price: 'sortPrice' }[S.sortKey];
+    rows = rows.slice().sort((a, b) => {
+      const av = a[key], bv = b[key];
+      if (av == null && bv == null) return b.wRaw - a.wRaw;
+      if (av == null) return 1;
+      if (bv == null) return -1;
+      return (av - bv) * S.sortDir || b.wRaw - a.wRaw;
+    });
+    rows = rows.map((r) => {
+      const sel = r.sym === S.sel;
+      return Object.assign({}, r, { sel, cls: sel ? 'sel' : '', pick: () => this.setState({ sel: r.sym }) });
+    });
+
+    // folded group
+    const grpAllowed = (S.filter === 'all' || S.filter === 'nop') && !S.mine;
+    const grpMatch = nopAll.filter(mq);
+    const grpShow = grpAllowed && grpMatch.length > 0;
+    const grpOpen = grpShow && (S.grp || S.filter === 'nop' || !!q);
+    const grpItems = grpMatch.map((t) => ({ sym: t.sym, name: t.name, cls: t.sym === S.sel ? 'sel' : '', pick: () => this.setState({ sel: t.sym }) }));
+    const shown = rows.length + (grpOpen ? grpMatch.length : 0);
+    const foldedN = grpShow && !grpOpen ? grpMatch.length : 0;
+    const grpPreview = grpMatch.slice(0, 7).map((t) => t.sym).join(' · ') + ' …';
+
+    const d = all.find((r) => r.sym === S.sel) || nopAll.find((r) => r.sym === S.sel) || all[0];
+    d.prefill = d.prefill || ((e) => this.setState({ prefill: 'قيّم سهم ' + d.sym }));
+    const sess = [['14/10','122.00',0.83],['13/10','121.00',-1.22],['12/10','122.49',-0.17],['11/10','122.70',-1.56],['07/10','124.65',-0.41],['06/10','125.16',-0.71],['05/10','126.05',-0.74],['04/10','126.99',-0.55],['01/10','127.69',1.10],['30/09','126.30',-1.34]]
+      .map(([dd, c, p]) => ({ d: dd, c, p: sg(p, 2) + '%', dir: dir(p) }));
+
+    const labels = ['تقييمنا', 'الشارت المتقدم', 'البيانات المالية', 'التحليل الفني'];
+    const tabs = labels.map((label, i) => ({ label, on: S.tab === i, cls: S.tab === i ? 'on' : '', pick: () => this.setState({ tab: i }) }));
+    const periods = [['m','شهر'],['q','3 شهور'],['y','سنة']].map(([k, label]) => ({ label, on: per === k, pick: () => this.setState({ period: k }) }));
+
+    const setSort = (k) => () => this.setState((s) => ({ sortKey: k, sortDir: s.sortKey === k ? -s.sortDir : -1 }));
+    const mkCol = (label, k, extra) => ({
+      label, sortable: !!k, plain: !k, cls: S.sortKey === k ? 'on' : '', pick: k ? setSort(k) : () => {},
+      desc: !!k && S.sortKey === k && S.sortDir < 0, asc: !!k && S.sortKey === k && S.sortDir > 0,
+      aria: k && S.sortKey === k ? (S.sortDir < 0 ? 'descending' : 'ascending') : 'none'
+    });
+    const cols = [mkCol('السهم', 'w'), mkCol('آخر سعر', 'price'), mkCol('اليوم', 'chg'), mkCol(perLabel, 'per'), mkCol('التقييم', 'gap'), mkCol('التصنيف', null), mkCol('نطاق 52 أسبوعًا', null)];
+    const sortNames = { w: 'حصته من المؤشر', price: 'آخر سعر', chg: 'التغير اليوم', per: 'أداء ' + perLabel, gap: 'الفرق عن العادل' };
+    const sortOpts = Object.keys(sortNames).map((k) => ({ v: k, label: sortNames[k], sel: S.sortKey === k }));
+
+    const chipDefs = [['all','الكل'],['valued','مقيَّم'],['under','تحت الحماية'],['unvalued','لم يُقيَّم'],['nop','بدون سعر'],['stale','قديم']];
+    const chips = chipDefs.map(([k, label]) => ({ label, n: cnt[k], on: S.filter === k, cls: k === 'under' ? 'warn' : '', pick: () => this.setState({ filter: k }) }));
+
+    const goto = (sym, tab) => () => this.setState({ sel: sym, tab: tab || 0 });
+
+    return {
+      theme: this.props.theme ?? 'light',
+      rows, d, sess, tabs, periods, cols, chips, sortOpts, perLabel, q: S.q, mine: S.mine,
+      sortDesc: S.sortDir < 0, sortAsc: S.sortDir > 0, dirLabel: S.sortDir < 0 ? 'الأعلى أولًا' : 'الأقل أولًا',
+      shown, foldedN, empty: rows.length === 0 && !grpShow, prefillNote: S.prefill,
+      grpShow, grpOpen, grpClosed: grpShow && !grpOpen, grpN: grpMatch.length, grpItems, grpPreview, grpAction: grpOpen ? 'طيّ القائمة' : 'عرض الأسماء',
+      toggleGrp: () => this.setState((s) => (s.filter === 'nop' ? { filter: 'all', grp: false } : { grp: !s.grp })),
+      helpOn: S.help, toggleHelp: () => this.setState((s) => ({ help: !s.help })),
+      tab0: S.tab === 0, tab1: S.tab === 1, tab2: S.tab === 2, tab3: S.tab === 3,
+      chartComi: S.tab === 0 && d.sym === 'COMI', chartEast: S.tab === 0 && d.sym === 'EAST', chartNone: S.tab === 0 && d.sym !== 'COMI' && d.sym !== 'EAST',
+      onQ: (e) => this.setState({ q: e.target.value }),
+      toggleMine: () => this.setState((s) => ({ mine: !s.mine })),
+      onSort: (e) => this.setState({ sortKey: e.target.value, sortDir: -1 }),
+      flipDir: () => this.setState((s) => ({ sortDir: -s.sortDir })),
+      refresh: () => this.forceUpdate(),
+      dg1: goto('EAST'), dg2: goto('COMI'), dg3: goto('COMI'),
+      dg4: () => this.setState({ filter: 'all', grp: true, mine: false, q: '' })
+    };
+  }
+}
+</script>
+</body>
+</html>

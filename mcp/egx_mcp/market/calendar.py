@@ -1,6 +1,7 @@
 """EGX session calendar (Africa/Cairo). Exchange holidays are not modelled: a missing bar on a
 holiday is simply re-checked once that day and then left alone."""
 
+import os
 from datetime import date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
@@ -13,6 +14,12 @@ TRADING_WEEKDAYS = {6, 0, 1, 2, 3}  # Sunday..Thursday (Monday=0)
 
 
 def now_cairo() -> datetime:
+    """Current Cairo time. EGX_NOW (an ISO timestamp, Cairo time if it has no offset) pins the clock
+    for development and demos only, e.g. EGX_NOW=2026-10-15T09:02 ./scripts/run-dev.sh."""
+    pinned = os.environ.get("EGX_NOW")
+    if pinned:
+        at = datetime.fromisoformat(pinned)
+        return at.replace(tzinfo=CAIRO) if at.tzinfo is None else at.astimezone(CAIRO)
     return datetime.now(CAIRO)
 
 

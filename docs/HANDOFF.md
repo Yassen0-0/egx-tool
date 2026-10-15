@@ -53,7 +53,9 @@ egx/
 ## 4. التشغيل
 - **تطبيق الديسكتوب (الاستخدام الفعلي):** `scripts/install-desktop.sh` مرة واحدة (يكتب `EGX_HOME` و`EGX_DATA_DIR` و`EGX_UV` في `~/.dsh/.env` ويربط الإضافة كرابط). أي تعديل يظهر بعد إعادة تشغيل التطبيق. الإضافة مثبتة على ملف التطبيق `~/.dsh/profiles/desktop`.
 - **التطوير في المتصفح:** `scripts/run-dev.sh` (harness منفصل في `.dsh-dev`، وقاعدة بيانات منفصلة `.dsh-dev/egx-dev.sqlite`، والتحديث التلقائي معطّل حتى لا يستهلك رصيد الطلبات). بيانات تجريبية: `scripts/seed-dev.py`.
-- **بعد تعديل الشاشات:** `node bundle/build-client.mjs`.
+- **بعد تعديل الشاشات:** `node bundle/build-client.mjs`. المصادر في `bundle/src/`: `client.src.js` (الهيكل والتسجيل في الشريط الجانبي)، و`format.mjs` و`labels.mjs` (دوال مختبرة)، وملف لكل شاشة (`market.js`، `analyses.js`، `portfolio.js`) مع `identity.js` و`components.js` وملفات CSS. البناء يدمجهم في نطاق واحد.
+- **اختبارات الواجهة:** `node --test bundle/test/*.test.mjs`.
+- **تجربة لحظة محددة:** `EGX_NOW=2026-10-15T09:02 ./scripts/run-dev.sh` يثبّت الساعة للتطوير فقط.
 
 ## 5. مصادر البيانات والحالة الحالية
 | البيان | المصدر | الحالة |
@@ -90,6 +92,7 @@ egx/
 ## 8. سجل git
 | commit | المحتوى |
 |---|---|
+| فرع `ui-qima` | واجهة «قيمة» حسب `docs/design/CLAUDE_CODE.md` (المراحل P1–P7، commit لكل مرحلة) |
 | ea71f28 | دمج TradingView في لوحة السوق |
 | b042fae | لوحة السوق وأسعار EODHD |
 | 2189d50 | لوحة التحليلات وحفظ التقرير |

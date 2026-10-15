@@ -26,6 +26,9 @@ window.__ModuleLoader__.load({
     const h = React.createElement
     const PANEL_ID = 'egx-portfolio'
     const ANALYSES_ID = 'egx-analyses'
+    const MARKET_ID = 'egx-market'
+    // Cross-panel navigation: set by apply() when the layout service is available.
+    const nav = { selectPanel: null, pendingAnalysisId: null }
 
     const num = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 2 })
     const qtyFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 4 })
@@ -38,6 +41,10 @@ window.__ModuleLoader__.load({
       below_protection: 'تحت سعر الحماية — يحتاج مراجعة',
     }
     const money = (v) => (v == null ? '—' : num.format(v))
+    const dayFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', timeZone: 'UTC' })
+    const fmtDay = (iso) => (iso ? dayFmt.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`)) : '—')
+    const dateFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' })
+    const fmtDate = (iso) => (iso ? dateFmt.format(new Date(iso)) : '—')
     const tone = (v) => (v > 0 ? 'egxp-gain' : v < 0 ? 'egxp-loss' : '')
 
     async function api(method, path, body) {
@@ -61,10 +68,11 @@ window.__ModuleLoader__.load({
 [data-platform='darwin'] .egxp-head { padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px)); }
 .egxp-title { margin: 0; font-size: 20px; font-weight: 500; line-height: 28px; }
 .egxp-intro { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.egxp-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 12px; }
-.egxp-card { border: 1px solid var(--dsw-alias-border-l3); border-radius: 12px; padding: 12px 16px; background: var(--dsw-alias-bg-layer-2); }
+.egxp-cards { display: flex; flex-wrap: wrap; gap: 12px 0; padding: 4px 0 14px; border-bottom: 1px solid var(--dsw-alias-border-l3); }
+.egxp-card { padding: 0 20px; border-inline-start: 1px solid var(--dsw-alias-border-l3); min-width: 140px; }
+.egxp-card:first-child { padding-inline-start: 0; border-inline-start: 0; }
 .egxp-card-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.egxp-card-value { font-size: 20px; font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.egxp-card-value { font-size: 18px; font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
 .egxp-card-note { font-size: 12px; color: var(--dsw-alias-label-tertiary); margin-top: 2px; }
 .egxp-section { border: 1px solid var(--dsw-alias-border-l3); border-radius: 12px; padding: 16px; }
 .egxp-section-title { margin: 0 0 12px; font-size: 14px; font-weight: 500; }
@@ -163,7 +171,7 @@ window.__ModuleLoader__.load({
         h('div', { className: 'egxp-card' },
           h('div', { className: 'egxp-card-label' }, 'أسهم بدون سعر حالي'),
           h('div', { className: 'egxp-card-value' }, String(unpriced.length)),
-          unpriced.length ? h('div', { className: 'egxp-card-note' }, `${unpriced.join('، ')} — أضف السعر في prices.csv`) : null))
+          unpriced.length ? h('div', { className: 'egxp-card-note' }, `${unpriced.join('، ')} — بانتظار تحديث السوق`) : null))
     }
 
     function AddForm({ universe, onAdded }) {
@@ -254,7 +262,7 @@ window.__ModuleLoader__.load({
         td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: buyPrice,
           'aria-label': 'سعر الشراء', onChange: (e) => setBuyPrice(e.target.value) }) : money(row.buy_price), true),
         td(money(row.cost), true),
-        td([money(row.current_price), row.price_as_of ? sub(row.price_as_of) : null], true),
+        td([money(row.current_price), row.price_as_of ? sub(row.price_as_of.length > 10 ? fmtDate(row.price_as_of) : fmtDay(row.price_as_of)) : null], true),
         td(money(row.market_value), true),
         td([h('span', { key: 'p', className: tone(row.pnl) }, money(row.pnl)),
           row.pnl_pct == null ? null : sub(pct.format(row.pnl_pct), tone(row.pnl_pct))], true),
@@ -311,14 +319,12 @@ window.__ModuleLoader__.load({
           error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null),
         h('p', { className: 'egxp-foot' },
           'هذه الصفحة تعرض أرقامًا وتقييمات للفهم والمتابعة، وليست توصية بالشراء أو البيع. القرار قرارك. ',
-          'الأسعار من data/manual/prices.csv، والتقييمات من آخر تقييم محفوظ لكل سهم.'))
+          'الأسعار من آخر تحديث للسوق (EODHD، إغلاقات يومية)، والتقييمات من آخر تقييم محفوظ لكل سهم.'))
     }
 
     // ── Analyses archive ─────────────────────────────────────────────────────
 
     const KIND = { full: 'تقييم كامل', light: 'مراجعة أسبوعية' }
-    const dateFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' })
-    const fmtDate = (iso) => (iso ? dateFmt.format(new Date(iso)) : '—')
     // Numeric ranges and pairs keep their reading order inside right-to-left text.
     const ltr = (text) => h('span', { dir: 'ltr' }, text)
     const range = (a, b) => ltr(`${money(a)} – ${money(b)}`)
@@ -643,15 +649,378 @@ window.__ModuleLoader__.load({
     }
 
     function AnalysesPage() {
-      const [openId, setOpenId] = useState(null)
+      const [openId, setOpenId] = useState(() => {
+        const pending = nav.pendingAnalysisId
+        nav.pendingAnalysisId = null
+        return pending
+      })
       return openId == null
         ? h(AnalysesList, { onOpen: setOpenId })
         : h(AnalysisDetail, { id: openId, onBack: () => setOpenId(null) })
     }
 
+
+    // ── Market list ──────────────────────────────────────────────────────────
+
+    const priceFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    const compactFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { notation: 'compact', maximumFractionDigits: 1 })
+    const timeFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' })
+    const price2 = (v) => (v == null ? '—' : priceFmt.format(v))
+    const signed2 = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${priceFmt.format(v)}`)
+    const PERIODS = [['day', 'اليوم'], ['1w', 'أسبوع'], ['1m', 'شهر'], ['3m', '3 شهور'], ['ytd', 'منذ بداية السنة'], ['1y', 'سنة']]
+    const SORTS = [['weight', 'الوزن في المؤشر'], ['change', 'التغير'], ['period', 'أداء الفترة'], ['upside', 'الفجوة للسعر العادل'], ['symbol', 'الرمز']]
+
+    const MARKET_CSS = `
+.egxm-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.egxm-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; background: var(--dsw-alias-label-tertiary); }
+.egxm-dot.egxm-live { background: var(--dsw-alias-state-success-primary); }
+.egxm-toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
+.egxm-toolbar-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+.egxm-search { width: 220px; }
+.egxm-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; }
+.egxm-seg button { border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
+.egxm-seg button:hover { color: var(--dsw-alias-label-primary); }
+.egxm-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
+.egxm-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
+.egxm-breadth { display: flex; flex-direction: column; gap: 6px; }
+.egxm-breadth-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l2); max-width: 420px; }
+.egxm-breadth-bar span { display: block; height: 100%; }
+.egxm-breadth-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.egxm-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
+.egxm-table th { position: sticky; top: 0; z-index: 1; background: var(--dsw-alias-bg-layer-1); font-weight: 500; font-size: 12px; color: var(--dsw-alias-label-secondary); text-align: start; padding: 8px 8px; white-space: nowrap; border-bottom: 1px solid var(--dsw-alias-border-l3); }
+.egxm-table th button { all: unset; cursor: pointer; }
+.egxm-table th button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
+.egxm-table td { padding: 9px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); white-space: nowrap; vertical-align: middle; }
+.egxm-row { cursor: pointer; transition: background-color .12s ease; }
+.egxm-row:hover td, .egxm-row[aria-expanded='true'] td { background: var(--dsw-alias-interactive-bg-hover); }
+.egxm-row:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
+.egxm-row.egxm-nodata td { color: var(--dsw-alias-label-tertiary); }
+.egxm-num { text-align: end !important; }
+.egxm-sym { font-weight: 600; letter-spacing: .01em; }
+.egxm-name { font-size: 11px; color: var(--dsw-alias-label-tertiary); max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
+.egxm-held { display: inline-block; margin-inline-start: 6px; font-size: 10px; font-weight: 500; padding: 0 6px; border-radius: 999px; color: var(--dsw-alias-brand-primary); border: 1px solid currentColor; vertical-align: 1px; }
+.egxm-price { font-weight: 500; }
+.egxm-sub { display: block; font-size: 11px; color: var(--dsw-alias-label-tertiary); }
+.egxm-sub.egxm-warn { color: var(--dsw-alias-state-warn-primary); }
+.egxm-range { display: flex; align-items: center; gap: 8px; direction: ltr; justify-content: flex-end; }
+.egxm-range-bar { position: relative; width: 64px; height: 4px; border-radius: 2px; background: var(--dsw-alias-border-l2); }
+.egxm-range-mark { position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px; background: var(--dsw-alias-label-primary); transform: translateX(-1px); }
+.egxm-range-label { font-size: 11px; color: var(--dsw-alias-label-tertiary); min-width: 44px; }
+.egxm-detail td { background: var(--dsw-alias-bg-layer-1); padding: 16px 12px 20px; cursor: default; }
+.egxm-detail-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
+@media (max-width: 1100px) { .egxm-detail-grid { grid-template-columns: 1fr; } }
+.egxm-chart { height: 300px; direction: ltr; }
+.egxm-detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
+.egxm-detail-title { font-size: 14px; font-weight: 500; }
+.egxm-levels { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 8px; }
+.egxm-mini th, .egxm-mini td { padding: 5px 8px; font-size: 12px; white-space: nowrap; }
+.egxm-mini th { color: var(--dsw-alias-label-secondary); font-weight: 500; text-align: start; border-bottom: 1px solid var(--dsw-alias-border-l3); }
+.egxm-mini td { border-bottom: 1px solid var(--dsw-alias-border-l4); }
+.egxm-skel { display: inline-block; height: 10px; border-radius: 4px; background: var(--dsw-alias-bg-skeleton, var(--dsw-alias-bg-layer-3)); animation: egxm-pulse 1.4s ease-in-out infinite; }
+@keyframes egxm-pulse { 50% { opacity: .45 } }
+@media (prefers-reduced-motion: reduce) { .egxm-skel { animation: none } .egxm-row, .egxm-seg button { transition: none } }
+.egxm-notice { font-size: 13px; line-height: 1.7; color: var(--dsw-alias-label-secondary); }
+.egxm-notice strong { color: var(--dsw-alias-label-primary); font-weight: 500; }
+.egxm-link { all: unset; cursor: pointer; color: var(--dsw-alias-brand-primary); font-size: 12px; }
+.egxm-link:hover { text-decoration: underline; text-underline-offset: 3px; }
+.egxm-link:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
+.egxp-page ::selection { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent); }
+`
+
+    function MarketIcon({ size }) {
+      return h('svg', {
+        width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
+        strokeWidth: 1.6, strokeLinecap: 'round', strokeLinejoin: 'round', 'aria-hidden': true,
+      },
+      h('path', { d: 'M7 5v14M7 8h0' }), h('rect', { x: 5, y: 9, width: 4, height: 6, rx: 1 }),
+      h('path', { d: 'M17 4v16' }), h('rect', { x: 15, y: 7, width: 4, height: 8, rx: 1 }),
+      h('path', { d: 'M12 6v12' }), h('rect', { x: 10, y: 11, width: 4, height: 4, rx: 1 }))
+    }
+
+    function periodValue(row, period) {
+      return period === 'day' ? row.change_pct : (row.returns || {})[period]
+    }
+
+    function RangeBar({ low, high, price }) {
+      if (low == null || high == null || price == null || high <= low) return h('span', { className: 'egxm-sub' }, '—')
+      const pos = Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
+      return h('div', { className: 'egxm-range', title: `أدنى ${price2(low)} · أعلى ${price2(high)} خلال 52 أسبوعًا` },
+        h('span', { className: 'egxm-range-label' }, price2(low)),
+        h('div', { className: 'egxm-range-bar', role: 'img', 'aria-label': `السعر عند ${Math.round(pos)}٪ من نطاق 52 أسبوعًا` },
+          h('span', { className: 'egxm-range-mark', style: { left: `${pos}%` } })),
+        h('span', { className: 'egxm-range-label' }, price2(high)))
+    }
+
+    function SymbolChart({ history, rangeDays }) {
+      const ref = React.useRef(null)
+      useEffect(() => {
+        const bars = history.bars
+        if (!bars.length) return undefined
+        const theme = chartTheme()
+        const css = getComputedStyle(document.documentElement)
+        const tok = (name, fallback) => css.getPropertyValue(name).trim() || fallback
+        const up = tok('--dsw-alias-state-success-primary', '#2f9a7f')
+        const down = tok('--dsw-alias-state-error-primary', '#c0362c')
+        const chart = LightweightCharts.createChart(ref.current, {
+          autoSize: true,
+          layout: { background: { color: 'transparent' }, textColor: theme.text, panes: { separatorColor: theme.grid } },
+          grid: { vertLines: { visible: false }, horzLines: { color: theme.grid } },
+          rightPriceScale: { borderVisible: false },
+          timeScale: { borderVisible: false },
+          localization: { locale: 'en-US' },
+          crosshair: { mode: 0 },
+        })
+        const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
+          upColor: up, downColor: down, wickUpColor: up, wickDownColor: down, borderVisible: false, priceLineVisible: false,
+        })
+        candles.setData(bars.filter((b) => b.open != null).map((b) => ({ time: b.date, open: b.open, high: b.high, low: b.low, close: b.close })))
+        const volume = chart.addSeries(LightweightCharts.HistogramSeries, {
+          priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false,
+        }, 1)
+        volume.setData(bars.map((b, i) => ({
+          time: b.date, value: b.volume || 0,
+          color: (i && b.close < bars[i - 1].close ? down : up) + '66',
+        })))
+        chart.panes()[1]?.setHeight(64)
+        const lv = history.levels
+        if (lv) {
+          candles.createPriceLine({ price: lv.fair_value, color: theme.fair, lineWidth: 2, lineStyle: 0, title: 'العادل' })
+          candles.createPriceLine({ price: lv.protection_price, color: theme.protection, lineWidth: 1, lineStyle: 2, title: 'الحماية' })
+        }
+        const total = bars.length
+        const from = Math.max(0, total - Math.ceil(rangeDays * 0.69))
+        chart.timeScale().setVisibleLogicalRange({ from, to: total + 2 })
+        return () => chart.remove()
+      }, [history, rangeDays])
+      return h('div', { ref, className: 'egxm-chart' })
+    }
+
+    function SymbolDetail({ row, colSpan }) {
+      const [history, setHistory] = useState(null)
+      const [error, setError] = useState('')
+      const [rangeDays, setRangeDays] = useState(182)
+      useEffect(() => {
+        let alive = true
+        api('GET', `/egx/api/market/${encodeURIComponent(row.symbol)}/history?days=400`)
+          .then((d) => alive && setHistory(d))
+          .catch((e) => alive && setError(e.message))
+        return () => { alive = false }
+      }, [row.symbol])
+
+      const recent = history ? history.bars.slice(-10).reverse() : []
+      const openAnalysis = () => {
+        if (!row.valuation || !nav.selectPanel) return
+        nav.pendingAnalysisId = row.valuation.id
+        nav.selectPanel(ANALYSES_ID)
+      }
+      let body
+      if (error) body = h('div', { className: 'egxp-error', role: 'alert' }, error)
+      else if (!history) body = h('div', { className: 'egxm-chart' }, h('span', { className: 'egxm-skel', style: { width: '40%' } }))
+      else if (!history.bars.length) body = h('div', { className: 'egxm-notice' },
+        'لا توجد أسعار محفوظة لهذا السهم بعد. سيتم جلبها في التحديث القادم حسب حد الطلبات اليومي.')
+      else body = h('div', { className: 'egxm-detail-grid' },
+        h('div', null,
+          h('div', { className: 'egxm-detail-head' },
+            h('span', { className: 'egxm-detail-title' }, `${row.symbol} — شموع يومية`),
+            h('div', { className: 'egxm-seg', role: 'group', 'aria-label': 'مدى الرسم' },
+              [[30, 'شهر'], [91, '3 شهور'], [182, '6 شهور'], [365, 'سنة']].map(([d, label]) =>
+                h('button', { key: d, type: 'button', 'aria-pressed': rangeDays === d, onClick: () => setRangeDays(d) }, label)))),
+          h(SymbolChart, { history, rangeDays }),
+          history.levels
+            ? h('div', { className: 'egxm-levels' },
+              h('span', null, 'السعر العادل ', h('strong', null, ltr(price2(history.levels.fair_value)))),
+              h('span', null, 'سعر الحماية ', ltr(price2(history.levels.protection_price))),
+              h('span', null, 'النطاق ', range(history.levels.bear, history.levels.bull)),
+              h('button', { type: 'button', className: 'egxm-link', onClick: openAnalysis }, 'فتح التحليل ←'))
+            : h('div', { className: 'egxm-levels' }, 'لا يوجد تقييم محفوظ لهذا السهم. اطلب من المحلل: «قيّم سهم ', row.symbol, '».')),
+        h('div', null,
+          h('div', { className: 'egxm-detail-head' }, h('span', { className: 'egxm-detail-title' }, 'آخر 10 جلسات')),
+          h('div', { className: 'egxp-table-wrap' }, h('table', { className: 'egxm-mini', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
+            h('thead', null, h('tr', null, ['الجلسة', 'الإغلاق', 'التغير', 'الأعلى', 'الأدنى', 'الحجم'].map((t, i) =>
+              h('th', { key: i, className: i ? 'egxm-num' : undefined }, t)))),
+            h('tbody', null, recent.map((b, i) => {
+              const prev = history.bars[history.bars.length - 2 - i]
+              const chg = prev ? b.close / prev.close - 1 : null
+              return h('tr', { key: b.date },
+                h('td', null, fmtDay(b.date)),
+                h('td', { className: 'egxm-num' }, price2(b.close)),
+                h('td', { className: `egxm-num ${tone(chg)}` }, chg == null ? '—' : ltr(pct.format(chg))),
+                h('td', { className: 'egxm-num' }, price2(b.high)),
+                h('td', { className: 'egxm-num' }, price2(b.low)),
+                h('td', { className: 'egxm-num' }, b.volume == null ? '—' : compactFmt.format(b.volume)))
+            }))))))
+      return h('tr', { className: 'egxm-detail' }, h('td', { colSpan }, body))
+    }
+
+    function MarketRow({ row, period, expanded, onToggle }) {
+      const value = periodValue(row, period)
+      const v = row.valuation
+      const noData = row.price == null
+      const toggle = () => onToggle(row.symbol)
+      return h('tr', {
+        className: `egxm-row${noData ? ' egxm-nodata' : ''}`, tabIndex: 0, 'aria-expanded': expanded,
+        onClick: toggle, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
+      },
+      h('td', null,
+        h('span', { className: 'egxm-sym' }, row.symbol), row.held ? h('span', { className: 'egxm-held' }, 'في محفظتك') : null,
+        h('span', { className: 'egxm-sub egxm-name', title: row.name, dir: 'ltr' }, row.name)),
+      h('td', { className: 'egxm-num' },
+        noData ? h('span', { className: 'egxm-sub' }, 'بانتظار التحديث')
+          : [h('span', { key: 'p', className: 'egxm-price' }, price2(row.price)),
+            h('span', { key: 'd', className: `egxm-sub${row.stale ? ' egxm-warn' : ''}` },
+              row.price_kind === 'delayed' ? `متأخر · ${timeFmt.format(new Date(row.as_of))}` : `إغلاق ${fmtDay(row.as_of)}`)]),
+      h('td', { className: `egxm-num ${tone(row.change)}` },
+        row.change == null ? '—' : [h('span', { key: 'a' }, ltr(signed2(row.change))),
+          h('span', { key: 'b', className: `egxm-sub ${tone(row.change_pct)}` }, ltr(pct.format(row.change_pct)))]),
+      h('td', { className: `egxm-num ${tone(value)}` }, value == null ? '—' : ltr(pct.format(value))),
+      h('td', { className: 'egxm-num' }, h(RangeBar, { low: row.low_52w, high: row.high_52w, price: row.price })),
+      h('td', { className: 'egxm-num' }, row.volume == null ? '—' : compactFmt.format(row.volume)),
+      h('td', { className: 'egxm-num' },
+        v ? [h('span', { key: 'f' }, price2(v.fair_value)),
+          h('span', { key: 'u', className: `egxm-sub ${tone(v.upside)}` }, v.upside == null ? '' : ltr(pct.format(v.upside)))]
+          : h('span', { className: 'egxm-sub' }, 'غير مقيَّم')),
+      h('td', null, v && v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating]) : '—'),
+      h('td', { className: 'egxm-num' }, ltr(`${num.format(row.weight_pct)}٪`)))
+    }
+
+    function MarketPage() {
+      const [data, setData] = useState(null)
+      const [error, setError] = useState('')
+      const [syncing, setSyncing] = useState(false)
+      const [syncNote, setSyncNote] = useState('')
+      const [query, setQuery] = useState('')
+      const [period, setPeriod] = useState('day')
+      const [sort, setSort] = useState('weight')
+      const [heldOnly, setHeldOnly] = useState(false)
+      const [expanded, setExpanded] = useState(null)
+
+      const load = useCallback(async () => {
+        try { setData(await api('GET', '/egx/api/market')); setError('') } catch (e) { setError(e.message) }
+      }, [])
+      useEffect(() => {
+        load()
+        const timer = setInterval(load, 60_000)
+        return () => clearInterval(timer)
+      }, [load])
+
+      async function sync() {
+        setSyncing(true); setSyncNote('')
+        try {
+          const r = await api('POST', '/egx/api/market/sync', {})
+          if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD.')
+          else if (r.ok === false) setSyncNote(`تعذّر التحديث: ${r.error}`)
+          else {
+            const parts = []
+            parts.push(r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل')
+            if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد طلبات الغد`)
+            setSyncNote(parts.join(' · '))
+          }
+          await load()
+        } catch (e) {
+          setSyncNote(e.message)
+        } finally {
+          setSyncing(false)
+        }
+      }
+
+      const rows = React.useMemo(() => {
+        if (!data) return []
+        const q = query.trim().toLowerCase()
+        let list = data.rows.filter((r) => (!heldOnly || r.held) && (!q || r.symbol.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
+        const key = {
+          weight: (r) => -r.weight_pct,
+          change: (r) => (r.change_pct == null ? Infinity : -r.change_pct),
+          period: (r) => { const v = periodValue(r, period); return v == null ? Infinity : -v },
+          upside: (r) => (r.valuation && r.valuation.upside != null ? -r.valuation.upside : Infinity),
+          symbol: (r) => r.symbol,
+        }[sort]
+        return list.slice().sort((a, b) => { const x = key(a), y = key(b); return x < y ? -1 : x > y ? 1 : 0 })
+      }, [data, query, heldOnly, sort, period])
+
+      const run = data && data.last_sync
+      const usage = run && run.daily_limit ? `${num.format((run.used_before || 0) + (run.calls_made || 0))} من ${num.format(run.daily_limit)} طلب اليوم` : null
+      const latestDay = data && data.rows.reduce((m, r) => (r.as_of && r.as_of > m ? r.as_of : m), '')
+      const b = data && data.breadth
+      const priced = b ? b.up + b.down + b.flat : 0
+      const headers = [['symbol', 'السهم'], [null, 'آخر سعر'], ['change', 'التغير اليومي'], ['period', `الأداء: ${PERIODS.find((p) => p[0] === period)[1]}`],
+        [null, 'نطاق 52 أسبوعًا'], [null, 'الحجم'], ['upside', 'السعر العادل'], [null, 'التصنيف'], ['weight', 'الوزن']]
+      const numeric = new Set([1, 2, 3, 4, 5, 6, 8])
+
+      let body
+      if (!data && !error) body = Array.from({ length: 8 }, (_, i) => h('tr', { key: i }, headers.map((_, j) =>
+        h('td', { key: j }, h('span', { className: 'egxm-skel', style: { width: j ? 48 : 90 } })))))
+      else if (!data) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' }, 'تعذّر تحميل السوق.'))
+      else if (!rows.length) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' },
+        heldOnly ? 'لا توجد أسهم في محفظتك تطابق البحث.' : 'لا يوجد سهم يطابق البحث.'))
+      else body = rows.flatMap((r) => {
+        const out = [h(MarketRow, { key: r.symbol, row: r, period, expanded: expanded === r.symbol, onToggle: (s) => setExpanded((cur) => (cur === s ? null : s)) })]
+        if (expanded === r.symbol) out.push(h(SymbolDetail, { key: `${r.symbol}-detail`, row: r, colSpan: headers.length }))
+        return out
+      })
+
+      const noKey = data && !data.last_sync && b && b.no_data === data.rows.length
+      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, CSS + MARKET_CSS),
+        h('header', { className: 'egxp-head', 'data-window-drag': true },
+          h('h1', { className: 'egxp-title' }, 'السوق'),
+          h('div', { className: 'egxm-meta' },
+            h('span', null, h('span', { className: `egxm-dot${data && data.session_open ? ' egxm-live' : ''}` }),
+              data ? (data.session_open ? 'الجلسة مفتوحة' : 'الجلسة مغلقة') : '…'),
+            latestDay ? h('span', null, `آخر إغلاق ${fmtDay(latestDay)}`) : null,
+            h('span', null, 'المصدر EODHD · أسعار متأخرة، ليست لحظية'),
+            usage ? h('span', null, usage) : null,
+            run && run.finished_at ? h('span', null, `آخر تحديث ${timeFmt.format(new Date(run.finished_at))}`) : null)),
+        noKey ? h('section', { className: 'egxp-section egxm-notice' },
+          h('strong', null, 'لا توجد أسعار بعد. '),
+          'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
+          h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
+          ' داخل مجلد المشروع، ثم اضغط «تحديث الآن».') : null,
+        b ? h('div', { className: 'egxm-breadth' },
+          h('div', { className: 'egxm-breadth-bar', 'aria-hidden': true },
+            priced ? [h('span', { key: 'u', style: { width: `${(b.up / priced) * 100}%`, background: 'var(--dsw-alias-state-success-primary)' } }),
+              h('span', { key: 'f', style: { width: `${(b.flat / priced) * 100}%`, background: 'var(--dsw-alias-label-tertiary)' } }),
+              h('span', { key: 'd', style: { width: `${(b.down / priced) * 100}%`, background: 'var(--dsw-alias-state-error-primary)' } })] : null),
+          h('div', { className: 'egxm-breadth-legend' },
+            h('span', { className: 'egxp-gain' }, `صاعد ${num.format(b.up)}`),
+            h('span', { className: 'egxp-loss' }, `هابط ${num.format(b.down)}`),
+            h('span', null, `دون تغيير ${num.format(b.flat)}`),
+            b.no_data ? h('span', null, `بدون بيانات ${num.format(b.no_data)}`) : null)) : null,
+        h('section', { className: 'egxp-section' },
+          h('div', { className: 'egxm-toolbar', style: { marginBottom: 12 } },
+            h('div', { className: 'egxm-toolbar-group' },
+              h('input', { className: 'egxp-input egxm-search', type: 'search', placeholder: 'ابحث بالرمز أو الاسم', 'aria-label': 'بحث',
+                value: query, onChange: (e) => setQuery(e.target.value) }),
+              h('div', { className: 'egxm-seg', role: 'group', 'aria-label': 'فترة الأداء' },
+                PERIODS.map(([k, label]) => h('button', { key: k, type: 'button', 'aria-pressed': period === k, onClick: () => setPeriod(k) }, label))),
+              h('label', { className: 'egxm-check' },
+                h('input', { type: 'checkbox', checked: heldOnly, onChange: (e) => setHeldOnly(e.target.checked) }), 'محفظتي فقط')),
+            h('div', { className: 'egxm-toolbar-group' },
+              h('label', { className: 'egxm-check' }, 'ترتيب',
+                h('select', { className: 'egxp-input', value: sort, onChange: (e) => setSort(e.target.value) },
+                  SORTS.map(([k, label]) => h('option', { key: k, value: k }, label)))),
+              h('button', { type: 'button', className: 'egxp-btn', disabled: syncing, onClick: sync }, syncing ? 'جارٍ التحديث…' : 'تحديث الآن'))),
+          syncNote ? h('div', { className: 'egxm-notice', role: 'status', style: { marginBottom: 10 } }, syncNote) : null,
+          h('div', { className: 'egxp-table-wrap' },
+            h('table', { className: 'egxm-table' },
+              h('thead', null, h('tr', null, headers.map(([key, label], i) => h('th', {
+                key: i, className: numeric.has(i) ? 'egxm-num' : undefined,
+                'aria-sort': key && sort === key ? (key === 'symbol' ? 'ascending' : 'descending') : undefined,
+              }, key ? h('button', { type: 'button', onClick: () => setSort(key) }, label, sort === key ? ' ▾' : '') : label)))),
+              h('tbody', null, body))),
+          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null),
+        h('p', { className: 'egxp-foot' },
+          'الأسعار من EODHD: إغلاقات يومية، وأسعار متأخرة 15–20 دقيقة أثناء الجلسة على الخطط المدفوعة. ليست للتداول اللحظي، وليست توصية بالشراء أو البيع.'))
+    }
+
     return {
-      inject: ['slots'],
+      inject: ['slots', 'layout'],
       apply(ctx) {
+        nav.selectPanel = (id) => ctx.layout.selectPanel(id)
+        ctx.effect(() => () => { nav.selectPanel = null })
+        ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
+          name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'السوق',
+        }, MarketIcon))
+        ctx.slots.inject('main', () => ctx.slots.register({ name: 'main', key: MARKET_ID }, MarketPage))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist', id: ANALYSES_ID, order: 9, label: 'التحليلات',
         }, AnalysesIcon))

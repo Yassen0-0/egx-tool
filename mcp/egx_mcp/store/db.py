@@ -41,6 +41,48 @@ CREATE TABLE IF NOT EXISTS change_log (
     reason TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS daily_bars (
+    symbol TEXT NOT NULL,
+    date TEXT NOT NULL,
+    open REAL, high REAL, low REAL,
+    close REAL NOT NULL,
+    adjusted_close REAL,
+    volume REAL,
+    source TEXT NOT NULL,
+    fetched_at TEXT NOT NULL,
+    PRIMARY KEY (symbol, date)
+);
+
+CREATE TABLE IF NOT EXISTS quotes (
+    symbol TEXT PRIMARY KEY,
+    price REAL,
+    open REAL, high REAL, low REAL, volume REAL,
+    previous_close REAL,
+    change REAL, change_p REAL,
+    quote_time INTEGER,
+    source TEXT NOT NULL,
+    fetched_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS market_sync (
+    symbol TEXT PRIMARY KEY,
+    bars_checked_on TEXT,
+    quote_checked_at TEXT,
+    last_error TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sync_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    started_at TEXT NOT NULL,
+    finished_at TEXT,
+    plan TEXT,
+    daily_limit INTEGER,
+    used_before INTEGER,
+    calls_made INTEGER,
+    summary TEXT,
+    error TEXT
+);
+
 CREATE TABLE IF NOT EXISTS holdings (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     symbol TEXT NOT NULL,

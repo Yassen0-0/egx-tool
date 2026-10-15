@@ -21,6 +21,7 @@ from .risk.piotroski import piotroski_f as piotroski_f_calc
 from .store import portfolio, valuations, weekly
 from .store.db import connect
 from .universe import constituent, load_universe, normalize_symbol
+from .market.summary import market_summary, symbol_history
 from .valuation import bank, dcf, ddm, multiples, nav, rates, sanity, scenarios
 
 INSTRUCTIONS = """\
@@ -198,6 +199,24 @@ def sanity_check(fair_value: float | None = None, current_price: float | None = 
                                terminal_share_of_ev, eps, pe_history_range, ebitda_per_share,
                                net_debt_per_share, ev_ebitda_history_range, cash_flow_currency,
                                discount_rate_currency)
+
+
+@tool
+def get_market_list() -> dict:
+    """EGX30 market list from the local price cache: last price (delayed quote or daily close) with its
+    date and source, day change, 1w/1m/3m/ytd/1y returns, 52-week range, breadth, and each stock's latest
+    fair value, rating and protection status. Cite `as_of` and `source`; prices are delayed, never live."""
+    with _db() as conn:
+        return market_summary(conn)
+
+
+@tool
+def get_price_history(symbol: str, days: int = 365) -> dict:
+    """Daily OHLCV bars for one EGX30 stock from the local cache (oldest first), plus the latest
+    valuation levels (fair value, entry, protection, bear, bull) when one exists."""
+    entry = _require_symbol(symbol)
+    with _db() as conn:
+        return symbol_history(conn, entry["symbol"], days)
 
 
 # ── risk ─────────────────────────────────────────────────────────────────────

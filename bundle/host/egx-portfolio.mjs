@@ -99,6 +99,15 @@ async function handleApi(req, res, path, query) {
     })
     return sendJson(res, status, body)
   }
+  if (method === 'GET' && path === '/egx/api/market') {
+    const { status, body } = await runCli('market-summary')
+    return sendJson(res, status, body)
+  }
+  const history = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/history$/.exec(path)
+  if (method === 'GET' && history) {
+    const { status, body } = await runCli('market-history', { symbol: history[1], days: Number(query.get('days') || 365) })
+    return sendJson(res, status, body)
+  }
   const series = /^\/egx\/api\/valuations\/series\/([A-Za-z0-9.]{2,12})$/.exec(path)
   if (method === 'GET' && series) {
     const { status, body } = await runCli('valuation-series', { symbol: series[1] })
@@ -120,6 +129,9 @@ async function handleApi(req, res, path, query) {
   } catch (error) {
     return sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
   }
+  if (method === 'POST' && path === '/egx/api/market/sync') {
+    return sendJson(res, 200, await syncMarket(Boolean(payload.force_quotes)))
+  }
   const match = /^\/egx\/api\/holdings(?:\/(\d+))?$/.exec(path)
   if (!match) return sendJson(res, 404, { error: 'not found' })
   const id = match[1] === undefined ? undefined : Number(match[1])
@@ -131,7 +143,28 @@ async function handleApi(req, res, path, query) {
   return sendJson(res, result.status, result.body)
 }
 
+// Market refresh: one run at a time. Each run asks EODHD for the remaining daily budget
+// (free) and only spends calls when bars or quotes are due, so a short interval is cheap.
+const SYNC_INTERVAL_MS = 5 * 60 * 1000
+let syncing = null
+
+function syncMarket(forceQuotes = false) {
+  if (!syncing) {
+    syncing = runCli('market-sync', { force_quotes: forceQuotes })
+      .then(({ body }) => body)
+      .finally(() => { syncing = null })
+  }
+  return syncing
+}
+
 export function apply(ctx) {
+  if (process.env.EGX_AUTO_SYNC !== '0') {
+    ctx.effect(() => {
+      const first = setTimeout(() => { void syncMarket() }, 15_000)
+      const every = setInterval(() => { void syncMarket() }, SYNC_INTERVAL_MS)
+      return () => { clearTimeout(first); clearInterval(every) }
+    })
+  }
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
     path: '/egx/api',

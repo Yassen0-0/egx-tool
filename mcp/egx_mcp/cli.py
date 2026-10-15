@@ -8,6 +8,9 @@
     egx-cli valuations-list '{"symbol": "COMI", "risk_rating": "safe", "limit": 50}'
     egx-cli valuation-get '{"valuation_id": 7}'
     egx-cli valuation-series '{"symbol": "COMI"}'
+    egx-cli market-summary
+    egx-cli market-history '{"symbol": "COMI", "days": 365}'
+    egx-cli market-sync '{"force_quotes": false}'
 
 Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.
 """
@@ -19,6 +22,9 @@ from contextlib import closing
 from .config import db_path
 from .data import default_provider
 from .errors import ValuationInputError
+from .market.eodhd import EodhdClient, MarketDataError, resolve_api_key
+from .market.summary import market_summary, symbol_history
+from .market.sync import sync_market
 from .store import portfolio, valuations
 from .store.db import connect
 from .universe import load_universe
@@ -31,6 +37,8 @@ def _args(raw: str | None) -> dict:
 def run(command: str, raw: str | None) -> object:
     if command == "universe":
         return load_universe()
+    if command == "market-sync":
+        return _market_sync(_args(raw))
     with closing(connect(db_path())) as conn:
         if command == "portfolio-summary":
             return portfolio.portfolio_summary(conn, default_provider())
@@ -61,7 +69,20 @@ def run(command: str, raw: str | None) -> object:
             return valuations.get_valuation(conn, int(args["valuation_id"]))
         if command == "valuation-series":
             return valuations.fair_value_series(conn, args["symbol"])
+        if command == "market-summary":
+            return market_summary(conn)
+        if command == "market-history":
+            return symbol_history(conn, args["symbol"], int(args.get("days", 365)))
     raise ValuationInputError(f"unknown command {command}")
+
+
+def _market_sync(args: dict) -> dict:
+    key = resolve_api_key()
+    if not key:
+        return {"ok": False, "error": "no_key",
+                "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
+    with closing(connect(db_path())) as conn:
+        return sync_market(conn, EodhdClient(key), force_quotes=bool(args.get("force_quotes")))
 
 
 def _optional_float(value) -> float | None:
@@ -76,7 +97,7 @@ def main() -> None:
         sys.exit(2)
     try:
         result = run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
-    except (ValuationInputError, KeyError, ValueError, json.JSONDecodeError) as exc:
+    except (ValuationInputError, MarketDataError, KeyError, ValueError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
         sys.exit(2)
     print(json.dumps(result, ensure_ascii=False))

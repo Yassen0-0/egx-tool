@@ -117,3 +117,13 @@ test('compact volumes', async () => {
   assert.equal(fmtCompact(850000), '850K')
   assert.equal(fmtCompact(12), '12')
 })
+
+test('session line', async () => {
+  const { sessionLine, rangePosition } = await import('../src/format.mjs')
+  assert.deepEqual(sessionLine('2026-10-15T09:02+03:00', false), { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' })
+  assert.deepEqual(sessionLine('2026-10-15T15:00+03:00', false), { text: 'الجلسة مغلقة · تفتح الأحد', time: '10:00' })
+  assert.deepEqual(sessionLine('2026-10-14T15:00+03:00', false), { text: 'الجلسة مغلقة · تفتح غدًا', time: '10:00' })
+  assert.deepEqual(sessionLine('2026-10-15T11:00+03:00', true), { text: 'الجلسة مفتوحة · تغلق', time: '14:30' })
+  assert.equal(rangePosition(98.3, 145.01, 122), (122 - 98.3) / (145.01 - 98.3) * 100)
+  assert.equal(rangePosition(null, 1, 1), null)
+})

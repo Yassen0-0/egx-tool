@@ -44,7 +44,7 @@
 /* Panel header: icon + «قيمة» / screen on the right, actions on the left. */
 .qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }
 [data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }
-.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 52px; padding: 8px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 @media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }
 .qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }
 .qm .q-crumbs .q-brand { font-weight: 600; }

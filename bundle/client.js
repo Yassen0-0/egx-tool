@@ -263,6 +263,38 @@ function fmtCompact(v) {
   return fmtNumber(scaled, !unit ? 0 : Math.abs(scaled) < 10 ? 2 : Math.abs(scaled) < 100 ? 1 : 0) + unit
 }
 
+// ── EGX session (Sun–Thu, 10:00–14:30 Cairo) ─────────────────────────────────
+
+const TRADING = new Set([0, 1, 2, 3, 4]) // Sunday..Thursday (getUTCDay)
+
+/**
+ * The session line for the status strip, from the server's Cairo timestamp ("2026-10-15T09:02+03:00"):
+ * { text, time } → «الجلسة مغلقة · تفتح اليوم» + «10:00», or «الجلسة مفتوحة · تغلق» + «14:30».
+ */
+function sessionLine(asOf, open) {
+  if (open) return { text: 'الجلسة مفتوحة · تغلق', time: '14:30' }
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || '')
+  if (!m) return { text: 'الجلسة مغلقة', time: null }
+  const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const minutes = +m[4] * 60 + +m[5]
+  if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' }
+  let ahead = 1
+  const next = new Date(day)
+  next.setUTCDate(next.getUTCDate() + 1)
+  while (!TRADING.has(next.getUTCDay())) { next.setUTCDate(next.getUTCDate() + 1); ahead++ }
+  const when = ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
+  return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
+}
+
+/** Price position (0–100) inside its 52-week range; null when the range is unknown. */
+function rangePosition(low, high, price) {
+  if (missing(low) || missing(high) || missing(price) || high <= low) return null
+  return Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
+}
+
+const RATING_LEVEL = { safe: 1, balanced: 2, high_risk: 3 }
+const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
+
     const React = require('react')
     const { useState, useEffect, useCallback } = React
     const h = React.createElement
@@ -272,7 +304,7 @@ function fmtCompact(v) {
     // Cross-panel navigation: set by apply() when the layout service is available.
     const nav = { selectPanel: null, pendingAnalysisId: null }
 
-    const QM_CSS = "/* «قيمة» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font\n   stacks): they live on body and switch with the Harness theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-h3 { margin: 0; font-size: 14px; font-weight: 600; }\n.qm .q-hero { font-size: 30px; font-weight: 600; line-height: 1.1; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-blue { color: var(--dsw-alias-state-business-primary); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-strong { font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-grow { flex: 1 1 auto; min-width: 0; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .q-pad { padding: 12px 16px; }\n.qm .q-sunken { background: var(--dsw-alias-bg-module-platform); }\n\n/* Panel header: icon + «قيمة» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 52px; padding: 8px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-icon-btn { width: 32px; padding: 0; }\n.qm .q-field { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; }\n.qm .q-field:focus-within { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-field input, .qm .q-field select { border: 0; background: transparent; outline: none; min-width: 0; height: 30px; font-size: 13px; }\n.qm .q-field select { cursor: pointer; }\n.qm .q-field select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }\n.qm .q-field.on { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); }\n.qm .q-seg button { appearance: none; border: 0; background: transparent; height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; white-space: nowrap; }\n.qm .q-seg button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-weight: 500;\n  box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n\n/* Chips */\n.qm .q-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }\n.qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }\n.qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */\n.qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;\n  border: 1px solid var(--dsw-alias-state-warn-primary); }\n.qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;\n  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-fchip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .q-fchip[aria-pressed='true'] { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill);\n  color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-fchip .num { font-size: 12px; opacity: .85; }\n.qm .q-fchip.warn:not([aria-pressed='true']) .num { color: var(--dsw-alias-state-warn-label); opacity: 1; font-weight: 600; }\n\n/* Rating: 3 rising bars (1 safe, 2 balanced, 3 high risk) + text. */\n.qm .q-rating { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }\n.qm .q-bars { display: inline-flex; gap: 2px; align-items: flex-end; direction: ltr; height: 12px; }\n.qm .q-bars i { width: 3px; border-radius: 1px; background: var(--dsw-alias-border-l3); }\n.qm .q-bars i:nth-child(1) { height: 5px; } .qm .q-bars i:nth-child(2) { height: 8px; } .qm .q-bars i:nth-child(3) { height: 12px; }\n.qm .q-r1 .q-bars i:nth-child(-n+1), .qm .q-r2 .q-bars i:nth-child(-n+2), .qm .q-r3 .q-bars i:nth-child(-n+3) { background: var(--dsw-alias-label-secondary); }\n\n/* Grid table (no <table>): set the columns with --cols on the container. */\n.qm .q-scroll { overflow-x: auto; }\n.qm .q-grid { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 4px; }\n.qm .q-grid > * { padding: 0 8px; min-width: 0; }\n.qm .q-th { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--dsw-alias-bg-module-platform);\n  border-bottom: 1px solid var(--dsw-alias-border-l2); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-th button { appearance: none; border: 0; background: transparent; padding: 0; min-height: 32px; cursor: pointer; color: inherit;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }\n.qm .q-th button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-th button.on { color: var(--dsw-alias-label-primary); font-weight: 600; }\n.qm .q-tr { min-height: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .q-tr.q-click { cursor: pointer; }\n.qm .q-tr.q-click:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-tr.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .q-tr.q-sel { background: var(--dsw-alias-interactive-bg-active); box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary); }\n.qm .q-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-block: 8px; }\n.qm .q-cell small { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.35; }\n\n/* Valuation ruler: bear–bull band (soft blue), protection tick (amber), fair tick (blue), price dot. */\n.qm .q-rl { position: relative; display: block; height: 18px; direction: ltr; min-width: 120px; }\n.qm .q-rl .tr { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); }\n.qm .q-rl .bd { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .3; }\n.qm .q-rl .tk { position: absolute; top: 1px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 1px; }\n.qm .q-rl .tk.fair { background: var(--dsw-alias-state-business-primary); }\n.qm .q-rl .tk.prot { background: var(--dsw-alias-state-warn-primary); }\n.qm .q-rl .dt { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -8px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-rl-lg { height: 28px; }\n.qm .q-rl-lg .tr, .qm .q-rl-lg .bd { top: 10px; height: 8px; border-radius: 4px; }\n.qm .q-rl-lg .tk { top: 3px; height: 22px; width: 4px; margin-left: -2px; }\n.qm .q-rl-lg .dt { top: 5px; width: 12px; height: 12px; margin-left: -9px; }\n.qm .q-rl-labels { position: relative; height: 34px; direction: ltr; font-size: 12px; }\n.qm .q-rl-labels > span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; line-height: 1.4; }\n.qm .q-vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }\n.qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n\n/* 52-week range */\n.qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }\n.qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }\n.qm .q-b52 .dt { position: absolute; top: -3px; width: 8px; height: 8px; margin-left: -7px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-b52n { display: flex; justify-content: space-between; direction: ltr; font-size: 12px; margin-top: 6px; color: var(--dsw-alias-label-secondary); }\n\n/* Fact cells */\n.qm .q-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .q-facts > div { padding: 8px 12px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }\n.qm .q-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; align-items: center; gap: 6px; }\n.qm .q-kv b { font-weight: 500; font-size: 14px; }\n\n/* Tabs */\n.qm .q-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-x: auto; }\n.qm .q-tab { appearance: none; border: 0; background: transparent; height: 40px; padding: 0 12px; cursor: pointer; color: var(--dsw-alias-label-secondary);\n  border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; white-space: nowrap; }\n.qm .q-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; border-bottom-color: var(--dsw-alias-label-primary); }\n\n/* Help (؟) toggle and the protection definition note */\n.qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }\n.qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }\n.qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);\n  border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }\n.qm .q-note-quiet { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-bg-module-platform);\n  color: var(--dsw-alias-label-secondary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, toast, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 10px 16px; border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-alias-tooltip-bg, var(--dsw-alias-button-primary-fill)); color: var(--dsw-alias-label-primary-foreground); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n.qm .q-mini-bar { display: inline-flex; width: 56px; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l4); direction: ltr; vertical-align: middle; }\n.qm .q-mini-bar > span { display: block; height: 100%; }\n"
+    const QM_CSS = "/* «قيمة» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font\n   stacks): they live on body and switch with the Harness theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-h3 { margin: 0; font-size: 14px; font-weight: 600; }\n.qm .q-hero { font-size: 30px; font-weight: 600; line-height: 1.1; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-blue { color: var(--dsw-alias-state-business-primary); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-strong { font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-grow { flex: 1 1 auto; min-width: 0; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .q-pad { padding: 12px 16px; }\n.qm .q-sunken { background: var(--dsw-alias-bg-module-platform); }\n\n/* Panel header: icon + «قيمة» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-icon-btn { width: 32px; padding: 0; }\n.qm .q-field { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; }\n.qm .q-field:focus-within { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-field input, .qm .q-field select { border: 0; background: transparent; outline: none; min-width: 0; height: 30px; font-size: 13px; }\n.qm .q-field select { cursor: pointer; }\n.qm .q-field select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }\n.qm .q-field.on { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); }\n.qm .q-seg button { appearance: none; border: 0; background: transparent; height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; white-space: nowrap; }\n.qm .q-seg button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-weight: 500;\n  box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n\n/* Chips */\n.qm .q-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }\n.qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }\n.qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */\n.qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;\n  border: 1px solid var(--dsw-alias-state-warn-primary); }\n.qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;\n  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-fchip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .q-fchip[aria-pressed='true'] { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill);\n  color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-fchip .num { font-size: 12px; opacity: .85; }\n.qm .q-fchip.warn:not([aria-pressed='true']) .num { color: var(--dsw-alias-state-warn-label); opacity: 1; font-weight: 600; }\n\n/* Rating: 3 rising bars (1 safe, 2 balanced, 3 high risk) + text. */\n.qm .q-rating { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }\n.qm .q-bars { display: inline-flex; gap: 2px; align-items: flex-end; direction: ltr; height: 12px; }\n.qm .q-bars i { width: 3px; border-radius: 1px; background: var(--dsw-alias-border-l3); }\n.qm .q-bars i:nth-child(1) { height: 5px; } .qm .q-bars i:nth-child(2) { height: 8px; } .qm .q-bars i:nth-child(3) { height: 12px; }\n.qm .q-r1 .q-bars i:nth-child(-n+1), .qm .q-r2 .q-bars i:nth-child(-n+2), .qm .q-r3 .q-bars i:nth-child(-n+3) { background: var(--dsw-alias-label-secondary); }\n\n/* Grid table (no <table>): set the columns with --cols on the container. */\n.qm .q-scroll { overflow-x: auto; }\n.qm .q-grid { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 4px; }\n.qm .q-grid > * { padding: 0 8px; min-width: 0; }\n.qm .q-th { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--dsw-alias-bg-module-platform);\n  border-bottom: 1px solid var(--dsw-alias-border-l2); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-th button { appearance: none; border: 0; background: transparent; padding: 0; min-height: 32px; cursor: pointer; color: inherit;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }\n.qm .q-th button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-th button.on { color: var(--dsw-alias-label-primary); font-weight: 600; }\n.qm .q-tr { min-height: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .q-tr.q-click { cursor: pointer; }\n.qm .q-tr.q-click:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-tr.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .q-tr.q-sel { background: var(--dsw-alias-interactive-bg-active); box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary); }\n.qm .q-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-block: 8px; }\n.qm .q-cell small { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.35; }\n\n/* Valuation ruler: bear–bull band (soft blue), protection tick (amber), fair tick (blue), price dot. */\n.qm .q-rl { position: relative; display: block; height: 18px; direction: ltr; min-width: 120px; }\n.qm .q-rl .tr { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); }\n.qm .q-rl .bd { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .3; }\n.qm .q-rl .tk { position: absolute; top: 1px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 1px; }\n.qm .q-rl .tk.fair { background: var(--dsw-alias-state-business-primary); }\n.qm .q-rl .tk.prot { background: var(--dsw-alias-state-warn-primary); }\n.qm .q-rl .dt { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -8px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-rl-lg { height: 28px; }\n.qm .q-rl-lg .tr, .qm .q-rl-lg .bd { top: 10px; height: 8px; border-radius: 4px; }\n.qm .q-rl-lg .tk { top: 3px; height: 22px; width: 4px; margin-left: -2px; }\n.qm .q-rl-lg .dt { top: 5px; width: 12px; height: 12px; margin-left: -9px; }\n.qm .q-rl-labels { position: relative; height: 34px; direction: ltr; font-size: 12px; }\n.qm .q-rl-labels > span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; line-height: 1.4; }\n.qm .q-vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }\n.qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n\n/* 52-week range */\n.qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }\n.qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }\n.qm .q-b52 .dt { position: absolute; top: -3px; width: 8px; height: 8px; margin-left: -7px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-b52n { display: flex; justify-content: space-between; direction: ltr; font-size: 12px; margin-top: 6px; color: var(--dsw-alias-label-secondary); }\n\n/* Fact cells */\n.qm .q-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .q-facts > div { padding: 8px 12px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }\n.qm .q-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; align-items: center; gap: 6px; }\n.qm .q-kv b { font-weight: 500; font-size: 14px; }\n\n/* Tabs */\n.qm .q-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-x: auto; }\n.qm .q-tab { appearance: none; border: 0; background: transparent; height: 40px; padding: 0 12px; cursor: pointer; color: var(--dsw-alias-label-secondary);\n  border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; white-space: nowrap; }\n.qm .q-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; border-bottom-color: var(--dsw-alias-label-primary); }\n\n/* Help (؟) toggle and the protection definition note */\n.qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }\n.qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }\n.qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);\n  border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }\n.qm .q-note-quiet { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-bg-module-platform);\n  color: var(--dsw-alias-label-secondary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, toast, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 10px 16px; border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-alias-tooltip-bg, var(--dsw-alias-button-primary-fill)); color: var(--dsw-alias-label-primary-foreground); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n.qm .q-mini-bar { display: inline-flex; width: 56px; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l4); direction: ltr; vertical-align: middle; }\n.qm .q-mini-bar > span { display: block; height: 100%; }\n"
     // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.
     const N = (text, cls) => h('span', { className: cls ? `num ${cls}` : 'num' }, text)
     const num = { format: (v) => fmtNumber(v, 2) }
@@ -451,6 +483,30 @@ function PanelHeader({ here, crumbs = [], actions = null, demo = false, children
 const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
 function Disclaimer({ extra }) {
   return h('p', { className: 'q-foot' }, extra ? `${extra} ` : null, DISCLAIMER)
+}
+
+// ── «قيّم سهم X» ──────────────────────────────────────────────────────────────
+// The Harness exposes the composer's draft only to components rendered inside the chat, and our
+// panels replace the chat while open, so the message is copied for the user to paste there.
+function useToast() {
+  const [text, setText] = useState('')
+  useEffect(() => {
+    if (!text) return undefined
+    const timer = setTimeout(() => setText(''), 4000)
+    return () => clearTimeout(timer)
+  }, [text])
+  const node = text ? h('div', { className: 'q-toast', role: 'status' }, text) : null
+  return [node, setText]
+}
+
+async function copyValuationPrompt(symbol, toast) {
+  const message = `قيّم سهم ${symbol}`
+  try {
+    await navigator.clipboard.writeText(message)
+    toast(`اتنسخت الرسالة «${message}» — الصقها في المحادثة`)
+  } catch {
+    toast(`اكتب في المحادثة: «${message}»`)
+  }
 }
 
 
@@ -1067,134 +1123,7 @@ function Disclaimer({ extra }) {
     }
 
 
-    // ── Market list ──────────────────────────────────────────────────────────
-
-    const timeFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' })
-    const price2 = fmtPrice
-    const PERIODS = [['day', 'اليوم'], ['1w', 'أسبوع'], ['1m', 'شهر'], ['3m', '3 شهور'], ['ytd', 'منذ بداية السنة'], ['1y', 'سنة']]
-    const SORTS = [['weight', 'الوزن في المؤشر'], ['change', 'التغير'], ['period', 'أداء الفترة'], ['margin', 'الفرق عن العادل'], ['symbol', 'الرمز']]
-
-    const MARKET_CSS = `
-.egxm-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.egxm-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; background: var(--dsw-alias-label-tertiary); }
-.egxm-toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
-.egxm-toolbar-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
-.egxm-search { width: 220px; }
-.egxm-seg { display: inline-flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; }
-.egxm-seg button { border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; padding: 4px 10px; cursor: pointer; white-space: nowrap; transition: background-color .15s ease, color .15s ease; }
-.egxm-seg button:hover { color: var(--dsw-alias-label-primary); }
-.egxm-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
-.egxm-check { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); cursor: pointer; }
-.egxm-breadth { display: flex; flex-direction: column; gap: 6px; }
-.egxm-breadth-bar { display: flex; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l2); max-width: 420px; }
-.egxm-breadth-bar span { display: block; height: 100%; }
-.egxm-breadth-legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.egxm-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.egxm-table th { position: sticky; top: 0; z-index: 1; background: var(--dsw-alias-bg-layer-1); font-weight: 500; font-size: 12px; color: var(--dsw-alias-label-secondary); text-align: start; padding: 8px 8px; white-space: nowrap; border-bottom: 1px solid var(--dsw-alias-border-l3); }
-.egxm-table th button { all: unset; cursor: pointer; }
-.egxm-table th button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
-.egxm-table td { padding: 9px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); white-space: nowrap; vertical-align: middle; }
-.egxm-row { cursor: pointer; transition: background-color .12s ease; }
-.egxm-row:hover td, .egxm-row[aria-expanded='true'] td { background: var(--dsw-alias-interactive-bg-hover); }
-.egxm-row:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; }
-.egxm-row.egxm-nodata td { color: var(--dsw-alias-label-tertiary); }
-.egxm-num { text-align: end !important; }
-.egxm-sym { font-weight: 600; letter-spacing: .01em; }
-.egxm-name { font-size: 11px; color: var(--dsw-alias-label-tertiary); max-width: 170px; overflow: hidden; text-overflow: ellipsis; }
-.egxm-held { display: inline-block; margin-inline-start: 6px; font-size: 10px; font-weight: 500; padding: 0 6px; border-radius: 999px; color: var(--dsw-alias-brand-primary); border: 1px solid currentColor; vertical-align: 1px; }
-.egxm-price { font-weight: 500; }
-.egxm-sub { display: block; font-size: 11px; color: var(--dsw-alias-label-tertiary); }
-.egxm-sub.egxm-warn { color: var(--dsw-alias-state-warn-primary); }
-.egxm-range { display: flex; align-items: center; gap: 8px; direction: ltr; justify-content: flex-end; }
-.egxm-range-bar { position: relative; width: 64px; height: 4px; border-radius: 2px; background: var(--dsw-alias-border-l2); }
-.egxm-range-mark { position: absolute; top: -3px; width: 2px; height: 10px; border-radius: 1px; background: var(--dsw-alias-label-primary); transform: translateX(-1px); }
-.egxm-range-label { font-size: 11px; color: var(--dsw-alias-label-tertiary); min-width: 44px; }
-.egxm-detail td { background: var(--dsw-alias-bg-layer-1); padding: 16px 12px 20px; cursor: default; }
-.egxm-detail-grid { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(280px, 1fr); gap: 20px; align-items: start; }
-@media (max-width: 1100px) { .egxm-detail-grid { grid-template-columns: 1fr; } }
-.egxm-chart { height: 300px; direction: ltr; }
-.egxm-detail-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 10px; }
-.egxm-detail-title { font-size: 14px; font-weight: 500; }
-.egxm-levels { display: flex; flex-wrap: wrap; gap: 4px 16px; font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 8px; }
-.egxm-mini th, .egxm-mini td { padding: 5px 8px; font-size: 12px; white-space: nowrap; }
-.egxm-mini th { color: var(--dsw-alias-label-secondary); font-weight: 500; text-align: start; border-bottom: 1px solid var(--dsw-alias-border-l3); }
-.egxm-mini td { border-bottom: 1px solid var(--dsw-alias-border-l4); }
-.egxm-skel { display: inline-block; height: 10px; border-radius: 4px; background: var(--dsw-alias-bg-skeleton, var(--dsw-alias-bg-layer-3)); animation: egxm-pulse 1.4s ease-in-out infinite; }
-@keyframes egxm-pulse { 50% { opacity: .45 } }
-@media (prefers-reduced-motion: reduce) { .egxm-skel { animation: none } .egxm-row, .egxm-seg button { transition: none } }
-.egxm-notice { font-size: 13px; line-height: 1.7; color: var(--dsw-alias-label-secondary); }
-.egxm-notice strong { color: var(--dsw-alias-label-primary); font-weight: 500; }
-.egxm-link { all: unset; cursor: pointer; color: var(--dsw-alias-brand-primary); font-size: 12px; }
-.egxm-link:hover { text-decoration: underline; text-underline-offset: 3px; }
-.egxm-link:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
-.egxm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l3); margin-bottom: 14px; }
-.egxm-tab { all: unset; cursor: pointer; padding: 7px 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s ease, border-color .15s ease; }
-.egxm-tab:hover { color: var(--dsw-alias-label-primary); }
-.egxm-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-brand-primary); font-weight: 500; }
-.egxm-tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; border-radius: 4px; }
-.egxm-tv { direction: ltr; border: 1px solid var(--dsw-alias-border-l3); border-radius: 8px; overflow: hidden; background: var(--dsw-alias-bg-layer-1); color-scheme: normal; }
-.egxm-tv-note { display: flex; gap: 8px; align-items: baseline; font-size: 12px; line-height: 1.7; color: var(--dsw-alias-label-secondary); margin: 8px 0 0; }
-.egxm-caution { font-size: 13px; line-height: 1.7; padding: 10px 12px; margin-bottom: 10px; border-radius: 8px; color: var(--dsw-alias-label-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent); }
-.egxm-caution strong { font-weight: 600; }
-.egxp-page ::selection { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent); }
-`
-
-
-    function periodValue(row, period) {
-      return period === 'day' ? row.change_pct : (row.returns || {})[period]
-    }
-
-    function RangeBar({ low, high, price }) {
-      if (low == null || high == null || price == null || high <= low) return h('span', { className: 'egxm-sub' }, '—')
-      const pos = Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
-      return h('div', { className: 'egxm-range', title: `أدنى ${price2(low)} · أعلى ${price2(high)} خلال 52 أسبوعًا` },
-        h('span', { className: 'egxm-range-label num' }, price2(low)),
-        h('div', { className: 'egxm-range-bar', role: 'img', 'aria-label': `السعر عند ${Math.round(pos)}٪ من نطاق 52 أسبوعًا` },
-          h('span', { className: 'egxm-range-mark', style: { left: `${pos}%` } })),
-        h('span', { className: 'egxm-range-label num' }, price2(high)))
-    }
-
-    function SymbolChart({ history, rangeDays }) {
-      const ref = React.useRef(null)
-      useEffect(() => {
-        const bars = history.bars
-        if (!bars.length) return undefined
-        const theme = chartTheme()
-        const { up, down } = theme
-        const chart = LightweightCharts.createChart(ref.current, {
-          autoSize: true,
-          layout: { background: { color: 'transparent' }, textColor: theme.text, panes: { separatorColor: theme.grid } },
-          grid: { vertLines: { visible: false }, horzLines: { color: theme.grid } },
-          rightPriceScale: { borderVisible: false },
-          timeScale: { borderVisible: false },
-          localization: { locale: 'en-US' },
-          crosshair: { mode: 0 },
-        })
-        const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
-          upColor: up, downColor: down, wickUpColor: up, wickDownColor: down, borderVisible: false, priceLineVisible: false,
-        })
-        candles.setData(bars.filter((b) => b.open != null).map((b) => ({ time: b.date, open: b.open, high: b.high, low: b.low, close: b.close })))
-        const volume = chart.addSeries(LightweightCharts.HistogramSeries, {
-          priceFormat: { type: 'volume' }, priceLineVisible: false, lastValueVisible: false,
-        }, 1)
-        volume.setData(bars.map((b, i) => ({
-          time: b.date, value: b.volume || 0,
-          color: i && b.close < bars[i - 1].close ? theme.downSoft : theme.upSoft,
-        })))
-        chart.panes()[1]?.setHeight(64)
-        const lv = history.levels
-        if (lv) {
-          candles.createPriceLine({ price: lv.fair_value, color: theme.fair, lineWidth: 2, lineStyle: 2, title: 'العادل' })
-          candles.createPriceLine({ price: lv.protection_price, color: theme.protection, lineWidth: 1, lineStyle: 0, title: 'الحماية' })
-        }
-        const total = bars.length
-        const from = Math.max(0, total - Math.ceil(rangeDays * 0.69))
-        chart.timeScale().setVisibleLogicalRange({ from, to: total + 2 })
-        return () => chart.remove()
-      }, [history, rangeDays])
-      return h('div', { ref, className: 'egxm-chart' })
-    }
-
+    // ── Shared: Harness theme and TradingView embeds ────────────────────────────
 
     // The Harness theme can differ from the OS setting, so read it from the host's own
     // label token: light text means a dark surface. Re-evaluated when the root's
@@ -1255,275 +1184,733 @@ function Disclaimer({ extra }) {
       return h('div', { ref, className: 'egxm-tv', style: { height } })
     }
 
-    const TV_LOCALE = 'ar_AE'
-    const tvSymbol = (symbol) => `EGX:${symbol}`
-    const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
 
-    function SymbolDetail({ row, colSpan }) {
-      const [tab, setTab] = useState('ours')
-      const theme = useHostTheme()
-      const [history, setHistory] = useState(null)
-      const [error, setError] = useState('')
-      const [rangeDays, setRangeDays] = useState(182)
-      useEffect(() => {
-        let alive = true
-        api('GET', `/egx/api/market/${encodeURIComponent(row.symbol)}/history?days=400`)
-          .then((d) => alive && setHistory(d))
-          .catch((e) => alive && setError(e.message))
-        return () => { alive = false }
-      }, [row.symbol])
+    // ── inlined from src/components.js ──
+// Valuation building blocks shared by Market, Analyses and Portfolio. Inlined into the factory
+// scope (h, React, N and the format.mjs helpers are in scope).
 
-      const recent = history ? history.bars.slice(-10).reverse() : []
-      const openAnalysis = () => {
-        if (!row.valuation || !nav.selectPanel) return
-        nav.pendingAnalysisId = row.valuation.id
-        nav.selectPanel(ANALYSES_ID)
+/** Valuation ruler: bear–bull band, protection tick (amber), fair tick (blue), price dot. */
+function Ruler({ fair, bear, bull, price, large = false }) {
+  const s = rulerScale({ bear, bull, fair, price })
+  if (!s || s.fair == null) return null
+  return h('span', { className: `q-rl${large ? ' q-rl-lg' : ''}`, 'aria-hidden': true },
+    h('span', { className: 'tr' }),
+    s.bear != null && s.bull != null ? h('span', { className: 'bd', style: { left: `${s.bear}%`, width: `${s.bull - s.bear}%` } }) : null,
+    s.protection != null ? h('span', { className: 'tk prot', style: { left: `${s.protection}%` } }) : null,
+    h('span', { className: 'tk fair', style: { left: `${s.fair}%` } }),
+    s.price != null ? h('span', { className: 'dt', style: { left: `${s.price}%` } }) : null)
+}
+
+/** ◆ under protection · ○ under fair · ● above fair (shape carries the meaning, not colour). */
+function StatusMark({ status, size = 10 }) {
+  const common = { width: size, height: size, viewBox: '0 0 10 10', 'aria-hidden': true, style: { flex: 'none' } }
+  if (status === 'under') return h('svg', common, h('path', { d: 'M5 1 9 5 5 9 1 5Z', fill: 'currentColor', stroke: 'currentColor', strokeWidth: 1.4, strokeLinejoin: 'round' }))
+  return h('svg', common, h('circle', { cx: 5, cy: 5, r: 3.3, fill: status === 'above' ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.4 }))
+}
+
+const STATUS_TIP = {
+  under: 'السعر أقل من سعر الحماية (80% من العادل): المحلل يراجع التقييم. تنبيه للمراجعة، مش أمر بيع.',
+  between: 'السعر بين سعر الحماية والسعر العادل.',
+  above: 'السعر أعلى من السعر العادل أو يساويه.',
+}
+
+/** «أقل من العادل بـ 6.9%» with its mark; the number is its own span and ends the sentence. */
+function MarginText({ price, fair, prefix = '', suffix = null, size }) {
+  const m = marginSentence(price, fair)
+  if (!m) return null
+  return h('span', { className: `q-status${m.status === 'under' ? ' under' : ''}`, title: STATUS_TIP[m.status], style: size ? { fontSize: size } : undefined },
+    h(StatusMark, { status: m.status, size: size ? Math.round(size * 0.85) : 10 }),
+    prefix, m.text, m.value ? ' ' : null, m.value ? N(m.value) : null, suffix)
+}
+
+function RatingChip({ rating }) {
+  if (!rating) return h('span', { className: 'q-ter', 'aria-label': 'بدون تصنيف' }, '—')
+  return h('span', { className: `q-rating q-r${RATING_LEVEL[rating] || 0}` },
+    h('span', { className: 'q-bars', 'aria-hidden': true }, h('i'), h('i'), h('i')), RATING_LABEL[rating] || rating)
+}
+
+function Range52({ low, high, price }) {
+  const pos = rangePosition(low, high, price)
+  if (pos == null) return h('span', { className: 'q-ter' }, '—')
+  return h('span', { style: { display: 'block', width: '100%' } },
+    h('span', { className: 'q-b52', style: { display: 'block' }, role: 'img',
+      'aria-label': `السعر عند ${Math.round(pos)} بالمئة من نطاق 52 أسبوعًا` },
+    h('span', { className: 'fl', style: { width: `${pos}%` } }),
+    h('span', { className: 'dt', style: { left: `${pos}%` } })),
+    h('span', { className: 'q-b52n num' }, h('span', null, fmtPrice(low)), h('span', null, fmtPrice(high))))
+}
+
+function StaleChip() {
+  return h('span', { className: 'q-chip q-chip-warn', title: 'هذا السعر أقدم من آخر جلسة، فلا يدخل في حساب اليوم' }, 'سعر قديم')
+}
+
+/** Price + its date, or the stale chip (the stale session date sits in the day-change cell). */
+function PriceCell({ price, asOf, stale, kind }) {
+  if (price == null) return h('span', { className: 'q-ter' }, 'بانتظار السعر')
+  return h('span', { className: 'q-cell' },
+    h('b', { className: 'num', style: { fontWeight: 500 } }, fmtPrice(price)),
+    h('small', null, stale ? h(StaleChip) : kind === 'delayed' ? ['متأخر ', N(fmtTime(asOf))] : N(fmtDayMonth(asOf))))
+}
+
+/** The ؟ toggle with the protection definition (open by default where protection is shown large). */
+function ProtectionHelp({ open, onToggle }) {
+  return h('button', { type: 'button', className: 'q-help', 'aria-label': 'ما هو سعر الحماية؟', 'aria-expanded': open, onClick: onToggle }, '؟')
+}
+
+function ProtectionNote() {
+  return h('div', { className: 'q-note', role: 'note' },
+    'سعر الحماية = ', N('80%'), ' من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع. ',
+    'مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.')
+}
+
+const PORTFOLIO_GLYPH = (size = 10) => h('svg', { width: size, height: size, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5 },
+  h('rect', { x: 1.5, y: 3.5, width: 9, height: 6, rx: 1.5 }), h('path', { d: 'M4 3.5V2.5h4v1' }))
+
+function MineChip({ long = false }) {
+  return h('span', { className: 'q-chip', title: 'في محفظتك' }, PORTFOLIO_GLYPH(10), long ? 'في محفظتك' : 'محفظتي')
+}
+
+function Skeleton({ width = 80 }) {
+  return h('span', { className: 'q-skel', style: { width } })
+}
+
+    // ── inlined from src/market.js ──
+// «قيمة / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
+// docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). Inlined into the factory
+// scope: h, React, api, N, nav, the format.mjs helpers, identity.js and components.js are in scope.
+
+const MARKET_CSS = "/* Market screen («قيمة / السوق»). Harness tokens only; builds on styles.css. */\n\n/* Status strip */\n.qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }\n.qm .m-ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }\n.qm .m-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-kv b { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n.qm .m-stack { display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none; }\n.qm .m-stack > span { display: block; }\n\n/* Digest */\n.qm .m-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px; }\n.qm .m-digest-t { font-size: 14px; font-weight: 600; margin-inline-end: 8px; }\n.qm .m-di { appearance: none; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; font-size: 13px; white-space: nowrap; text-align: start; }\n.qm .m-di:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-ic { width: 18px; height: 18px; border-radius: var(--dsw-radius-xs); display: grid; place-items: center; background: var(--dsw-alias-markdown-tag);\n  color: var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-ic.w { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); }\n.qm .m-ic.b { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n\n/* Toolbar */\n.qm .m-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .m-toolbar .q-field input[type='search'] { width: 140px; }\n.qm .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .q-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */\n.qm .m-table { overflow: hidden; container-type: inline-size; }\n.qm .m-g { --cols: minmax(176px, 1.5fr) 88px 136px 68px minmax(216px, 2.5fr) 104px 112px; min-width: 930px; }\n@container (max-width: 930px) {\n  .qm .m-g { --cols: minmax(150px, 1.4fr) 84px 128px 64px minmax(200px, 2.4fr) 96px; min-width: 760px; }\n  .qm .m-g > .m-c52 { display: none; }\n}\n.qm .m-row { min-height: 64px; cursor: pointer; position: relative; }\n.qm .m-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-row.q-warn:hover { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .m-row.q-sel, .qm .m-row.q-sel:hover { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-sym .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }\n.qm .m-sym .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }\n.qm .m-sym small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n.qm .m-vc { display: flex; flex-direction: column; justify-content: center; padding-block: 8px; }\n.qm .m-unvalued { display: flex; align-items: center; gap: 12px; }\n.qm .m-qbtn { appearance: none; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l4);\n  background: transparent; cursor: pointer; color: var(--dsw-alias-link); font-size: 13px; font-weight: 500; }\n.qm .m-qbtn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-grp { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform);\n  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; text-align: start; cursor: pointer; font-size: 13px; }\n.qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-tkgrid button { appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }\n.qm .m-tkgrid button:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid button.q-sel { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-key { display: inline-flex; align-items: center; gap: 6px; }\n\n/* Detail */\n.qm .m-dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px; }\n.qm .m-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: var(--dsw-alias-bg-module-platform); }\n.qm .m-panes { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }\n.qm .m-left { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-right { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }\n.qm .m-box { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-dashed { border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column;\n  align-items: flex-start; gap: 12px; }\n.qm .m-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-hist { display: grid; grid-template-columns: 88px 1fr 1fr 1.4fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .m-hist.h { font-size: 12px; color: var(--dsw-alias-label-secondary); border-top: 0; padding: 4px 0; }\n.qm .m-bigruler { position: relative; height: 112px; direction: ltr; margin: 0 24px; }\n.qm .m-bigruler .lg { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 12px; text-align: center; line-height: 1.4; }\n.qm .m-bigruler .bar { position: absolute; top: 46px; height: 12px; border-radius: 6px; }\n.qm .m-bigruler .edge { position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; background: var(--dsw-alias-label-tertiary); }\n.qm .m-bigruler .tk { position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; }\n.qm .m-bigruler .dt { position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .m-chart { height: 280px; direction: ltr; }\n.qm .m-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; }\n.qm .m-sk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .m-sk > div { padding: 8px 10px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; }\n.qm .m-tv { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; display: flex; flex-direction: column; }\n.qm .m-tvh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }\n.qm .m-tvh a { color: inherit; }\n.qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }\n"
+const MARKET_TOTAL = 31
+
+const PERIOD_OPTIONS = [['1m', 'شهر'], ['3m', '3 شهور'], ['1y', 'سنة']]
+const SORT_OPTIONS = [
+  ['weight', 'الوزن في المؤشر'], ['symbol', 'الرمز'], ['price', 'آخر سعر'], ['day', 'التغير اليوم'],
+  ['period', 'أداء الفترة'], ['margin', 'الفرق عن العادل'], ['rating', 'التصنيف'], ['r52', 'موضع 52 أسبوعًا'],
+]
+const FILTERS = [
+  ['all', 'الكل'], ['valued', 'مقيَّم'], ['under', 'تحت الحماية'], ['unvalued', 'لم يُقيَّم'], ['noprice', 'بدون سعر'], ['stale', 'قديم'],
+]
+
+const isUnder = (r) => Boolean(r.valuation && r.valuation.status === 'below_protection')
+const FILTER_TEST = {
+  all: () => true,
+  valued: (r) => Boolean(r.valuation),
+  under: isUnder,
+  unvalued: (r) => r.price != null && !r.valuation,
+  noprice: (r) => r.price == null,
+  stale: (r) => r.stale === true,
+}
+
+// Sort values; null always sorts last whatever the direction. A stale day change is not today's
+// move, so it is left out of the «اليوم» sort.
+const SORT_VALUE = {
+  weight: (r) => r.weight_pct,
+  symbol: (r) => r.symbol,
+  price: (r) => r.price,
+  day: (r) => (r.stale ? null : r.change_pct),
+  period: (r, period) => (r.returns || {})[period],
+  margin: (r) => (r.valuation ? marginToFair(r.valuation.fair_value, r.price) : null),
+  rating: (r) => (r.valuation ? RATING_LEVEL[r.valuation.risk_rating] || null : null),
+  r52: (r) => rangePosition(r.low_52w, r.high_52w, r.price),
+}
+
+function sortRows(rows, key, desc, period) {
+  const value = SORT_VALUE[key] || SORT_VALUE.weight
+  return rows.slice().sort((a, b) => {
+    const x = value(a, period), y = value(b, period)
+    if (x == null && y == null) return a.symbol.localeCompare(b.symbol)
+    if (x == null) return 1
+    if (y == null) return -1
+    const c = typeof x === 'string' ? x.localeCompare(y) : x - y
+    return desc ? -c : c
+  })
+}
+
+function openAnalysis(id) {
+  if (id == null || !nav.selectPanel) return
+  nav.pendingAnalysisId = id
+  nav.selectPanel(ANALYSES_ID)
+}
+
+function SortArrow({ desc }) {
+  return h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
+    h('path', { d: desc ? 'M6 2v8M3 7l3 3 3-3' : 'M6 10V2M3 5l3-3 3 3' }))
+}
+
+// ── Status strip ─────────────────────────────────────────────────────────────
+
+function StatusStrip({ data, portfolio }) {
+  const session = sessionLine(data.as_of, data.session_open)
+  const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+  const run = data.last_sync
+  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const b = data.breadth
+  const holdings = portfolio && portfolio.holdings && portfolio.holdings.length
+  const totals = portfolio && portfolio.totals
+  return h('section', { className: 'q-card m-strip', 'aria-label': 'حالة الجلسة والبيانات' },
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8 } },
+      h('span', { className: 'm-ring', 'aria-hidden': true }),
+      h('div', { className: 'm-kv' },
+        h('b', null, h('span', null, session.text, session.time ? ' ' : null, session.time ? N(session.time) : null)),
+        lastClose ? h('small', null, `آخر إغلاق ${weekdayName(lastClose)} `, N(fmtDate(lastClose))) : h('small', null, 'لا توجد إغلاقات محفوظة بعد'))),
+    h('div', { className: 'm-kv' },
+      h('small', null, 'تحديثات الأسعار اليوم · المصدر EODHD (أسعار نهاية اليوم)'),
+      h('b', null,
+        used == null ? h('span', { className: 'q-sec' }, 'لم يتم تحديث اليوم بعد')
+          : [h('span', { key: 'n' }, N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit))),
+            h('span', { key: 'b', className: 'q-mini-bar', 'aria-hidden': true },
+              h('span', { style: { width: `${Math.min(100, (used / run.daily_limit) * 100)}%`, background: 'var(--dsw-alias-label-secondary)' } }))],
+        run && run.finished_at ? h('span', { className: 'q-sec', style: { fontWeight: 400, fontSize: 12 } }, 'آخر تحديث ', N(fmtTime(run.finished_at))) : null)),
+    h('div', { className: 'm-kv' },
+      h('small', null, 'صاعد / هابط اليوم'),
+      h('b', null,
+        h('span', { className: 'm-stack', 'aria-hidden': true },
+          h('span', { style: { flex: b.up, background: 'var(--dsw-alias-state-success-primary)' } }),
+          h('span', { style: { flex: b.down, background: 'var(--dsw-alias-state-error-primary)' } }),
+          h('span', { style: { flex: b.flat + b.stale, background: 'var(--dsw-alias-label-tertiary)' } }),
+          h('span', { style: { flex: b.no_data, background: 'var(--dsw-alias-border-l4)' } })),
+        h('span', { className: 'q-up' }, 'صاعد ', N(fmtCount(b.up))),
+        h('span', { className: 'q-down' }, 'هابط ', N(fmtCount(b.down))),
+        b.flat ? h('span', { className: 'q-sec' }, 'ثابت ', N(fmtCount(b.flat))) : null,
+        b.stale ? h('span', { className: 'q-sec', title: 'آخر سعر له من جلسة سابقة، فلا يدخل في حساب اليوم' }, 'قديم ', N(fmtCount(b.stale))) : null,
+        b.no_data ? h('span', { className: 'q-sec' }, 'بدون سعر ', N(fmtCount(b.no_data))) : null)),
+    holdings ? h('div', { className: 'm-kv' },
+      h('small', null, 'محفظتي اليوم'),
+      totals.today_has_fresh
+        ? h('b', null, N(fmtChange(totals.today_change, totals.today_change_pct), toneOf(totals.today_change)))
+        : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null)
+}
+
+// ── Digest ─────────────────────────────────────────────────────────────────────
+
+const DIGEST_ICON = {
+  status: ['w', h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true }, h('path', { d: 'M6 1.5 10.5 6 6 10.5 1.5 6Z', fill: 'currentColor' }))],
+  valuation: ['b', h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }, h('path', { d: 'M2 9l3-3 2 2 3-4' }))],
+  holding_move: ['', PORTFOLIO_GLYPH(10)],
+}
+
+function Digest({ items, onSelect }) {
+  if (!items || !items.length) return null
+  return h('section', { className: 'q-card m-digest', 'aria-label': 'منذ آخر إغلاق' },
+    h('span', { className: 'm-digest-t' }, 'منذ آخر إغلاق'),
+    items.map((item, i) => {
+      const [tone, glyph] = DIGEST_ICON[item.kind]
+      const sym = h('b', { className: 'q-sym' }, item.symbol)
+      let body, onClick, title
+      if (item.kind === 'status') {
+        onClick = () => onSelect(item.symbol)
+        title = item.name_ar || item.symbol
+        body = item.to === 'below_protection'
+          ? [sym, ' ', h('span', { key: 'a', className: 'q-amber' }, 'تحت سعر الحماية بـ ', N(fmtPct(item.below_protection_by)))]
+          : [sym, ' ', h('span', { key: 'a', className: 'q-sec' }, 'خرج من تحت سعر الحماية')]
+      } else if (item.kind === 'valuation') {
+        onClick = () => openAnalysis(item.valuation_id)
+        title = item.reason || ''
+        body = ['تقييم ', sym, ' ', item.previous_fair_value != null
+          ? N(fmtArrow(item.previous_fair_value, item.fair_value), 'q-blue')
+          : [h('span', { key: 'n', className: 'q-sec' }, 'جديد '), N(fmtPrice(item.fair_value), 'q-blue')]]
+      } else {
+        onClick = () => onSelect(item.symbol)
+        title = item.name_ar || item.symbol
+        body = ['سهمك ', sym, ' ', N(fmtChange(item.change, item.change_pct), toneOf(item.change))]
       }
-      let body
-      if (error) body = h('div', { className: 'egxp-error', role: 'alert' }, error)
-      else if (!history) body = h('div', { className: 'egxm-chart' }, h('span', { className: 'egxm-skel', style: { width: '40%' } }))
-      else if (!history.bars.length) body = h('div', { className: 'egxm-notice' },
-        'لا توجد أسعار محفوظة لهذا السهم بعد. سيتم جلبها في التحديث القادم حسب حد الطلبات اليومي.')
-      else body = h('div', { className: 'egxm-detail-grid' },
-        h('div', null,
-          h('div', { className: 'egxm-detail-head' },
-            h('span', { className: 'egxm-detail-title' }, `${row.symbol} — شموع يومية`),
-            h('div', { className: 'egxm-seg', role: 'group', 'aria-label': 'مدى الرسم' },
-              [[30, 'شهر'], [91, '3 شهور'], [182, '6 شهور'], [365, 'سنة']].map(([d, label]) =>
-                h('button', { key: d, type: 'button', 'aria-pressed': rangeDays === d, onClick: () => setRangeDays(d) }, label)))),
-          h(SymbolChart, { history, rangeDays }),
-          history.levels
-            ? h('div', { className: 'egxm-levels' },
-              h('span', null, 'السعر العادل ', h('strong', null, N(price2(history.levels.fair_value), 'q-blue'))),
-              h('span', null, 'سعر الحماية ', ltr(price2(history.levels.protection_price))),
-              h('span', null, 'النطاق ', range(history.levels.bear, history.levels.bull)),
-              h('button', { type: 'button', className: 'egxm-link', onClick: openAnalysis }, 'فتح التحليل ←'))
-            : h('div', { className: 'egxm-levels' }, 'لا يوجد تقييم محفوظ لهذا السهم. اطلب من المحلل: «قيّم سهم ', row.symbol, '».')),
-        h('div', null,
-          h('div', { className: 'egxm-detail-head' }, h('span', { className: 'egxm-detail-title' }, 'آخر 10 جلسات')),
-          h('div', { className: 'egxp-table-wrap' }, h('table', { className: 'egxm-mini', style: { width: '100%', borderCollapse: 'collapse', fontVariantNumeric: 'tabular-nums' } },
-            h('thead', null, h('tr', null, ['الجلسة', 'الإغلاق', 'التغير', 'الأعلى', 'الأدنى', 'الحجم'].map((t, i) =>
-              h('th', { key: i, className: i ? 'egxm-num' : undefined }, t)))),
-            h('tbody', null, recent.map((b, i) => {
-              const prev = history.bars[history.bars.length - 2 - i]
-              const chg = prev ? b.close / prev.close - 1 : null
-              return h('tr', { key: b.date },
-                h('td', null, N(fmtDayMonth(b.date))),
-                h('td', { className: 'egxm-num' }, N(price2(b.close))),
-                h('td', { className: 'egxm-num' }, chg == null ? '—' : N(fmtPct(chg, { digits: 2, signed: true }), tone(chg))),
-                h('td', { className: 'egxm-num' }, N(price2(b.high))),
-                h('td', { className: 'egxm-num' }, N(price2(b.low))),
-                h('td', { className: 'egxm-num' }, b.volume == null ? '—' : N(fmtCompact(b.volume))))
-            }))))))
-      const symbol = tvSymbol(row.symbol)
-      const shared = { colorTheme: theme, isTransparent: true, width: '100%', height: '100%', locale: TV_LOCALE }
-      const tvNote = h('p', { className: 'egxm-tv-note' },
-        'بيانات TradingView متأخرة (علامة D) وللعرض فقط؛ لا تدخل في حسابات التقييم. الأرقام قد تختلف قليلًا عن EODHD بسبب توقيت التحديث.')
-      let panel = body
-      if (tab === 'chart') panel = h('div', null,
-        h(TvWidget, { name: 'symbol-info', height: 190, config: { ...shared, symbol, height: 190 } }),
-        h('div', { style: { height: 12 } }),
-        h(TvWidget, { name: 'advanced-chart', height: 560, config: {
-          autosize: true, symbol, interval: 'D', timezone: 'Africa/Cairo', theme, style: '1', locale: TV_LOCALE,
-          allow_symbol_change: false, withdateranges: true, hide_side_toolbar: false, details: false,
-          width: '100%', height: '100%' } }),
-        tvNote)
-      else if (tab === 'financials') panel = h('div', null,
-        h(TvWidget, { name: 'financials', height: 620, config: { ...shared, symbol, displayMode: 'adaptive', largeChartUrl: '' } }),
-        h('p', { className: 'egxm-tv-note' },
-          'البيانات المالية من TradingView للعرض والمقارنة فقط. التقييم يعتمد على القوائم المالية المحفوظة بمصادرها، وبعض التعريفات تختلف بين المصادر (مثل إيرادات البنوك).'))
-      else if (tab === 'technical') panel = h('div', null,
-        h('div', { className: 'egxm-caution', role: 'note' },
-          h('strong', null, 'تنبيه: '),
-          'هذه إشارة فنية آلية من TradingView تعتمد على المتوسطات المتحركة والمؤشرات الفنية فقط. ليست تقييمنا، ولا تأخذ في الاعتبار السعر العادل أو القوائم المالية، وليست توصية بالشراء أو البيع.'),
-        h(TvWidget, { name: 'technical-analysis', height: 440, config: { ...shared, symbol, interval: '1D', displayMode: 'single', showIntervalTabs: true } }),
-        tvNote)
-      const tabs = h('div', { className: 'egxm-tabs', role: 'tablist', 'aria-label': `تفاصيل ${row.symbol}` },
-        DETAIL_TABS.map(([key, label]) => h('button', {
-          key, type: 'button', role: 'tab', className: 'egxm-tab', 'aria-selected': tab === key,
-          tabIndex: tab === key ? 0 : -1, onClick: () => setTab(key),
-          onKeyDown: (e) => {
-            const i = DETAIL_TABS.findIndex(([k]) => k === tab)
-            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-              e.preventDefault()
-              // Right-to-left: ArrowLeft moves to the next tab.
-              const step = e.key === 'ArrowLeft' ? 1 : -1
-              setTab(DETAIL_TABS[(i + step + DETAIL_TABS.length) % DETAIL_TABS.length][0])
-            }
-          },
-        }, label)))
-      return h('tr', { className: 'egxm-detail' }, h('td', { colSpan }, tabs, h('div', { role: 'tabpanel' }, panel)))
-    }
+      return h('button', { key: i, type: 'button', className: 'm-di', onClick, title },
+        h('span', { className: `m-ic ${tone}` }, glyph), body)
+    }))
+}
 
-    function MarketRow({ row, period, expanded, onToggle }) {
-      const value = periodValue(row, period)
-      const v = row.valuation
-      const noData = row.price == null
-      const toggle = () => onToggle(row.symbol)
-      return h('tr', {
-        className: `egxm-row${noData ? ' egxm-nodata' : ''}`, tabIndex: 0, 'aria-expanded': expanded,
-        onClick: toggle, onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle() } },
-      },
-      h('td', null,
-        h('span', { className: 'egxm-sym' }, row.symbol), row.held ? h('span', { className: 'egxm-held' }, 'في محفظتك') : null,
-        h('span', { className: 'egxm-sub egxm-name', title: row.name, dir: 'ltr' }, row.name)),
-      h('td', { className: 'egxm-num' },
-        noData ? h('span', { className: 'egxm-sub' }, 'بانتظار التحديث')
-          : [h('span', { key: 'p', className: 'egxm-price num' }, price2(row.price)),
-            h('span', { key: 'd', className: `egxm-sub${row.stale ? ' egxm-warn' : ''}` },
-              row.price_kind === 'delayed' ? ['متأخر · ', N(fmtTime(row.as_of))] : ['إغلاق ', N(fmtDayMonth(row.as_of))])]),
-      h('td', { className: 'egxm-num' },
-        row.change == null ? '—' : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : tone(row.change))),
-      h('td', { className: 'egxm-num' }, value == null ? '—' : N(fmtPct(value, { signed: true }), tone(value))),
-      h('td', { className: 'egxm-num' }, h(RangeBar, { low: row.low_52w, high: row.high_52w, price: row.price })),
-      h('td', { className: 'egxm-num' }, row.volume == null ? '—' : N(fmtCompact(row.volume))),
-      h('td', { className: 'egxm-num' },
-        v ? [h('span', { key: 'f', className: 'num q-blue' }, price2(v.fair_value)),
-          h('span', { key: 'u', className: 'egxm-sub' }, ...marginParts(row.price, v.fair_value))]
-          : h('span', { className: 'egxm-sub' }, 'غير مقيَّم')),
-      h('td', null, v && v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating]) : '—'),
-      h('td', { className: 'egxm-num' }, N(fmtPct(row.weight_pct / 100, { digits: 2 }))))
-    }
+// ── Table ──────────────────────────────────────────────────────────────────────
 
-    function MarketPage() {
-      const [data, setData] = useState(null)
-      const [error, setError] = useState('')
-      const [syncing, setSyncing] = useState(false)
-      const [syncNote, setSyncNote] = useState('')
-      const [query, setQuery] = useState('')
-      const [period, setPeriod] = useState('day')
-      const [sort, setSort] = useState('weight')
-      const [heldOnly, setHeldOnly] = useState(false)
-      const [expanded, setExpanded] = useState(null)
+const COLUMNS = [
+  ['symbol', 'السهم'], ['price', 'آخر سعر'], ['day', 'اليوم'], ['period', null], ['margin', 'التقييم'], ['rating', 'التصنيف'], ['r52', 'نطاق 52 أسبوعًا'],
+]
 
-      const lastSyncSeen = React.useRef(undefined)
-      const load = useCallback(async () => {
-        try {
-          const next = await api('GET', '/egx/api/market')
-          setData(next); setError('')
-          // A finished sync means new prices: refresh the shared portfolio (icon + header) too.
-          const finished = next.last_sync && next.last_sync.finished_at
-          if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) qima.refresh()
-          lastSyncSeen.current = finished
-        } catch (e) { setError(e.message) }
-      }, [])
-      useEffect(() => {
-        load()
-        const timer = setInterval(load, 60_000)
-        return () => clearInterval(timer)
-      }, [load])
+function MarketRow({ row, period, selected, onSelect, onValue }) {
+  const v = row.valuation
+  const per = (row.returns || {})[period]
+  const select = () => onSelect(row.symbol)
+  const cls = ['q-grid', 'm-g', 'q-tr', 'm-row', isUnder(row) ? 'q-warn' : '', selected ? 'q-sel' : ''].join(' ')
+  return h('div', {
+    className: cls, role: 'row', tabIndex: 0, 'aria-selected': selected, onClick: select,
+    onKeyDown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select() } },
+  },
+  h('span', { className: 'q-cell m-sym', role: 'cell' },
+    h('span', { className: 'l1' }, h('b', { className: 'q-sym' }, row.symbol), h('span', { className: 'nm' }, row.name_ar || row.name),
+      row.held ? h(MineChip) : null),
+    h('small', null, row.sector_ar || row.sector, ' · ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر')),
+  h('span', { role: 'cell' }, h(PriceCell, { price: row.price, asOf: row.as_of, stale: row.stale, kind: row.price_kind })),
+  h('span', { className: 'q-cell', role: 'cell' },
+    row.change == null ? h('span', { className: 'q-ter' }, '—')
+      : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : toneOf(row.change)),
+    row.stale ? h('small', null, 'جلسة ', N(fmtDayMonth(row.as_of))) : null),
+  h('span', { role: 'cell' }, per == null ? h('span', { className: 'q-ter' }, '—') : N(fmtPct(per, { signed: true }), toneOf(per))),
+  v ? h('span', { className: 'm-vc', role: 'cell' },
+    h(Ruler, { fair: v.fair_value, bear: v.bear, bull: v.bull, price: row.price }),
+    h('span', { className: 'q-vline' },
+      h('span', null, h('span', { className: 'q-sec' }, 'عادل '), N(fmtPrice(v.fair_value), 'q-blue q-strong')),
+      row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value }) : null))
+    : h('span', { className: 'm-vc', role: 'cell' },
+      h('span', { className: 'm-unvalued' },
+        h('span', { className: 'q-sec', style: { fontSize: 12 } }, 'لم يُقيَّم بعد'),
+        h('button', { type: 'button', className: 'm-qbtn', 'aria-label': `قيّم سهم ${row.symbol} في المحادثة`,
+          onClick: (e) => { e.stopPropagation(); onValue(row.symbol) } }, 'قيّم'))),
+  h('span', { role: 'cell' }, v ? h(RatingChip, { rating: v.risk_rating }) : h('span', { className: 'q-ter', 'aria-hidden': true }, '—')),
+  h('span', { className: 'm-c52', role: 'cell' }, h(Range52, { low: row.low_52w, high: row.high_52w, price: row.price })))
+}
 
-      async function sync() {
-        setSyncing(true); setSyncNote('')
-        try {
-          const r = await api('POST', '/egx/api/market/sync', {})
-          if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD.')
-          else if (r.ok === false) setSyncNote(`تعذّر التحديث: ${r.error}`)
-          else {
-            const parts = []
-            parts.push(r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل')
-            if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد طلبات الغد`)
-            setSyncNote(parts.join(' · '))
-          }
-          await load()
-          qima.refresh()
-        } catch (e) {
-          setSyncNote(e.message)
-        } finally {
-          setSyncing(false)
-        }
-      }
+function TableHead({ sort, desc, period, onSort }) {
+  const periodLabel = PERIOD_OPTIONS.find(([k]) => k === period)[1]
+  return h('div', { className: 'q-grid m-g q-th', role: 'row' },
+    COLUMNS.map(([key, label]) => {
+      const on = sort === key
+      return h('span', { key, role: 'columnheader', className: key === 'r52' ? 'm-c52' : undefined,
+        'aria-sort': on ? (desc ? 'descending' : 'ascending') : 'none' },
+      h('button', { type: 'button', className: on ? 'on' : '', onClick: () => onSort(key) }, label || periodLabel, on ? h(SortArrow, { desc }) : null))
+    }))
+}
 
-      const rows = React.useMemo(() => {
-        if (!data) return []
-        const q = query.trim().toLowerCase()
-        let list = data.rows.filter((r) => (!heldOnly || r.held) && (!q || r.symbol.toLowerCase().includes(q) || r.name.toLowerCase().includes(q)))
-        const key = {
-          weight: (r) => -r.weight_pct,
-          change: (r) => (r.change_pct == null ? Infinity : -r.change_pct),
-          period: (r) => { const v = periodValue(r, period); return v == null ? Infinity : -v },
-          margin: (r) => { const m = r.valuation && marginToFair(r.valuation.fair_value, r.price); return m == null ? Infinity : -m },
-          symbol: (r) => r.symbol,
-        }[sort]
-        return list.slice().sort((a, b) => { const x = key(a), y = key(b); return x < y ? -1 : x > y ? 1 : 0 })
-      }, [data, query, heldOnly, sort, period])
+function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
+  if (!rows.length) return null
+  const preview = rows.slice(0, 8).map((r) => r.symbol).join(' · ') + (rows.length > 8 ? ' …' : '')
+  return h(React.Fragment, null,
+    h('button', { type: 'button', className: 'm-grp', 'aria-expanded': open, onClick: onToggle },
+      h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } },
+        h('path', { d: open ? 'M2.5 4.5 6 8l3.5-3.5' : 'M7.5 2.5 4 6l3.5 3.5' })),
+      h('b', { style: { fontWeight: 600 } }, N(fmtCount(rows.length)), ' سهمًا بانتظار السعر'),
+      h('span', { className: 'q-sec' }, '— تُستكمل في التحديث القادم'),
+      open ? null : h('span', { className: 'q-ter num', style: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, preview),
+      h('span', { className: 'q-grow' }),
+      h('span', { className: 'q-link', style: { minHeight: 0 } }, open ? 'إخفاء' : 'عرض الأسماء')),
+    open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('button', {
+      key: r.symbol, type: 'button', className: selected === r.symbol ? 'q-sel' : '', onClick: () => onSelect(r.symbol),
+    }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name)))) : null)
+}
 
-      const run = data && data.last_sync
-      const usage = run && run.daily_limit ? h('span', null, 'تحديثات الأسعار اليوم ', N(fmtCount((run.used_before || 0) + (run.calls_made || 0))), ' من ', N(fmtCount(run.daily_limit))) : null
-      const latestDay = data && data.rows.reduce((m, r) => (r.as_of && r.as_of > m ? r.as_of : m), '')
-      const b = data && data.breadth
-      const priced = b ? b.up + b.down + b.flat : 0
-      const headers = [['symbol', 'السهم'], [null, 'آخر سعر'], ['change', 'التغير اليومي'], ['period', `الأداء: ${PERIODS.find((p) => p[0] === period)[1]}`],
-        [null, 'نطاق 52 أسبوعًا'], [null, 'الحجم'], ['margin', 'السعر العادل'], [null, 'التصنيف'], ['weight', 'الوزن']]
-      const numeric = new Set([1, 2, 3, 4, 5, 6, 8])
+function RulerLegend() {
+  const key = (swatch, label) => h('span', { className: 'm-key' }, swatch, label)
+  return [
+    h('span', { key: 't' }, 'المسطرة لكل سهم بمقياسه:'),
+    key(h('span', { style: { width: 10, height: 10, borderRadius: '50%', background: 'var(--dsw-alias-label-primary)', display: 'inline-block' } }), 'السعر'),
+    key(h('span', { style: { width: 3, height: 14, borderRadius: 1, background: 'var(--dsw-alias-state-warn-primary)', display: 'inline-block' } }), 'سعر الحماية'),
+    key(h('span', { style: { width: 3, height: 14, borderRadius: 1, background: 'var(--dsw-alias-state-business-primary)', display: 'inline-block' } }), 'السعر العادل'),
+    key(h('span', { style: { width: 18, height: 6, borderRadius: 3, background: 'var(--dsw-alias-state-business-primary)', opacity: 0.35, display: 'inline-block' } }), 'من المتشائم إلى المتفائل'),
+  ].map((node, i) => React.cloneElement(node, { key: i }))
+}
 
-      let body
-      if (!data && !error) body = Array.from({ length: 8 }, (_, i) => h('tr', { key: i }, headers.map((_, j) =>
-        h('td', { key: j }, h('span', { className: 'egxm-skel', style: { width: j ? 48 : 90 } })))))
-      else if (!data) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' }, 'تعذّر تحميل السوق.'))
-      else if (!rows.length) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' },
-        heldOnly ? 'لا توجد أسهم في محفظتك تطابق البحث.' : 'لا يوجد سهم يطابق البحث.'))
-      else body = rows.flatMap((r) => {
-        const out = [h(MarketRow, { key: r.symbol, row: r, period, expanded: expanded === r.symbol, onToggle: (s) => setExpanded((cur) => (cur === s ? null : s)) })]
-        if (expanded === r.symbol) out.push(h(SymbolDetail, { key: `${r.symbol}-detail`, row: r, colSpan: headers.length }))
-        return out
+// ── Detail: our valuation ─────────────────────────────────────────────────────
+
+function BigRuler({ v, price }) {
+  const s = rulerScale({ bear: v.bear, bull: v.bull, fair: v.fair_value, price })
+  if (!s) return null
+  // Labels can collide when marks are close: nudge the bottom labels apart (min 14% gap).
+  const bottom = [['bear', s.bear], ['prot', s.protection], ['fair', s.fair], ['bull', s.bull]].filter(([, p]) => p != null).sort((a, b) => a[1] - b[1])
+  const placed = {}
+  let last = -100
+  bottom.forEach(([k, p]) => { const q = Math.max(p, last + 14); placed[k] = q; last = q })
+  const over = last - 100
+  if (over > 0) Object.keys(placed).forEach((k) => { placed[k] -= over })
+  const label = (key, title, value, cls) => (placed[key] == null ? null
+    : h('div', { key, className: 'lg', style: { left: `${placed[key]}%`, top: 72 } }, h('span', { className: cls }, title), h('br'), N(fmtPrice(value))))
+  return h('div', { className: 'm-bigruler', role: 'img',
+    'aria-label': `مسطرة التقييم: المتشائم ${fmtPrice(v.bear)}، الحماية ${fmtPrice(v.protection_price)}، السعر ${fmtPrice(price)}، العادل ${fmtPrice(v.fair_value)}، المتفائل ${fmtPrice(v.bull)}` },
+  s.price != null ? h('div', { className: 'lg', style: { left: `${s.price}%`, top: 0 } }, N(fmtPrice(price), 'q-strong'), h('br'), h('span', { className: 'q-sec' }, 'السعر')) : null,
+  h('div', { className: 'bar', style: { left: 0, right: 0, background: 'var(--dsw-alias-border-l4)' } }),
+  s.bear != null && s.bull != null ? [
+    h('div', { key: 'band', className: 'bar', style: { left: `${s.bear}%`, width: `${s.bull - s.bear}%`, background: 'var(--dsw-alias-state-business-primary)', opacity: 0.3 } }),
+    h('div', { key: 'e1', className: 'edge', style: { left: `${s.bear}%` } }), h('div', { key: 'e2', className: 'edge', style: { left: `${s.bull}%` } })] : null,
+  h('div', { className: 'tk', style: { left: `${s.protection}%`, background: 'var(--dsw-alias-state-warn-primary)' } }),
+  h('div', { className: 'tk', style: { left: `${s.fair}%`, background: 'var(--dsw-alias-state-business-primary)' } }),
+  s.price != null ? h('div', { className: 'dt', style: { left: `${s.price}%` } }) : null,
+  label('bear', 'المتشائم', v.bear, 'q-sec'), label('prot', 'سعر الحماية', v.protection_price, 'q-amber'),
+  label('fair', 'السعر العادل', v.fair_value, 'q-blue q-strong'), label('bull', 'المتفائل', v.bull, 'q-sec'))
+}
+
+function ValuationCard({ row }) {
+  const v = row.valuation
+  const [help, setHelp] = useState(true)
+  const steps = (row.valuation_history || []).slice().reverse()
+  const lastFull = steps.find((s) => s.kind === 'full')
+  const light = v.kind === 'light'
+  const m = marginSentence(row.price, v.fair_value)
+  const fact = (label, value, extra) => h('div', { className: 'q-kv' }, h('small', null, label), h('b', null, value), extra || null)
+  return h('div', { className: 'm-box' },
+    h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
+      h('span', { className: 'q-sec' }, 'السعر العادل'),
+      h('span', { className: 'q-meta' }, 'تاريخ التقييم ', N(fmtDate(lastFull ? lastFull.date : v.valuation_date)),
+        light ? [' · تحديث خفيف ', N(fmtDayMonth(v.valuation_date))] : null)),
+    h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginTop: -8 } },
+      N(fmtPrice(v.fair_value), 'q-blue q-hero'),
+      row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value, prefix: m && m.status !== 'under' ? 'السعر ' : '', size: 14 }) : null),
+    row.price != null ? h(BigRuler, { v, price: row.price }) : null,
+    h('div', { className: 'm-facts' },
+      fact('السعر العادل', N(fmtPrice(v.fair_value), 'q-blue')),
+      fact('النطاق (المتشائم – المتفائل)', N(`${fmtPrice(v.bear)} – ${fmtPrice(v.bull)}`)),
+      h('div', { className: 'q-kv' }, h('small', null, 'سعر الحماية ', h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
+        h('b', null, N(fmtPrice(v.protection_price), 'q-amber'))),
+      fact('الفرق عن العادل', m ? h('span', { style: { fontSize: 13 } }, m.text, m.value ? ' ' : null, m.value ? N(m.value) : null) : '—'),
+      fact('التصنيف', h(RatingChip, { rating: v.risk_rating })),
+      fact('تاريخ التقييم', N(fmtDate(v.valuation_date))),
+      fact('السعر وقت التقييم', N(fmtPrice(v.price_at_valuation)), h('small', { className: 'q-meta' }, 'إغلاق ', N(fmtDayMonth(v.valuation_date))))),
+    help ? h(ProtectionNote) : null,
+    steps.length ? h('div', null,
+      h('div', { className: 'q-meta', style: { marginBottom: 4 } }, 'كل التقييمات والسعر وقت كل واحد'),
+      h('div', { className: 'm-hist h' }, h('span', null, 'التاريخ'), h('span', null, 'العادل'), h('span', null, 'السعر وقتها'), h('span', null, 'الحالة وقتها')),
+      steps.map((s) => h('div', { key: s.id, className: 'm-hist' },
+        h('span', { className: 'q-sec' }, N(fmtDate(s.date)), s.kind === 'light' ? h('small', { className: 'q-ter' }, ' خفيف') : null),
+        N(fmtPrice(s.fair_value), 'q-blue q-strong'),
+        N(fmtPrice(s.price_at_valuation)),
+        s.price_at_valuation != null ? h(MarginText, { price: s.price_at_valuation, fair: s.fair_value }) : h('span', { className: 'q-ter' }, '—'))),
+      light ? h('p', { className: 'q-meta', style: { margin: '6px 0 0', lineHeight: 1.7 } },
+        'التحديث الخفيف = مراجعة أسبوعية سريعة للأخبار والأسعار بدون إعادة تقييم كامل، والسعر العادل فيه لم يتغير.') : null) : null,
+    h('div', { style: { display: 'flex', justifyContent: 'flex-end' } },
+      h('button', { type: 'button', className: 'q-link', onClick: () => openAnalysis(lastFull ? lastFull.id : v.id) }, 'افتح التحليل الكامل ←')))
+}
+
+// ── Detail: candles with fair / protection as step lines by valuation date ────
+
+function ValuationCandles({ bars, steps }) {
+  const ref = React.useRef(null)
+  useEffect(() => {
+    if (!bars.length) return undefined
+    const theme = chartTheme()
+    const chart = LightweightCharts.createChart(ref.current, {
+      autoSize: true,
+      layout: { background: { color: 'transparent' }, textColor: theme.text, attributionLogo: true },
+      grid: { vertLines: { visible: false }, horzLines: { color: theme.grid } },
+      rightPriceScale: { borderVisible: false },
+      timeScale: { borderVisible: false, rightOffset: 2 },
+      localization: { locale: 'en-US', dateFormat: 'dd/MM' },
+      crosshair: { mode: 0 },
+      handleScroll: false, handleScale: false,
+    })
+    const candles = chart.addSeries(LightweightCharts.CandlestickSeries, {
+      upColor: theme.up, downColor: theme.down, wickUpColor: theme.up, wickDownColor: theme.down, borderVisible: false,
+      priceLineVisible: false, lastValueVisible: true,
+    })
+    candles.setData(bars.map((b) => ({ time: b.date, open: b.open, high: b.high, low: b.low, close: b.close })))
+    const first = bars[0].date, last = bars[bars.length - 1].date
+    // A valuation dated after the last candle extends the axis to its own day (right-edge marker).
+    const timeline = bars.map((b) => b.date).concat([...new Set(steps.filter((s) => s.date > last).map((s) => s.date))])
+    const valueAt = (day, key) => { let value = null; for (const s of steps) if (s.date <= day) value = s[key]; return value }
+    const stepLine = (key, color, style) => {
+      const points = timeline.map((t) => ({ time: t, value: valueAt(t, key) })).filter((p) => p.value != null)
+      if (!points.length) return null
+      const series = chart.addSeries(LightweightCharts.LineSeries, {
+        color, lineWidth: 2, lineStyle: style, lineType: LightweightCharts.LineType.WithSteps,
+        priceLineVisible: false, lastValueVisible: true, crosshairMarkerVisible: false, pointMarkersVisible: points.length === 1,
       })
-
-      const noKey = data && !data.last_sync && b && b.no_data === data.rows.length
-      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, QM_CSS + CSS + MARKET_CSS),
-        h(PanelHeader, { here: 'السوق', demo: Boolean(data && data.demo_data),
-          actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
-            syncing ? 'جارٍ التحديث…' : 'تحديث الأسعار الآن') }),
-        h('div', null,
-          h('div', { className: 'egxm-meta' },
-            h('span', null, h('span', { className: 'egxm-dot' }),
-              data ? (data.session_open ? 'الجلسة مفتوحة' : 'الجلسة مغلقة') : '…'),
-            latestDay ? h('span', null, `آخر إغلاق ${weekdayName(latestDay)} `, N(fmtDate(latestDay))) : null,
-            h('span', null, 'المصدر EODHD · أسعار متأخرة، ليست لحظية'),
-            usage ? h('span', null, usage) : null,
-            run && run.finished_at ? h('span', null, 'آخر تحديث ', N(fmtTime(run.finished_at))) : null)),
-        noKey ? h('section', { className: 'egxp-section egxm-notice' },
-          h('strong', null, 'لا توجد أسعار بعد. '),
-          'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
-          h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
-          ' داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن».') : null,
-        b ? h('div', { className: 'egxm-breadth' },
-          h('div', { className: 'egxm-breadth-bar', 'aria-hidden': true },
-            priced ? [h('span', { key: 'u', style: { width: `${(b.up / priced) * 100}%`, background: 'var(--dsw-alias-state-success-primary)' } }),
-              h('span', { key: 'f', style: { width: `${(b.flat / priced) * 100}%`, background: 'var(--dsw-alias-label-tertiary)' } }),
-              h('span', { key: 'd', style: { width: `${(b.down / priced) * 100}%`, background: 'var(--dsw-alias-state-error-primary)' } })] : null),
-          h('div', { className: 'egxm-breadth-legend' },
-            h('span', null, 'صاعد ', N(fmtCount(b.up), 'q-up')),
-            h('span', null, 'هابط ', N(fmtCount(b.down), 'q-down')),
-            h('span', null, 'دون تغيير ', N(fmtCount(b.flat))),
-            b.no_data ? h('span', null, 'بدون بيانات ', N(fmtCount(b.no_data))) : null)) : null,
-        h('section', { className: 'egxp-section' },
-          h('div', { className: 'egxm-toolbar', style: { marginBottom: 12 } },
-            h('div', { className: 'egxm-toolbar-group' },
-              h('input', { className: 'egxp-input egxm-search', type: 'search', placeholder: 'ابحث بالرمز أو الاسم', 'aria-label': 'بحث',
-                value: query, onChange: (e) => setQuery(e.target.value) }),
-              h('div', { className: 'egxm-seg', role: 'group', 'aria-label': 'فترة الأداء' },
-                PERIODS.map(([k, label]) => h('button', { key: k, type: 'button', 'aria-pressed': period === k, onClick: () => setPeriod(k) }, label))),
-              h('label', { className: 'egxm-check' },
-                h('input', { type: 'checkbox', checked: heldOnly, onChange: (e) => setHeldOnly(e.target.checked) }), 'محفظتي فقط')),
-            h('div', { className: 'egxm-toolbar-group' },
-              h('label', { className: 'egxm-check' }, 'ترتيب',
-                h('select', { className: 'egxp-input', value: sort, onChange: (e) => setSort(e.target.value) },
-                  SORTS.map(([k, label]) => h('option', { key: k, value: k }, label)))),
-              null)),
-          syncNote ? h('div', { className: 'egxm-notice', role: 'status', style: { marginBottom: 10 } }, syncNote) : null,
-          h('div', { className: 'egxp-table-wrap' },
-            h('table', { className: 'egxm-table' },
-              h('thead', null, h('tr', null, headers.map(([key, label], i) => h('th', {
-                key: i, className: numeric.has(i) ? 'egxm-num' : undefined,
-                'aria-sort': key && sort === key ? (key === 'symbol' ? 'ascending' : 'descending') : undefined,
-              }, key ? h('button', { type: 'button', onClick: () => setSort(key) }, label, sort === key ? ' ▾' : '') : label)))),
-              h('tbody', null, body))),
-          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null),
-        h('p', { className: 'egxp-foot' },
-          'الأسعار من EODHD: إغلاقات يومية، وأسعار متأخرة 15–20 دقيقة أثناء الجلسة على الخطط المدفوعة. ليست للتداول اللحظي، وليست توصية بالشراء أو البيع.'))
+      series.setData(points)
+      return series
     }
+    const fair = stepLine('fair_value', theme.fair, LightweightCharts.LineStyle.Dashed)
+    stepLine('protection_price', theme.protection, LightweightCharts.LineStyle.Solid)
+    if (fair) {
+      const snap = (day) => timeline.find((t) => t >= day)
+      const marks = steps.filter((s) => s.date >= first && snap(s.date)).map((s) => ({
+        time: snap(s.date), position: 'aboveBar', shape: 'circle', color: theme.price, size: 0.6,
+        text: s.date > last ? `تقييم ${fmtDayMonth(s.date)}` : '',
+      }))
+      if (marks.length) LightweightCharts.createSeriesMarkers(fair, marks)
+    }
+    chart.timeScale().fitContent()
+    return () => chart.remove()
+  }, [bars, steps])
+  return h('div', { ref, className: 'm-chart', role: 'img', 'aria-label': 'شارت شموع يومية مع السعر العادل وسعر الحماية حسب تاريخ كل تقييم' })
+}
+
+function chartExplanation(steps, bars) {
+  if (!bars.length) return null
+  const first = bars[0].date, last = bars[bars.length - 1].date
+  const shown = steps.filter((s, i) => s.date >= first || (steps[i + 1] ? steps[i + 1].date > first : true))
+    .filter((s, i, all) => i === 0 || s.fair_value !== all[i - 1].fair_value)
+  if (!shown.length) return 'لا يوجد تقييم لهذا السهم، فلا خطوط للسعر العادل أو الحماية'
+  const parts = []
+  shown.forEach((s, i) => {
+    if (i) parts.push(' ثم ')
+    parts.push(N(fmtPrice(s.fair_value), 'q-blue'), ' من ', N(fmtDayMonth(s.date > first ? s.date : first)))
+  })
+  const after = shown.some((s) => s.date > last)
+  return ['لا نرسم أي تقييم على أيام سبقته', after ? '، وتقييم ما بعد آخر شمعة يظهر عند الحافة اليمنى. ' : '. ', 'العادل ', ...parts]
+}
+
+function CandlesPanel({ row, history }) {
+  const bars = React.useMemo(() => (history ? history.bars.filter((b) => b.open != null).slice(-60) : []), [history])
+  const steps = React.useMemo(() => (history ? history.valuation_history || [] : []), [history])
+  const recent = history ? history.bars.slice(-11) : []
+  const sessions = recent.slice(1).map((b, i) => ({ ...b, chg: recent[i].close ? b.close / recent[i].close - 1 : null })).reverse()
+  const legendLine = (dash, color, label) => h('span', { className: 'q-sec', style: { display: 'flex', alignItems: 'center', gap: 6 } },
+    h('svg', { width: 20, height: 4, 'aria-hidden': true }, h('path', { d: 'M0 2h20', stroke: color, strokeWidth: 2, strokeDasharray: dash ? '4 3' : undefined })), label)
+  let body
+  if (!history) body = h('div', { className: 'm-chart', style: { display: 'grid', placeItems: 'center' } }, h(Skeleton, { width: '60%' }))
+  else if (!bars.length) body = h('div', { className: 'q-empty q-sunken', style: { minHeight: 240, borderRadius: 'var(--dsw-radius-sm)' } },
+    h('span', null, 'لا توجد شموع محمّلة لـ ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
+    h('span', { className: 'q-meta' }, 'يُحمَّل تاريخ الأسعار في التحديث القادم حسب حد التحديثات اليومي.'))
+  else body = [h(ValuationCandles, { key: 'c', bars, steps }), h('div', { key: 'x', className: 'q-meta', style: { lineHeight: 1.7 } }, chartExplanation(steps, bars))]
+  return h('div', { className: 'm-box', style: { gap: 12 } },
+    h('div', { className: 'm-legend' },
+      h('b', { style: { fontWeight: 600, fontSize: 14 } }, h('span', { className: 'q-sym' }, row.symbol), ' · شموع يومية'),
+      bars.length ? h('span', { className: 'q-sec' }, N(fmtCount(bars.length)), ' جلسة من ', N(fmtDayMonth(bars[0].date)), ' إلى ', N(fmtDayMonth(bars[bars.length - 1].date))) : null,
+      h('span', { className: 'q-grow' }),
+      legendLine(true, 'var(--dsw-alias-state-business-primary)', 'السعر العادل'),
+      legendLine(false, 'var(--dsw-alias-state-warn-primary)', 'سعر الحماية'),
+      h('span', { className: 'q-sec', style: { display: 'flex', alignItems: 'center', gap: 6 } },
+        h('svg', { width: 12, height: 12, 'aria-hidden': true }, h('circle', { cx: 6, cy: 6, r: 4.5, fill: 'var(--dsw-alias-label-primary)' })), 'تاريخ تقييم')),
+    body,
+    sessions.length ? h('div', null,
+      h('div', { className: 'q-h3', style: { marginBottom: 8 } }, 'آخر 10 جلسات'),
+      h('div', { className: 'm-sk' }, sessions.map((s) => h('div', { key: s.date },
+        N(fmtDayMonth(s.date), 'q-sec'), N(fmtPrice(s.close), 'q-strong'),
+        s.chg == null ? h('span', { className: 'q-ter' }, '—') : N(fmtPct(s.chg, { digits: 2, signed: true }), toneOf(s.chg)))))) : null,
+    h('div', { className: 'q-meta', style: { display: 'flex', justifyContent: 'space-between', flexWrap: 'wrap', gap: 8 } },
+      h('span', null, 'الأسعار يومية ومتأخرة وليست لحظية'),
+      h('a', { href: 'https://www.tradingview.com/lightweight-charts/', target: '_blank', rel: 'noreferrer', style: { color: 'inherit' } }, 'Lightweight Charts™ · TradingView')))
+}
+
+// ── Detail: TradingView tabs (display only; never feeds our numbers) ──────────
+
+function TvFrame({ title, symbol, children }) {
+  return h('div', { className: 'm-tv' },
+    h('div', { className: 'm-tvh' }, h('span', null, `TradingView · ${title} · `, h('span', { className: 'q-sym' }, symbol)),
+      h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noreferrer' }, 'TradingView®')),
+    h('div', { className: 'm-tvbody' }, children))
+}
+
+const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
+
+function SymbolDetail({ row, period, onValue }) {
+  const [tab, setTab] = useState('ours')
+  const theme = useHostTheme()
+  const [history, setHistory] = useState(null)
+  const [error, setError] = useState('')
+  useEffect(() => {
+    let alive = true
+    setHistory(null); setError('')
+    api('GET', `/egx/api/market/${encodeURIComponent(row.symbol)}/history?days=130`)
+      .then((d) => alive && setHistory(d)).catch((e) => alive && setError(e.message))
+    return () => { alive = false }
+  }, [row.symbol])
+
+  const v = row.valuation
+  const per = (row.returns || {})[period]
+  const periodLabel = PERIOD_OPTIONS.find(([k]) => k === period)[1]
+  const tvSym = `EGX:${row.symbol}`
+  const shared = { colorTheme: theme, isTransparent: true, width: '100%', height: '100%', locale: 'ar_AE' }
+
+  let panel
+  if (tab === 'ours') {
+    let left
+    if (row.price == null) left = h('div', { className: 'm-dashed' },
+      h('span', { className: 'q-h2' }, h('span', { className: 'q-sym' }, row.symbol), ' بانتظار السعر'),
+      h('span', { className: 'q-sec' }, 'وصلنا للحد اليومي من التحديثات قبل ما نجيب سعر السهم ده. هيتحدّث في التحديث القادم، وبعدها تقدر تطلب تقييمه.'))
+    else if (!v) left = h('div', { className: 'm-dashed' },
+      h('span', { className: 'q-h2' }, 'لم يُقيَّم ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
+      h('span', { className: 'q-sec' }, 'لا يوجد سعر عادل ولا سعر حماية. اكتب في المحادثة: ', h('b', { style: { fontWeight: 500 } }, 'قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol))),
+      h('button', { type: 'button', className: 'q-btn', onClick: () => onValue(row.symbol) }, 'انسخ الرسالة للمحادثة'))
+    else left = h(ValuationCard, { row })
+    panel = h('div', { className: 'm-panes' },
+      h('div', { className: 'm-left' }, left),
+      h('div', { className: 'm-right' }, error ? h('div', { className: 'q-error', role: 'alert' }, error) : h(CandlesPanel, { row, history })))
+  } else if (tab === 'chart') {
+    panel = h('div', { style: { padding: 16 } }, h(TvFrame, { title: 'Advanced Chart', symbol: row.symbol },
+      h(TvWidget, { name: 'advanced-chart', height: 520, config: {
+        autosize: true, symbol: tvSym, interval: 'D', timezone: 'Africa/Cairo', theme, style: '1', locale: 'ar_AE',
+        allow_symbol_change: false, withdateranges: true, details: false, width: '100%', height: '100%' } })),
+    h('p', { className: 'q-meta', style: { margin: '8px 0 0' } }, 'بيانات TradingView متأخرة وللعرض فقط، ولا تدخل في حساباتنا.'))
+  } else if (tab === 'financials') {
+    panel = h('div', { style: { padding: 16 } }, h(TvFrame, { title: 'Financials', symbol: row.symbol },
+      h(TvWidget, { name: 'financials', height: 560, config: { ...shared, symbol: tvSym, displayMode: 'adaptive', largeChartUrl: '' } })),
+    h('p', { className: 'q-meta', style: { margin: '8px 0 0' } }, 'للعرض والمقارنة فقط. تقييمنا يعتمد على القوائم المالية المحفوظة بمصادرها.'))
+  } else {
+    panel = h('div', { style: { padding: 16, display: 'flex', flexDirection: 'column', gap: 16 } },
+      h('div', { className: 'q-note', role: 'note', style: { display: 'flex', gap: 12 } }, h('b', { className: 'q-amber' }, 'تنبيه'),
+        h('span', null, 'إشارة آلية من TradingView مبنية على مؤشرات فنية فقط — ليست تقييمنا وليست توصية بالشراء أو البيع.')),
+      h(TvFrame, { title: 'Technical Analysis', symbol: row.symbol },
+        h(TvWidget, { name: 'technical-analysis', height: 420, config: { ...shared, symbol: tvSym, interval: '1D', displayMode: 'single', showIntervalTabs: true } })))
+  }
+
+  const onTabKey = (e) => {
+    if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+    e.preventDefault()
+    const i = DETAIL_TABS.findIndex(([k]) => k === tab)
+    const step = e.key === 'ArrowLeft' ? 1 : -1 // right-to-left: ArrowLeft moves forward
+    const next = DETAIL_TABS[(i + step + DETAIL_TABS.length) % DETAIL_TABS.length][0]
+    setTab(next)
+    const tabs = e.currentTarget.parentElement.querySelectorAll('[role=tab]')
+    tabs[DETAIL_TABS.findIndex(([k]) => k === next)].focus()
+  }
+
+  return h('section', { className: 'q-card', 'aria-label': `تفاصيل ${row.symbol}`, style: { overflow: 'hidden' } },
+    h('div', { className: 'm-dhead' },
+      h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
+        h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+          h('b', { className: 'q-sym', style: { fontSize: 20 } }, row.symbol), h('span', { style: { fontSize: 16, fontWeight: 500 } }, row.name_ar || row.name),
+          v ? h(RatingChip, { rating: v.risk_rating }) : null, row.held ? h(MineChip, { long: true }) : null),
+        h('span', { className: 'q-meta' }, row.sector_ar || row.sector, ' · حصته ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر')),
+      row.price != null ? [
+        h('div', { key: 'p', className: 'q-kv' },
+          h('small', null, row.price_kind === 'delayed' ? ['متأخر ', N(fmtTime(row.as_of))] : ['إغلاق ', N(fmtDayMonth(row.as_of)), ' · سعر متأخر']),
+          h('span', { className: 'num q-strong', style: { fontSize: 20 } }, fmtPrice(row.price))),
+        h('div', { key: 'c', className: 'q-kv' }, h('small', null, row.stale ? ['جلسة ', N(fmtDayMonth(row.as_of))] : 'التغير اليوم'),
+          row.change == null ? '—' : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : toneOf(row.change))),
+        row.stale ? h(StaleChip, { key: 's' }) : null]
+        : h('span', { className: 'q-chip q-chip-line' }, 'لا يوجد سعر بعد · يُستكمل في التحديث القادم'),
+      h('span', { className: 'q-grow' }),
+      v && row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value, size: 14, suffix: isUnder(row) ? ' — يحتاج مراجعة' : null }) : null),
+    row.price != null ? h('div', { className: 'm-dstrip' },
+      h('div', { className: 'q-kv', style: { minWidth: 240, flex: '0 1 280px' } }, h('small', null, 'موضع السعر في نطاق 52 أسبوعًا'),
+        h(Range52, { low: row.low_52w, high: row.high_52w, price: row.price })),
+      h('div', { className: 'q-kv' }, h('small', null, 'حجم تداول آخر جلسة'), N(fmtCompact(row.volume), 'q-strong')),
+      h('div', { className: 'q-kv' }, h('small', null, `أداء ${periodLabel}`), per == null ? '—' : N(fmtPct(per, { signed: true }), toneOf(per)))) : null,
+    h('div', { className: 'q-tabs', role: 'tablist', 'aria-label': `أقسام ${row.symbol}` },
+      DETAIL_TABS.map(([key, label]) => h('button', {
+        key, type: 'button', role: 'tab', className: 'q-tab', 'aria-selected': tab === key, tabIndex: tab === key ? 0 : -1,
+        onClick: () => setTab(key), onKeyDown: onTabKey,
+      }, label))),
+    h('div', { role: 'tabpanel' }, panel))
+}
+
+// ── Page ─────────────────────────────────────────────────────────────────────
+
+function MarketPage() {
+  const portfolio = useQima()
+  const [data, setData] = useState(null)
+  const [digest, setDigest] = useState(null)
+  const [error, setError] = useState('')
+  const [syncing, setSyncing] = useState(false)
+  const [syncNote, setSyncNote] = useState('')
+  const [query, setQuery] = useState('')
+  const [filter, setFilter] = useState('all')
+  const [mine, setMine] = useState(false)
+  const [period, setPeriod] = useState('1m')
+  const [sort, setSort] = useState('weight')
+  const [desc, setDesc] = useState(true)
+  const [selected, setSelected] = useState(null)
+  const [groupOpen, setGroupOpen] = useState(false)
+  const [toastNode, toast] = useToast()
+  const lastSyncSeen = React.useRef(undefined)
+
+  const load = useCallback(async () => {
+    try {
+      const next = await api('GET', '/egx/api/market')
+      setData(next); setError('')
+      // A finished sync means new prices: refresh the shared portfolio (icon + strip) and the digest.
+      const finished = next.last_sync && next.last_sync.finished_at
+      if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) qima.refresh()
+      lastSyncSeen.current = finished
+      api('GET', '/egx/api/market/digest').then(setDigest).catch(() => setDigest(null))
+    } catch (e) { setError(e.message) }
+  }, [])
+  useEffect(() => {
+    load()
+    const timer = setInterval(load, 60_000)
+    return () => clearInterval(timer)
+  }, [load])
+
+  async function sync() {
+    setSyncing(true); setSyncNote('')
+    try {
+      const r = await api('POST', '/egx/api/market/sync', {})
+      if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD')
+      else if (r.ok === false) setSyncNote(`تعذّر التحديث: ${r.error}`)
+      else {
+        const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
+        if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
+        setSyncNote(parts.join(' · '))
+      }
+      await load()
+      qima.refresh()
+    } catch (e) {
+      setSyncNote(e.message)
+    } finally {
+      setSyncing(false)
+    }
+  }
+
+  const all = data ? data.rows : []
+  const counts = React.useMemo(() => Object.fromEntries(FILTERS.map(([k]) => [k, all.filter(FILTER_TEST[k]).length])), [all])
+  const heldCount = all.filter((r) => r.held).length
+  const filtered = React.useMemo(() => {
+    const q = query.trim().toLowerCase()
+    return all.filter((r) => FILTER_TEST[filter](r) && (!mine || r.held)
+      && (!q || r.symbol.toLowerCase().includes(q) || (r.name_ar || '').includes(query.trim()) || r.name.toLowerCase().includes(q)))
+  }, [all, query, filter, mine])
+  const priced = React.useMemo(() => sortRows(filtered.filter((r) => r.price != null), sort, desc, period), [filtered, sort, desc, period])
+  const waiting = filtered.filter((r) => r.price == null)
+  const groupExpanded = groupOpen || filter === 'noprice'
+  const shown = priced.length + (groupExpanded ? waiting.length : 0)
+  const selectedRow = all.find((r) => r.symbol === selected) || priced[0] || null
+
+  const pickSort = (key) => {
+    if (key === sort) setDesc(!desc)
+    else { setSort(key); setDesc(key !== 'symbol') }
+  }
+  const onValue = (symbol) => copyValuationPrompt(symbol, toast)
+  const selectSymbol = (symbol) => setSelected(symbol)
+
+  const noKey = data && !data.last_sync && data.breadth.no_data === all.length
+  let tableBody
+  if (!data && !error) tableBody = Array.from({ length: 8 }, (_, i) => h('div', { key: i, className: 'q-grid m-g q-tr m-row', 'aria-hidden': true },
+    COLUMNS.map(([key], j) => h('span', { key, className: key === 'r52' ? 'm-c52' : undefined }, h(Skeleton, { width: j === 4 ? 180 : j ? 56 : 120 })))))
+  else if (!data) tableBody = h('div', { className: 'q-empty', role: 'alert' }, h('span', { className: 'q-h2' }, 'تعذّر تحميل السوق'), h('span', null, error))
+  else if (!priced.length && !waiting.length) tableBody = h('div', { className: 'q-empty' }, 'لا توجد أسهم مطابقة. جرّب إزالة البحث أو تغيير التصفية.')
+  else tableBody = [
+    ...priced.map((r) => h(MarketRow, { key: r.symbol, row: r, period, selected: selectedRow && selectedRow.symbol === r.symbol, onSelect: selectSymbol, onValue })),
+    h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol }),
+  ]
+
+  return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
+    h('style', null, QM_CSS + MARKET_CSS),
+    h(PanelHeader, {
+      here: 'السوق', demo: Boolean(data && data.demo_data),
+      actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
+        h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
+          h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3' })),
+        syncing ? 'جارٍ التحديث…' : 'تحديث الأسعار الآن'),
+    }),
+    h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
+      data ? h(StatusStrip, { data, portfolio }) : null,
+      noKey ? h('section', { className: 'q-card q-pad q-sec', role: 'note' },
+        h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
+        'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
+        h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
+        ' داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن».') : null,
+      h(Digest, { items: digest && digest.items, onSelect: selectSymbol }),
+      h('div', { className: 'm-toolbar' },
+        h('label', { className: 'q-field' },
+          h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'var(--dsw-alias-label-secondary)', strokeWidth: 1.6, strokeLinecap: 'round' },
+            h('circle', { cx: 7, cy: 7, r: 5 }), h('path', { d: 'M11 11l3.5 3.5' })),
+          h('span', { className: 'q-sr' }, 'بحث'),
+          h('input', { type: 'search', placeholder: 'ابحث بالرمز أو الاسم', value: query, onChange: (e) => setQuery(e.target.value) })),
+        h('div', { className: 'm-chips', role: 'group', 'aria-label': 'تصفية سريعة' },
+          FILTERS.map(([key, label]) => h('button', {
+            key, type: 'button', className: `q-fchip${key === 'under' ? ' warn' : ''}`, 'aria-pressed': filter === key, onClick: () => setFilter(key),
+          }, label, ' ', N(fmtCount(counts[key] || 0)))),
+          h('button', { type: 'button', className: 'q-fchip', 'aria-pressed': mine, onClick: () => setMine(!mine) }, 'محفظتي ', N(fmtCount(heldCount)))),
+        h('span', { className: 'q-grow' }),
+        h('div', { className: 'q-seg', role: 'group', 'aria-label': 'فترة الأداء' },
+          PERIOD_OPTIONS.map(([key, label]) => h('button', { key, type: 'button', 'aria-pressed': period === key, onClick: () => setPeriod(key) }, label))),
+        h('label', { className: 'q-field', title: 'ترتيب حسب' },
+          h('span', { className: 'q-sr' }, 'ترتيب حسب'),
+          h('select', { value: sort, onChange: (e) => { setSort(e.target.value); setDesc(e.target.value !== 'symbol') } },
+            SORT_OPTIONS.map(([key, label]) => h('option', { key, value: key }, label)))),
+        h('button', { type: 'button', className: 'q-btn q-icon-btn', onClick: () => setDesc(!desc),
+          'aria-label': desc ? 'ترتيب تنازلي، اضغط للتصاعدي' : 'ترتيب تصاعدي، اضغط للتنازلي', title: desc ? 'تنازلي' : 'تصاعدي' }, h(SortArrow, { desc })),
+        syncNote ? h('span', { className: 'q-chip q-chip-biz', role: 'status' }, syncNote) : null),
+      h('section', { className: 'q-card m-table', 'aria-label': 'جدول الأسهم' },
+        h('div', { className: 'q-scroll', role: 'table', 'aria-label': 'أسهم EGX30' },
+          h(TableHead, { sort, desc, period, onSort: pickSort }),
+          tableBody),
+        h('div', { className: 'm-foot' },
+          h('span', null, 'عرض ', N(fmtCount(shown)), ' من ', N(fmtCount(MARKET_TOTAL)),
+            waiting.length && !groupExpanded ? [' · ', N(fmtCount(waiting.length)), ' مطويّة بانتظار السعر'] : null),
+          h(RulerLegend),
+          h('span', { className: 'q-grow' }),
+          h('span', null, 'اضغط على أي صف لعرض تفاصيله أسفل الجدول'))),
+      selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue }) : null,
+      h(Disclaimer, { extra: 'الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه.' })),
+    toastNode)
+}
+
 
     return {
       inject: ['slots', 'layout'],

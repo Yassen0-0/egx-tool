@@ -138,3 +138,27 @@ const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البي�
 function Disclaimer({ extra }) {
   return h('p', { className: 'q-foot' }, extra ? `${extra} ` : null, DISCLAIMER)
 }
+
+// ── «قيّم سهم X» ──────────────────────────────────────────────────────────────
+// The Harness exposes the composer's draft only to components rendered inside the chat, and our
+// panels replace the chat while open, so the message is copied for the user to paste there.
+function useToast() {
+  const [text, setText] = useState('')
+  useEffect(() => {
+    if (!text) return undefined
+    const timer = setTimeout(() => setText(''), 4000)
+    return () => clearTimeout(timer)
+  }, [text])
+  const node = text ? h('div', { className: 'q-toast', role: 'status' }, text) : null
+  return [node, setText]
+}
+
+async function copyValuationPrompt(symbol, toast) {
+  const message = `قيّم سهم ${symbol}`
+  try {
+    await navigator.clipboard.writeText(message)
+    toast(`اتنسخت الرسالة «${message}» — الصقها في المحادثة`)
+  } catch {
+    toast(`اكتب في المحادثة: «${message}»`)
+  }
+}

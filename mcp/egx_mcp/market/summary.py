@@ -92,9 +92,11 @@ def valuation_steps(conn: sqlite3.Connection, symbol: str) -> list[dict]:
     that start on each valuation's day, so nothing is drawn before a valuation existed."""
     return [
         {"id": r["id"], "date": cairo_day(r["created_at"]), "created_at": r["created_at"], "kind": r["kind"],
-         "fair_value": r["fair_value"], "protection_price": r["protection_price"]}
+         "fair_value": r["fair_value"], "protection_price": r["protection_price"], "bear": r["bear"], "bull": r["bull"],
+         "price_at_valuation": r["price_at_valuation"], "risk_rating": r["risk_rating"]}
         for r in conn.execute(
-            "SELECT id, created_at, kind, fair_value, protection_price FROM valuations"
+            "SELECT id, created_at, kind, fair_value, protection_price, bear, bull, price_at_valuation, risk_rating"
+            " FROM valuations"
             " WHERE symbol = ? ORDER BY created_at, id", (symbol,))
     ]
 

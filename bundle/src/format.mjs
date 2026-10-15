@@ -238,3 +238,35 @@ export function fmtCompact(v) {
   const scaled = v / div
   return fmtNumber(scaled, !unit ? 0 : Math.abs(scaled) < 10 ? 2 : Math.abs(scaled) < 100 ? 1 : 0) + unit
 }
+
+// ── EGX session (Sun–Thu, 10:00–14:30 Cairo) ─────────────────────────────────
+
+const TRADING = new Set([0, 1, 2, 3, 4]) // Sunday..Thursday (getUTCDay)
+
+/**
+ * The session line for the status strip, from the server's Cairo timestamp ("2026-10-15T09:02+03:00"):
+ * { text, time } → «الجلسة مغلقة · تفتح اليوم» + «10:00», or «الجلسة مفتوحة · تغلق» + «14:30».
+ */
+export function sessionLine(asOf, open) {
+  if (open) return { text: 'الجلسة مفتوحة · تغلق', time: '14:30' }
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || '')
+  if (!m) return { text: 'الجلسة مغلقة', time: null }
+  const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const minutes = +m[4] * 60 + +m[5]
+  if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' }
+  let ahead = 1
+  const next = new Date(day)
+  next.setUTCDate(next.getUTCDate() + 1)
+  while (!TRADING.has(next.getUTCDay())) { next.setUTCDate(next.getUTCDate() + 1); ahead++ }
+  const when = ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
+  return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
+}
+
+/** Price position (0–100) inside its 52-week range; null when the range is unknown. */
+export function rangePosition(low, high, price) {
+  if (missing(low) || missing(high) || missing(price) || high <= low) return null
+  return Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
+}
+
+export const RATING_LEVEL = { safe: 1, balanced: 2, high_risk: 3 }
+export const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }

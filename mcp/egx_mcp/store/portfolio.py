@@ -91,9 +91,12 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider) -> dict:
         cost = h["quantity"] * h["buy_price"]
         price = provider.get_price(h["symbol"])
         valuation = latest_valuation(conn, h["symbol"])
+        entry = constituent(h["symbol"]) or {}
         row = {
             **h,
-            "name": (constituent(h["symbol"]) or {}).get("name"),
+            "name": entry.get("name"),
+            "name_ar": entry.get("name_ar"),
+            "sector_ar": entry.get("sector_ar"),
             "cost": cost,
             "current_price": price.value if price else None,
             "price_as_of": price.as_of if price else None,

@@ -6,6 +6,7 @@ window.__ModuleLoader__.load({
   id: 'dsh-egx-bundle',
   factory(require) {
     /* @inline lightweight-charts */
+    /* @inline format.mjs */
     const React = require('react')
     const { useState, useEffect, useCallback } = React
     const h = React.createElement
@@ -15,22 +16,31 @@ window.__ModuleLoader__.load({
     // Cross-panel navigation: set by apply() when the layout service is available.
     const nav = { selectPanel: null, pendingAnalysisId: null }
 
-    const num = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 2 })
-    const qtyFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { maximumFractionDigits: 4 })
-    const pct = new Intl.NumberFormat('ar-EG-u-nu-latn', { style: 'percent', maximumFractionDigits: 1, signDisplay: 'exceptZero' })
-    const weightFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { style: 'percent', maximumFractionDigits: 1 })
+    const QM_CSS = '/* @css styles.css */'
+    // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.
+    const N = (text, cls) => h('span', { className: cls ? `num ${cls}` : 'num' }, text)
+    const num = { format: (v) => fmtNumber(v, 2) }
+    const qtyFmt = { format: fmtQty }
+    const pct = { format: (v) => fmtPct(v, { signed: true }) }
+    const weightFmt = { format: (v) => fmtPct(v) }
     const RATING = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
     const STATUS = {
       above_fair_value: 'أعلى من السعر العادل',
       at_or_below_fair_value: 'بين سعر الحماية والسعر العادل',
       below_protection: 'تحت سعر الحماية — يحتاج مراجعة',
     }
-    const money = (v) => (v == null ? '—' : num.format(v))
+    const money = (v) => (v == null ? '—' : N(fmtPrice(v)))
+    const moneySigned = (v) => (v == null ? '—' : N(fmtSigned(v), toneOf(v)))
+    const pctSigned = (v) => (v == null ? '—' : N(fmtPct(v, { signed: true }), toneOf(v)))
     const dayFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', timeZone: 'UTC' })
     const fmtDay = (iso) => (iso ? dayFmt.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`)) : '—')
-    const dateFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { dateStyle: 'medium', timeStyle: 'short', timeZone: 'Africa/Cairo' })
-    const fmtDate = (iso) => (iso ? dateFmt.format(new Date(iso)) : '—')
-    const tone = (v) => (v > 0 ? 'egxp-gain' : v < 0 ? 'egxp-loss' : '')
+    const tone = toneOf
+    // «أقل من العادل بـ 6.9%»: words, then the number in its own span; the sentence ends on it.
+    const marginParts = (price, fair) => {
+      const m = marginSentence(price, fair)
+      if (!m) return []
+      return [m.mark, ' ', m.text, m.value ? ' ' : null, m.value ? N(m.value) : null]
+    }
 
     async function api(method, path, body) {
       const init = { method, headers: {} }
@@ -77,7 +87,7 @@ window.__ModuleLoader__.load({
 .egxp-btn-small { height: 26px; padding: 0 10px; font-size: 12px; }
 .egxp-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger); color: var(--dsw-alias-state-error-primary); }
 .egxp-btn:disabled { opacity: .55; cursor: default; }
-.egxp-error { color: var(--dsw-alias-state-error-primary); font-size: 13px; margin-top: 8px; }
+.egxp-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; margin-top: 8px; }
 .egxp-table-wrap { overflow-x: auto; }
 .egxp-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
 .egxp-table th { font-weight: 500; font-size: 12px; color: var(--dsw-alias-label-secondary); text-align: start; padding: 8px; white-space: nowrap; border-bottom: 1px solid var(--dsw-alias-border-l3); }
@@ -86,15 +96,10 @@ window.__ModuleLoader__.load({
 .egxp-num { text-align: end !important; }
 .egxp-sym { font-weight: 500; }
 .egxp-sub { font-size: 11px; color: var(--dsw-alias-label-tertiary); }
-.egxp-gain { color: var(--dsw-alias-state-success-primary); }
-.egxp-loss { color: var(--dsw-alias-state-error-primary); }
 .egxp-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid currentColor; }
-.egxp-safe { color: var(--dsw-alias-state-success-primary); }
-.egxp-balanced { color: var(--dsw-alias-state-warn-primary); }
-.egxp-high_risk { color: var(--dsw-alias-state-error-primary); }
-.egxp-status-below_protection { color: var(--dsw-alias-state-error-primary); font-weight: 500; }
-.egxp-status-at_or_below_fair_value { color: var(--dsw-alias-state-success-primary); }
-.egxp-status-above_fair_value { color: var(--dsw-alias-state-warn-primary); }
+.egxp-safe, .egxp-balanced, .egxp-high_risk { color: var(--dsw-alias-label-secondary); }
+.egxp-status-below_protection { color: var(--dsw-alias-state-warn-label); font-weight: 600; }
+.egxp-status-at_or_below_fair_value, .egxp-status-above_fair_value { color: var(--dsw-alias-label-secondary); }
 .egxp-empty { padding: 24px 8px; text-align: center; color: var(--dsw-alias-label-tertiary); }
 .egxp-actions { display: flex; gap: 6px; }
 .egxp-cell-input { width: 90px; }
@@ -110,9 +115,8 @@ window.__ModuleLoader__.load({
 .egxp-kv { width: 100%; border-collapse: collapse; font-size: 13px; }
 .egxp-kv td { padding: 6px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); vertical-align: top; }
 .egxp-kv td:first-child { color: var(--dsw-alias-label-secondary); white-space: nowrap; width: 40%; }
-.egxp-check-pass { color: var(--dsw-alias-state-success-primary); }
-.egxp-check-warn { color: var(--dsw-alias-state-warn-primary); }
-.egxp-check-fail { color: var(--dsw-alias-state-error-primary); }
+.egxp-check-pass { color: var(--dsw-alias-label-secondary); }
+.egxp-check-warn, .egxp-check-fail { color: var(--dsw-alias-state-warn-label); font-weight: 600; }
 .egxp-pre { white-space: pre-wrap; font-size: 13px; line-height: 1.7; margin: 0; }
 .egxp-md { font-size: 14px; line-height: 1.8; }
 .egxp-md h1 { font-size: 18px; font-weight: 500; margin: 8px 0; }
@@ -151,8 +155,8 @@ window.__ModuleLoader__.load({
           h('div', { className: 'egxp-card-value' }, money(totals.market_value), ' ', h('span', { className: 'egxp-sub' }, 'ج.م'))),
         h('div', { className: 'egxp-card' },
           h('div', { className: 'egxp-card-label' }, 'الربح / الخسارة'),
-          h('div', { className: `egxp-card-value ${tone(totals.pnl)}` }, money(totals.pnl),
-            totals.pnl_pct == null ? null : h('span', { className: 'egxp-sub' }, ' ', pct.format(totals.pnl_pct)))),
+          h('div', { className: 'egxp-card-value' }, moneySigned(totals.pnl),
+            totals.pnl_pct == null ? null : h('span', { className: 'egxp-sub' }, ' ', pctSigned(totals.pnl_pct)))),
         h('div', { className: 'egxp-card' },
           h('div', { className: 'egxp-card-label' }, 'أسهم بدون سعر حالي'),
           h('div', { className: 'egxp-card-value' }, String(unpriced.length)),
@@ -243,15 +247,15 @@ window.__ModuleLoader__.load({
       return h('tr', null,
         td([h('div', { key: 's', className: 'egxp-sym' }, row.symbol), sub(row.name || '')]),
         td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: quantity,
-          'aria-label': 'الكمية', onChange: (e) => setQuantity(e.target.value) }) : qtyFmt.format(row.quantity), true),
+          'aria-label': 'الكمية', onChange: (e) => setQuantity(e.target.value) }) : N(qtyFmt.format(row.quantity)), true),
         td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: buyPrice,
           'aria-label': 'سعر الشراء', onChange: (e) => setBuyPrice(e.target.value) }) : money(row.buy_price), true),
         td(money(row.cost), true),
-        td([money(row.current_price), row.price_as_of ? sub(row.price_as_of.length > 10 ? fmtDate(row.price_as_of) : fmtDay(row.price_as_of)) : null], true),
+        td([money(row.current_price), row.price_as_of ? sub(N(fmtDate(row.price_as_of))) : null], true),
         td(money(row.market_value), true),
-        td([h('span', { key: 'p', className: tone(row.pnl) }, money(row.pnl)),
-          row.pnl_pct == null ? null : sub(pct.format(row.pnl_pct), tone(row.pnl_pct))], true),
-        td(row.weight == null ? '—' : weightFmt.format(row.weight), true),
+        td([h('span', { key: 'p' }, moneySigned(row.pnl)),
+          row.pnl_pct == null ? null : h('div', { key: 'q', className: 'egxp-sub' }, pctSigned(row.pnl_pct))], true),
+        td(row.weight == null ? '—' : N(weightFmt.format(row.weight)), true),
         td(money(row.fair_value), true),
         td(money(row.protection_price), true),
         td(row.risk_rating
@@ -287,8 +291,8 @@ window.__ModuleLoader__.load({
       else if (!data.holdings.length) body = h('tr', null, h('td', { colSpan: 13, className: 'egxp-empty' }, 'لا توجد أسهم بعد. أضف أول سهم من النموذج أعلاه.'))
       else body = data.holdings.map((row) => h(HoldingRow, { key: `${row.id}:${row.updated_at}`, row, onChanged: load, onError: setError }))
 
-      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, CSS),
+      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, QM_CSS + CSS),
         h('header', { className: 'egxp-head', 'data-window-drag': true },
           h('h1', { className: 'egxp-title' }, 'محفظتي'),
           h('p', { className: 'egxp-intro' }, 'أسهم EGX30 كما أدخلتها أنت. الأرقام مسؤوليتك، والأداة تعرضها فقط.')),
@@ -311,8 +315,8 @@ window.__ModuleLoader__.load({
 
     const KIND = { full: 'تقييم كامل', light: 'مراجعة أسبوعية' }
     // Numeric ranges and pairs keep their reading order inside right-to-left text.
-    const ltr = (text) => h('span', { dir: 'ltr' }, text)
-    const range = (a, b) => ltr(`${money(a)} – ${money(b)}`)
+    const ltr = (text) => N(text)
+    const range = (a, b) => N(`${fmtPrice(a)} – ${fmtPrice(b)}`)
 
     // Seconds to add to a UTC timestamp so the chart's time axis reads in Cairo time.
     const cairoParts = new Intl.DateTimeFormat('en-US', {
@@ -398,16 +402,36 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'egxp-md', dir: 'rtl' }, blocks)
     }
 
+    // Canvas charts can't read CSS variables, so resolve the Harness tokens (set on body) to
+    // rgba() strings through a probe element and a 1px canvas; any colour syntax comes out as sRGB.
+    function tokenColor(name, alpha = 1) {
+      const probe = document.createElement('span')
+      probe.style.cssText = `position:absolute;visibility:hidden;color:var(${name})`
+      document.body.append(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = 1
+      const g = canvas.getContext('2d')
+      if (!g || !color) return color
+      g.fillStyle = color
+      g.fillRect(0, 0, 1, 1)
+      const [r, gr, b, a] = g.getImageData(0, 0, 1, 1).data
+      return `rgba(${r}, ${gr}, ${b}, ${((a / 255) * alpha).toFixed(3)})`
+    }
+
     function chartTheme() {
-      const css = getComputedStyle(document.documentElement)
-      const token = (name, fallback) => css.getPropertyValue(name).trim() || fallback
       return {
-        text: token('--dsw-alias-label-secondary', '#888'),
-        grid: token('--dsw-alias-border-l4', 'rgba(128,128,128,.15)'),
-        fair: token('--dsw-alias-state-success-primary', '#2f9a7f'),
-        price: token('--dsw-alias-label-primary', '#444'),
-        band: token('--dsw-alias-label-tertiary', '#999'),
-        protection: token('--dsw-alias-state-error-primary', '#c0362c'),
+        text: tokenColor('--dsw-alias-label-secondary'),
+        grid: tokenColor('--dsw-alias-border-l1'),
+        fair: tokenColor('--dsw-alias-state-business-primary'),
+        price: tokenColor('--dsw-alias-label-primary'),
+        band: tokenColor('--dsw-alias-state-business-primary', 0.35),
+        protection: tokenColor('--dsw-alias-state-warn-primary'),
+        up: tokenColor('--dsw-alias-state-success-primary'),
+        down: tokenColor('--dsw-alias-state-error-primary'),
+        upSoft: tokenColor('--dsw-alias-state-success-primary', 0.4),
+        downSoft: tokenColor('--dsw-alias-state-error-primary', 0.4),
       }
     }
 
@@ -460,7 +484,7 @@ window.__ModuleLoader__.load({
         if (value && typeof value === 'object' && !Array.isArray(value)) {
           Object.entries(value).forEach(([k, v]) => walk(v, path ? `${path}.${k}` : k))
         } else {
-          rows.push([path, Array.isArray(value) ? value.join('، ') : typeof value === 'number' ? num.format(value) : String(value)])
+          rows.push([path, Array.isArray(value) ? value.join('، ') : typeof value === 'number' ? N(fmtNumber(value, 4).replace(/\.?0+$/, '')) : String(value)])
         }
       }
       walk(data || {}, '')
@@ -491,11 +515,11 @@ window.__ModuleLoader__.load({
       }, [id])
 
       const back = h('button', { className: 'egxp-btn egxp-btn-small egxp-back', onClick: onBack }, '→ كل التحليلات')
-      if (!item) return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, CSS),
+      if (!item) return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + CSS),
         h('header', { className: 'egxp-head', 'data-window-drag': true }, back),
         h('div', { className: error ? 'egxp-error' : 'egxp-empty' }, error || 'جارٍ التحميل…'))
 
-      const upside = item.price_at_valuation ? item.fair_value / item.price_at_valuation - 1 : null
+      const margin = marginSentence(item.price_at_valuation, item.fair_value)
       const card = (label, value, note, cls) => h('div', { className: 'egxp-card' },
         h('div', { className: 'egxp-card-label' }, label),
         h('div', { className: `egxp-card-value ${cls || ''}` }, value),
@@ -503,25 +527,25 @@ window.__ModuleLoader__.load({
       const methods = item.methods || []
       const sources = item.sources || []
       const checks = (item.sanity && item.sanity.checks) || []
-      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, CSS),
+      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, QM_CSS + CSS),
         h('header', { className: 'egxp-head', 'data-window-drag': true },
           back,
           h('h1', { className: 'egxp-title' }, `${item.symbol} — ${KIND[item.kind] || item.kind}`),
-          h('p', { className: 'egxp-intro' }, `${fmtDate(item.created_at)} · الفترة المالية ${item.financial_period || '—'}`)),
+          h('p', { className: 'egxp-intro' }, N(fmtDate(item.created_at)), ` · الفترة المالية ${item.financial_period || '—'}`)),
         h('div', { className: 'egxp-cards' },
           card('السعر العادل', money(item.fair_value), item.bear != null ? h('span', null, 'النطاق ', range(item.bear, item.bull)) : null),
-          card('سعر الدخول', money(item.entry_price), h('span', null, 'سعر الحماية ', ltr(money(item.protection_price)))),
-          card('السعر وقت التقييم', money(item.price_at_valuation), upside == null ? null : `الفجوة للسعر العادل ${pct.format(upside)}`),
+          card('سعر الحماية', money(item.protection_price), 'مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.'),
+          card('السعر وقت التقييم', money(item.price_at_valuation), margin == null ? null : h('span', null, margin.text, ' ', margin.value ? N(margin.value) : null)),
           card('التصنيف', item.risk_rating ? RATING[item.risk_rating] || item.risk_rating : '—', null, item.risk_rating ? `egxp-${item.risk_rating}` : '')),
         h(Section, { title: `تاريخ السعر العادل لسهم ${item.symbol}` },
           series.points.length > 1 ? h(FairValueChart, { points: series.points }) : h('div', { className: 'egxp-sub' }, 'تقييم واحد فقط حتى الآن.'),
           series.changes.length ? h('table', { className: 'egxp-table', style: { marginTop: 12 } },
             h('thead', null, h('tr', null, ['التاريخ', 'من', 'إلى', 'التغير', 'السبب'].map((t, i) => h('th', { key: i, className: i && i < 4 ? 'egxp-num' : undefined }, t)))),
             h('tbody', null, series.changes.map((c) => h('tr', { key: c.id },
-              h('td', null, fmtDate(c.created_at)), h('td', { className: 'egxp-num' }, money(c.previous_fair_value)),
+              h('td', null, N(fmtDate(c.created_at))), h('td', { className: 'egxp-num' }, money(c.previous_fair_value)),
               h('td', { className: 'egxp-num' }, money(c.new_fair_value)),
-              h('td', { className: `egxp-num ${tone(c.change_pct)}` }, pct.format(c.change_pct)),
+              h('td', { className: 'egxp-num' }, pctSigned(c.change_pct)),
               h('td', { dir: 'auto' }, c.reason))))) : null),
         item.report
           ? h(Section, { title: 'التقرير' }, h(Markdown, { text: item.report }))
@@ -533,7 +557,7 @@ window.__ModuleLoader__.load({
         methods.length ? h(Section, { title: 'طرق التقييم' }, h('table', { className: 'egxp-table' },
           h('thead', null, h('tr', null, ['الطريقة', 'الوزن', 'متشائم', 'أساسي', 'متفائل'].map((t, i) => h('th', { key: i, className: i ? 'egxp-num' : undefined }, t)))),
           h('tbody', null, methods.map((m, i) => h('tr', { key: i },
-            h('td', { dir: 'ltr' }, m.method), h('td', { className: 'egxp-num' }, num.format(m.weight)),
+            h('td', { dir: 'ltr' }, m.method), h('td', { className: 'egxp-num' }, N(fmtPct(m.weight, { digits: 0 }))),
             h('td', { className: 'egxp-num' }, money(m.bear)), h('td', { className: 'egxp-num' }, money(m.base)),
             h('td', { className: 'egxp-num' }, money(m.bull))))))) : null,
         item.kind === 'full' ? h('div', { className: 'egxp-grid2' },
@@ -577,8 +601,8 @@ window.__ModuleLoader__.load({
       }
       const set = (k) => (e) => setFilters((f) => ({ ...f, [k]: e.target.value }))
       const field = (label, control) => h('label', { className: 'egxp-field' }, label, control)
-      const headers = ['التاريخ', 'السهم', 'النوع', 'السعر العادل', 'النطاق', 'السعر وقت التقييم', 'الفجوة', 'التغير عن السابق', 'التصنيف', 'السبب']
-      const numeric = new Set([3, 4, 5, 6, 7])
+      const headers = ['التاريخ', 'السهم', 'النوع', 'السعر العادل', 'النطاق', 'السعر وقت التقييم', 'الفرق عن العادل وقتها', 'التغير عن السابق', 'التصنيف', 'السبب']
+      const numeric = new Set([3, 4, 5, 7])
 
       let body
       if (!data) body = h('tr', null, h('td', { colSpan: headers.length, className: 'egxp-empty' }, error ? 'تعذّر تحميل التحليلات.' : 'جارٍ التحميل…'))
@@ -587,24 +611,24 @@ window.__ModuleLoader__.load({
           ? 'لا توجد تحليلات محفوظة بعد. اطلب من المحلل تقييم سهم، وسيظهر هنا تلقائيًا بعد الحفظ.'
           : 'لا توجد نتائج لهذه الفلاتر.'))
       else body = items.map((v) => {
-        const gap = v.price_at_valuation ? v.fair_value / v.price_at_valuation - 1 : null
+        const margin = marginSentence(v.price_at_valuation, v.fair_value)
         const open = () => onOpen(v.id)
         return h('tr', { key: v.id, className: 'egxp-row-link', tabIndex: 0, onClick: open,
           onKeyDown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open() } } },
-          h('td', null, fmtDate(v.created_at)),
+          h('td', null, N(fmtDate(v.created_at))),
           h('td', null, h('span', { className: 'egxp-sym' }, v.symbol)),
           h('td', null, KIND[v.kind] || v.kind),
           h('td', { className: 'egxp-num' }, money(v.fair_value)),
           h('td', { className: 'egxp-num' }, v.bear != null ? range(v.bear, v.bull) : '—'),
           h('td', { className: 'egxp-num' }, money(v.price_at_valuation)),
-          h('td', { className: `egxp-num ${tone(gap)}` }, gap == null ? '—' : pct.format(gap)),
-          h('td', { className: `egxp-num ${tone(v.change_pct)}` }, v.change_pct == null ? '—' : pct.format(v.change_pct)),
+          h('td', null, margin == null ? '—' : h('span', null, margin.text, ' ', margin.value ? N(margin.value) : null)),
+          h('td', { className: 'egxp-num' }, v.change_pct == null ? '—' : N(fmtPct(v.change_pct, { signed: true }))),
           h('td', null, v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating] || v.risk_rating) : '—'),
           h('td', { className: 'egxp-reason', dir: 'auto', title: v.reason || '' }, v.reason || '—'))
       })
 
-      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, CSS),
+      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, QM_CSS + CSS),
         h('header', { className: 'egxp-head', 'data-window-drag': true },
           h('h1', { className: 'egxp-title' }, 'التحليلات'),
           h('p', { className: 'egxp-intro' }, 'كل التقييمات التي حفظها المحلل، بتقاريرها وافتراضاتها ومصادرها وسبب كل تغيير.')),
@@ -647,18 +671,14 @@ window.__ModuleLoader__.load({
 
     // ── Market list ──────────────────────────────────────────────────────────
 
-    const priceFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-    const compactFmt = new Intl.NumberFormat('ar-EG-u-nu-latn', { notation: 'compact', maximumFractionDigits: 1 })
     const timeFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { hour: 'numeric', minute: '2-digit', timeZone: 'Africa/Cairo' })
-    const price2 = (v) => (v == null ? '—' : priceFmt.format(v))
-    const signed2 = (v) => (v == null ? '—' : `${v > 0 ? '+' : ''}${priceFmt.format(v)}`)
+    const price2 = fmtPrice
     const PERIODS = [['day', 'اليوم'], ['1w', 'أسبوع'], ['1m', 'شهر'], ['3m', '3 شهور'], ['ytd', 'منذ بداية السنة'], ['1y', 'سنة']]
-    const SORTS = [['weight', 'الوزن في المؤشر'], ['change', 'التغير'], ['period', 'أداء الفترة'], ['upside', 'الفجوة للسعر العادل'], ['symbol', 'الرمز']]
+    const SORTS = [['weight', 'الوزن في المؤشر'], ['change', 'التغير'], ['period', 'أداء الفترة'], ['margin', 'الفرق عن العادل'], ['symbol', 'الرمز']]
 
     const MARKET_CSS = `
 .egxm-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .egxm-dot { width: 7px; height: 7px; border-radius: 50%; display: inline-block; margin-inline-end: 6px; background: var(--dsw-alias-label-tertiary); }
-.egxm-dot.egxm-live { background: var(--dsw-alias-state-success-primary); }
 .egxm-toolbar { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; justify-content: space-between; }
 .egxm-toolbar-group { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
 .egxm-search { width: 220px; }
@@ -739,10 +759,10 @@ window.__ModuleLoader__.load({
       if (low == null || high == null || price == null || high <= low) return h('span', { className: 'egxm-sub' }, '—')
       const pos = Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
       return h('div', { className: 'egxm-range', title: `أدنى ${price2(low)} · أعلى ${price2(high)} خلال 52 أسبوعًا` },
-        h('span', { className: 'egxm-range-label' }, price2(low)),
+        h('span', { className: 'egxm-range-label num' }, price2(low)),
         h('div', { className: 'egxm-range-bar', role: 'img', 'aria-label': `السعر عند ${Math.round(pos)}٪ من نطاق 52 أسبوعًا` },
           h('span', { className: 'egxm-range-mark', style: { left: `${pos}%` } })),
-        h('span', { className: 'egxm-range-label' }, price2(high)))
+        h('span', { className: 'egxm-range-label num' }, price2(high)))
     }
 
     function SymbolChart({ history, rangeDays }) {
@@ -751,10 +771,7 @@ window.__ModuleLoader__.load({
         const bars = history.bars
         if (!bars.length) return undefined
         const theme = chartTheme()
-        const css = getComputedStyle(document.documentElement)
-        const tok = (name, fallback) => css.getPropertyValue(name).trim() || fallback
-        const up = tok('--dsw-alias-state-success-primary', '#2f9a7f')
-        const down = tok('--dsw-alias-state-error-primary', '#c0362c')
+        const { up, down } = theme
         const chart = LightweightCharts.createChart(ref.current, {
           autoSize: true,
           layout: { background: { color: 'transparent' }, textColor: theme.text, panes: { separatorColor: theme.grid } },
@@ -773,13 +790,13 @@ window.__ModuleLoader__.load({
         }, 1)
         volume.setData(bars.map((b, i) => ({
           time: b.date, value: b.volume || 0,
-          color: (i && b.close < bars[i - 1].close ? down : up) + '66',
+          color: i && b.close < bars[i - 1].close ? theme.downSoft : theme.upSoft,
         })))
         chart.panes()[1]?.setHeight(64)
         const lv = history.levels
         if (lv) {
-          candles.createPriceLine({ price: lv.fair_value, color: theme.fair, lineWidth: 2, lineStyle: 0, title: 'العادل' })
-          candles.createPriceLine({ price: lv.protection_price, color: theme.protection, lineWidth: 1, lineStyle: 2, title: 'الحماية' })
+          candles.createPriceLine({ price: lv.fair_value, color: theme.fair, lineWidth: 2, lineStyle: 2, title: 'العادل' })
+          candles.createPriceLine({ price: lv.protection_price, color: theme.protection, lineWidth: 1, lineStyle: 0, title: 'الحماية' })
         }
         const total = bars.length
         const from = Math.max(0, total - Math.ceil(rangeDays * 0.69))
@@ -817,7 +834,7 @@ window.__ModuleLoader__.load({
         const update = () => setTheme(hostTheme())
         const observer = new MutationObserver(update)
         observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-scheme'] })
-        observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-ds-dark-theme'] })
         const media = window.matchMedia('(prefers-color-scheme: dark)')
         media.addEventListener('change', update)
         return () => { observer.disconnect(); media.removeEventListener('change', update) }
@@ -888,7 +905,7 @@ window.__ModuleLoader__.load({
           h(SymbolChart, { history, rangeDays }),
           history.levels
             ? h('div', { className: 'egxm-levels' },
-              h('span', null, 'السعر العادل ', h('strong', null, ltr(price2(history.levels.fair_value)))),
+              h('span', null, 'السعر العادل ', h('strong', null, N(price2(history.levels.fair_value), 'q-blue'))),
               h('span', null, 'سعر الحماية ', ltr(price2(history.levels.protection_price))),
               h('span', null, 'النطاق ', range(history.levels.bear, history.levels.bull)),
               h('button', { type: 'button', className: 'egxm-link', onClick: openAnalysis }, 'فتح التحليل ←'))
@@ -902,12 +919,12 @@ window.__ModuleLoader__.load({
               const prev = history.bars[history.bars.length - 2 - i]
               const chg = prev ? b.close / prev.close - 1 : null
               return h('tr', { key: b.date },
-                h('td', null, fmtDay(b.date)),
-                h('td', { className: 'egxm-num' }, price2(b.close)),
-                h('td', { className: `egxm-num ${tone(chg)}` }, chg == null ? '—' : ltr(pct.format(chg))),
-                h('td', { className: 'egxm-num' }, price2(b.high)),
-                h('td', { className: 'egxm-num' }, price2(b.low)),
-                h('td', { className: 'egxm-num' }, b.volume == null ? '—' : compactFmt.format(b.volume)))
+                h('td', null, N(fmtDayMonth(b.date))),
+                h('td', { className: 'egxm-num' }, N(price2(b.close))),
+                h('td', { className: 'egxm-num' }, chg == null ? '—' : N(fmtPct(chg, { digits: 2, signed: true }), tone(chg))),
+                h('td', { className: 'egxm-num' }, N(price2(b.high))),
+                h('td', { className: 'egxm-num' }, N(price2(b.low))),
+                h('td', { className: 'egxm-num' }, b.volume == null ? '—' : N(fmtCompact(b.volume))))
             }))))))
       const symbol = tvSymbol(row.symbol)
       const shared = { colorTheme: theme, isTransparent: true, width: '100%', height: '100%', locale: TV_LOCALE }
@@ -963,21 +980,20 @@ window.__ModuleLoader__.load({
         h('span', { className: 'egxm-sub egxm-name', title: row.name, dir: 'ltr' }, row.name)),
       h('td', { className: 'egxm-num' },
         noData ? h('span', { className: 'egxm-sub' }, 'بانتظار التحديث')
-          : [h('span', { key: 'p', className: 'egxm-price' }, price2(row.price)),
+          : [h('span', { key: 'p', className: 'egxm-price num' }, price2(row.price)),
             h('span', { key: 'd', className: `egxm-sub${row.stale ? ' egxm-warn' : ''}` },
-              row.price_kind === 'delayed' ? `متأخر · ${timeFmt.format(new Date(row.as_of))}` : `إغلاق ${fmtDay(row.as_of)}`)]),
-      h('td', { className: `egxm-num ${tone(row.change)}` },
-        row.change == null ? '—' : [h('span', { key: 'a' }, ltr(signed2(row.change))),
-          h('span', { key: 'b', className: `egxm-sub ${tone(row.change_pct)}` }, ltr(pct.format(row.change_pct)))]),
-      h('td', { className: `egxm-num ${tone(value)}` }, value == null ? '—' : ltr(pct.format(value))),
-      h('td', { className: 'egxm-num' }, h(RangeBar, { low: row.low_52w, high: row.high_52w, price: row.price })),
-      h('td', { className: 'egxm-num' }, row.volume == null ? '—' : compactFmt.format(row.volume)),
+              row.price_kind === 'delayed' ? ['متأخر · ', N(fmtTime(row.as_of))] : ['إغلاق ', N(fmtDayMonth(row.as_of))])]),
       h('td', { className: 'egxm-num' },
-        v ? [h('span', { key: 'f' }, price2(v.fair_value)),
-          h('span', { key: 'u', className: `egxm-sub ${tone(v.upside)}` }, v.upside == null ? '' : ltr(pct.format(v.upside)))]
+        row.change == null ? '—' : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : tone(row.change))),
+      h('td', { className: 'egxm-num' }, value == null ? '—' : N(fmtPct(value, { signed: true }), tone(value))),
+      h('td', { className: 'egxm-num' }, h(RangeBar, { low: row.low_52w, high: row.high_52w, price: row.price })),
+      h('td', { className: 'egxm-num' }, row.volume == null ? '—' : N(fmtCompact(row.volume))),
+      h('td', { className: 'egxm-num' },
+        v ? [h('span', { key: 'f', className: 'num q-blue' }, price2(v.fair_value)),
+          h('span', { key: 'u', className: 'egxm-sub' }, ...marginParts(row.price, v.fair_value))]
           : h('span', { className: 'egxm-sub' }, 'غير مقيَّم')),
       h('td', null, v && v.risk_rating ? h('span', { className: `egxp-badge egxp-${v.risk_rating}` }, RATING[v.risk_rating]) : '—'),
-      h('td', { className: 'egxm-num' }, ltr(`${num.format(row.weight_pct)}٪`)))
+      h('td', { className: 'egxm-num' }, N(fmtPct(row.weight_pct / 100, { digits: 2 }))))
     }
 
     function MarketPage() {
@@ -1028,19 +1044,19 @@ window.__ModuleLoader__.load({
           weight: (r) => -r.weight_pct,
           change: (r) => (r.change_pct == null ? Infinity : -r.change_pct),
           period: (r) => { const v = periodValue(r, period); return v == null ? Infinity : -v },
-          upside: (r) => (r.valuation && r.valuation.upside != null ? -r.valuation.upside : Infinity),
+          margin: (r) => { const m = r.valuation && marginToFair(r.valuation.fair_value, r.price); return m == null ? Infinity : -m },
           symbol: (r) => r.symbol,
         }[sort]
         return list.slice().sort((a, b) => { const x = key(a), y = key(b); return x < y ? -1 : x > y ? 1 : 0 })
       }, [data, query, heldOnly, sort, period])
 
       const run = data && data.last_sync
-      const usage = run && run.daily_limit ? `${num.format((run.used_before || 0) + (run.calls_made || 0))} من ${num.format(run.daily_limit)} طلب اليوم` : null
+      const usage = run && run.daily_limit ? h('span', null, 'تحديثات الأسعار اليوم ', N(fmtCount((run.used_before || 0) + (run.calls_made || 0))), ' من ', N(fmtCount(run.daily_limit))) : null
       const latestDay = data && data.rows.reduce((m, r) => (r.as_of && r.as_of > m ? r.as_of : m), '')
       const b = data && data.breadth
       const priced = b ? b.up + b.down + b.flat : 0
       const headers = [['symbol', 'السهم'], [null, 'آخر سعر'], ['change', 'التغير اليومي'], ['period', `الأداء: ${PERIODS.find((p) => p[0] === period)[1]}`],
-        [null, 'نطاق 52 أسبوعًا'], [null, 'الحجم'], ['upside', 'السعر العادل'], [null, 'التصنيف'], ['weight', 'الوزن']]
+        [null, 'نطاق 52 أسبوعًا'], [null, 'الحجم'], ['margin', 'السعر العادل'], [null, 'التصنيف'], ['weight', 'الوزن']]
       const numeric = new Set([1, 2, 3, 4, 5, 6, 8])
 
       let body
@@ -1056,17 +1072,17 @@ window.__ModuleLoader__.load({
       })
 
       const noKey = data && !data.last_sync && b && b.no_data === data.rows.length
-      return h('div', { className: 'egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, CSS + MARKET_CSS),
+      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
+        h('style', null, QM_CSS + CSS + MARKET_CSS),
         h('header', { className: 'egxp-head', 'data-window-drag': true },
           h('h1', { className: 'egxp-title' }, 'السوق'),
           h('div', { className: 'egxm-meta' },
-            h('span', null, h('span', { className: `egxm-dot${data && data.session_open ? ' egxm-live' : ''}` }),
+            h('span', null, h('span', { className: 'egxm-dot' }),
               data ? (data.session_open ? 'الجلسة مفتوحة' : 'الجلسة مغلقة') : '…'),
-            latestDay ? h('span', null, `آخر إغلاق ${fmtDay(latestDay)}`) : null,
+            latestDay ? h('span', null, `آخر إغلاق ${weekdayName(latestDay)} `, N(fmtDate(latestDay))) : null,
             h('span', null, 'المصدر EODHD · أسعار متأخرة، ليست لحظية'),
             usage ? h('span', null, usage) : null,
-            run && run.finished_at ? h('span', null, `آخر تحديث ${timeFmt.format(new Date(run.finished_at))}`) : null)),
+            run && run.finished_at ? h('span', null, 'آخر تحديث ', N(fmtTime(run.finished_at))) : null)),
         noKey ? h('section', { className: 'egxp-section egxm-notice' },
           h('strong', null, 'لا توجد أسعار بعد. '),
           'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
@@ -1078,10 +1094,10 @@ window.__ModuleLoader__.load({
               h('span', { key: 'f', style: { width: `${(b.flat / priced) * 100}%`, background: 'var(--dsw-alias-label-tertiary)' } }),
               h('span', { key: 'd', style: { width: `${(b.down / priced) * 100}%`, background: 'var(--dsw-alias-state-error-primary)' } })] : null),
           h('div', { className: 'egxm-breadth-legend' },
-            h('span', { className: 'egxp-gain' }, `صاعد ${num.format(b.up)}`),
-            h('span', { className: 'egxp-loss' }, `هابط ${num.format(b.down)}`),
-            h('span', null, `دون تغيير ${num.format(b.flat)}`),
-            b.no_data ? h('span', null, `بدون بيانات ${num.format(b.no_data)}`) : null)) : null,
+            h('span', null, 'صاعد ', N(fmtCount(b.up), 'q-up')),
+            h('span', null, 'هابط ', N(fmtCount(b.down), 'q-down')),
+            h('span', null, 'دون تغيير ', N(fmtCount(b.flat))),
+            b.no_data ? h('span', null, 'بدون بيانات ', N(fmtCount(b.no_data))) : null)) : null,
         h('section', { className: 'egxp-section' },
           h('div', { className: 'egxm-toolbar', style: { marginBottom: 12 } },
             h('div', { className: 'egxm-toolbar-group' },

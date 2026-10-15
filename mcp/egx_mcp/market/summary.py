@@ -52,7 +52,8 @@ def symbol_row(conn: sqlite3.Connection, entry: dict, held: set[str], at: dateti
     rows = store.bars(conn, symbol, (today - timedelta(days=400)).isoformat())
     quote = store.quote(conn, symbol)
     row = {
-        "symbol": symbol, "name": entry["name"], "sector": entry["sector"], "weight_pct": entry["weight_pct"],
+        "symbol": symbol, "name": entry["name"], "name_ar": entry.get("name_ar"), "sector": entry["sector"],
+        "sector_ar": entry.get("sector_ar"), "weight_pct": entry["weight_pct"],
         "held": symbol in held, "price": None, "previous_close": None, "change": None, "change_pct": None,
         "price_kind": None, "as_of": None, "stale": None, "day_high": None, "day_low": None, "volume": None,
         "returns": {}, "high_52w": None, "low_52w": None, "bars_count": len(rows), "source": None,
@@ -143,5 +144,5 @@ def symbol_history(conn: sqlite3.Connection, symbol: str, days: int = 365) -> di
             "risk_rating": valuation["risk_rating"], "valuation_id": valuation["id"],
             "created_at": valuation["created_at"],
         }
-    return {"symbol": symbol, "name": entry["name"], "bars": store.bars(conn, symbol, since),
+    return {"symbol": symbol, "name": entry["name"], "name_ar": entry.get("name_ar"), "bars": store.bars(conn, symbol, since),
             "quote": store.quote(conn, symbol), "levels": levels}

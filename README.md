@@ -76,6 +76,9 @@ uv run --project mcp python scripts/seed-dev.py
 ```bash
 uv run --project mcp pytest -q
 ```
+```bash
+node --test bundle/test/*.test.mjs
+```
 
 ## ملاحظات
 - DeepSeek Harness ما زال Developer Preview، وتحديثاته قد تكسر التوافق. لذلك ثبّتنا الإصدار في `harness/package.json`.

@@ -60,7 +60,7 @@
 .qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }
 .qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }
-.qm .q-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }
+.qm .q-btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }
 .qm .q-btn-quiet { border-color: transparent; }
 .qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }
 .qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }
@@ -181,6 +181,8 @@
 .qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;
   color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }
 .qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.qm .q-help { position: relative; }
+.qm .q-help::after { content: ''; position: absolute; inset: -6px; } /* 32px hit area around the 20px mark */
 .qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }
 .qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);
   border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }

@@ -92,3 +92,26 @@ function NumText({ text }) {
   const parts = s.split(/([+−-]?\d[\d,]*(?:\.\d+)?%?(?:\/\d+(?:\/\d+)?)?)/)
   return h(React.Fragment, null, parts.map((p, i) => (i % 2 ? h('span', { key: i, className: 'num' }, p.replace(/^-/, MINUS)) : p)))
 }
+
+/**
+ * The most important state: price under protection. Price vs protection, the gap, the critic's two
+ * possibilities (neither is a call to act), a link to the critic notes and the definition.
+ */
+function UnderProtectionCard({ price, fair, protection, asOf, onCritic }) {
+  const gap = belowProtectionBy(fair, price)
+  const box = (n, title, text) => h('div', { className: 'q-card q-pad', style: { flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 4 } },
+    h('b', null, N(n), ' · ', title), h('span', { className: 'q-sec', style: { fontSize: 13, lineHeight: 1.7 } }, text))
+  return h('section', { className: 'q-note', role: 'note', 'aria-label': 'تحت سعر الحماية', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+    h('div', null,
+      h('b', { className: 'q-amber', style: { display: 'flex', alignItems: 'center', gap: 6 } }, h(StatusMark, { status: 'under', size: 12 }), 'تحت سعر الحماية — يحتاج مراجعة'),
+      h('span', null, 'آخر إغلاق', asOf ? [' ', N(fmtDayMonth(asOf))] : null, ' عند ', N(fmtPrice(price)), ' أقل من سعر الحماية ', N(fmtPrice(protection)),
+        ' بنسبة ', N(fmtPct(gap)), ' تقريبًا، فالمحلل يراجع التقييم تلقائيًا.')),
+    h('div', null, h('b', null, 'رأي الناقد: احتمالان')),
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 12 } },
+      box('1', 'التقييم فاته شيء', ['عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ', N(fmtPrice(fair)), ' جنيه.']),
+      box('2', 'السوق متشائم أكثر من اللازم', 'السعر يعكس مخاوف لا تدعمها المعطيات الحالية، فيبقى العادل صحيحًا والسعر دونه.')),
+    h('div', { className: 'q-row' },
+      onCritic ? h('button', { type: 'button', className: 'q-link', style: { padding: 0 }, onClick: onCritic }, 'عرض ملاحظات الناقد ←') : null,
+      h('span', { className: 'q-meta' }, 'لا نعرف أيهما بعد، والمراجعة هي التي تحدد.')),
+    h('span', { className: 'q-meta' }, 'سعر الحماية = ', N('80%'), ' من السعر العادل. ده تنبيه للمراجعة، مش أمر بيع.'))
+}

@@ -14,7 +14,7 @@ window.__ModuleLoader__.load({
     const ANALYSES_ID = 'egx-analyses'
     const MARKET_ID = 'egx-market'
     // Cross-panel navigation: set by apply() when the layout service is available.
-    const nav = { selectPanel: null, pendingAnalysisId: null }
+    const nav = { selectPanel: null, pendingAnalysisId: null, pendingSection: null }
 
     const QM_CSS = '/* @css styles.css */'
     // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.

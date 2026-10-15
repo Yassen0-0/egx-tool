@@ -323,6 +323,23 @@ function parseDayInput(text) {
   return `${y}-${two(m)}-${two(d)}`
 }
 
+// ── EODHD daily limit ────────────────────────────────────────────────────────
+// EODHD resets the daily API-call counter at midnight GMT (eodhd.com/financial-apis/api-limits).
+// The Cairo clock time of that reset moves with Egypt's daylight saving, so it is computed.
+
+/** The last reset before `now` (a Date or ISO string), as a Date. */
+function lastLimitReset(now) {
+  const t = new Date(now)
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
+}
+
+/** { when: 'اليوم' | 'بكره', time: 'HH:MM' } for the next reset, in Cairo time. */
+function nextLimitReset(now) {
+  const next = new Date(lastLimitReset(now).getTime() + 864e5)
+  const today = cairoDay(new Date(now).toISOString())
+  return { when: cairoDay(next.toISOString()) === today ? 'اليوم' : 'بكره', time: fmtTime(next.toISOString()) }
+}
+
     const React = require('react')
     const { useState, useEffect, useCallback } = React
     const h = React.createElement
@@ -330,9 +347,9 @@ function parseDayInput(text) {
     const ANALYSES_ID = 'egx-analyses'
     const MARKET_ID = 'egx-market'
     // Cross-panel navigation: set by apply() when the layout service is available.
-    const nav = { selectPanel: null, pendingAnalysisId: null }
+    const nav = { selectPanel: null, pendingAnalysisId: null, pendingSection: null }
 
-    const QM_CSS = "/* «قيمة» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font\n   stacks): they live on body and switch with the Harness theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-h3 { margin: 0; font-size: 14px; font-weight: 600; }\n.qm .q-hero { font-size: 30px; font-weight: 600; line-height: 1.1; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-blue { color: var(--dsw-alias-state-business-primary); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-strong { font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-grow { flex: 1 1 auto; min-width: 0; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .q-pad { padding: 12px 16px; }\n.qm .q-sunken { background: var(--dsw-alias-bg-module-platform); }\n\n/* Panel header: icon + «قيمة» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-icon-btn { width: 32px; padding: 0; }\n.qm .q-field { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; }\n.qm .q-field:focus-within { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-field input, .qm .q-field select { border: 0; background: transparent; outline: none; min-width: 0; height: 30px; font-size: 13px; }\n.qm .q-field select { cursor: pointer; }\n.qm .q-field select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }\n.qm .q-field.on { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); }\n.qm .q-seg button { appearance: none; border: 0; background: transparent; height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; white-space: nowrap; }\n.qm .q-seg button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-weight: 500;\n  box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n\n/* Chips */\n.qm .q-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }\n.qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }\n.qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */\n.qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;\n  border: 1px solid var(--dsw-alias-state-warn-primary); }\n.qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;\n  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-fchip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .q-fchip[aria-pressed='true'] { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill);\n  color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-fchip .num { font-size: 12px; opacity: .85; }\n.qm .q-fchip.warn:not([aria-pressed='true']) .num { color: var(--dsw-alias-state-warn-label); opacity: 1; font-weight: 600; }\n\n/* Rating: 3 rising bars (1 safe, 2 balanced, 3 high risk) + text. */\n.qm .q-rating { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }\n.qm .q-bars { display: inline-flex; gap: 2px; align-items: flex-end; direction: ltr; height: 12px; }\n.qm .q-bars i { width: 3px; border-radius: 1px; background: var(--dsw-alias-border-l3); }\n.qm .q-bars i:nth-child(1) { height: 5px; } .qm .q-bars i:nth-child(2) { height: 8px; } .qm .q-bars i:nth-child(3) { height: 12px; }\n.qm .q-r1 .q-bars i:nth-child(-n+1), .qm .q-r2 .q-bars i:nth-child(-n+2), .qm .q-r3 .q-bars i:nth-child(-n+3) { background: var(--dsw-alias-label-secondary); }\n\n/* Grid table (no <table>): set the columns with --cols on the container. */\n.qm .q-scroll { overflow-x: auto; }\n.qm .q-grid { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 4px; }\n.qm .q-grid > * { padding: 0 8px; min-width: 0; }\n.qm .q-th { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--dsw-alias-bg-module-platform);\n  border-bottom: 1px solid var(--dsw-alias-border-l2); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-th button { appearance: none; border: 0; background: transparent; padding: 0; min-height: 32px; cursor: pointer; color: inherit;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }\n.qm .q-th button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-th button.on { color: var(--dsw-alias-label-primary); font-weight: 600; }\n.qm .q-tr { min-height: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .q-tr.q-click { cursor: pointer; }\n.qm .q-tr.q-click:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-tr.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .q-tr.q-sel { background: var(--dsw-alias-interactive-bg-active); box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary); }\n.qm .q-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-block: 8px; }\n.qm .q-cell small { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.35; }\n\n/* Valuation ruler: bear–bull band (soft blue), protection tick (amber), fair tick (blue), price dot. */\n.qm .q-rl { position: relative; display: block; height: 18px; direction: ltr; min-width: 120px; }\n.qm .q-rl .tr { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); }\n.qm .q-rl .bd { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .3; }\n.qm .q-rl .tk { position: absolute; top: 1px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 1px; }\n.qm .q-rl .tk.fair { background: var(--dsw-alias-state-business-primary); }\n.qm .q-rl .tk.prot { background: var(--dsw-alias-state-warn-primary); }\n.qm .q-rl .dt { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -8px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-rl-lg { height: 28px; }\n.qm .q-rl-lg .tr, .qm .q-rl-lg .bd { top: 10px; height: 8px; border-radius: 4px; }\n.qm .q-rl-lg .tk { top: 3px; height: 22px; width: 4px; margin-left: -2px; }\n.qm .q-rl-lg .dt { top: 5px; width: 12px; height: 12px; margin-left: -9px; }\n.qm .q-rl-labels { position: relative; height: 34px; direction: ltr; font-size: 12px; }\n.qm .q-rl-labels > span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; line-height: 1.4; }\n.qm .q-vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }\n.qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n\n/* Large valuation ruler with labels (Market detail, Analysis summary) */\n.qm .m-bigruler { position: relative; height: 112px; direction: ltr; margin: 0 24px; }\n.qm .m-bigruler .lg { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 12px; text-align: center; line-height: 1.4; }\n.qm .m-bigruler .bar { position: absolute; top: 46px; height: 12px; border-radius: 6px; }\n.qm .m-bigruler .edge { position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; background: var(--dsw-alias-label-tertiary); }\n.qm .m-bigruler .tk { position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; }\n.qm .m-bigruler .dt { position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n\n/* 52-week range */\n.qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }\n.qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }\n.qm .q-b52 .dt { position: absolute; top: -3px; width: 8px; height: 8px; margin-left: -7px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-b52n { display: flex; justify-content: space-between; direction: ltr; font-size: 12px; margin-top: 6px; color: var(--dsw-alias-label-secondary); }\n\n/* Fact cells */\n.qm .q-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .q-facts > div { padding: 8px 12px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }\n.qm .q-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; align-items: center; gap: 6px; }\n.qm .q-kv b { font-weight: 500; font-size: 14px; }\n\n/* Tabs */\n.qm .q-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-x: auto; }\n.qm .q-tab { appearance: none; border: 0; background: transparent; height: 40px; padding: 0 12px; cursor: pointer; color: var(--dsw-alias-label-secondary);\n  border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; white-space: nowrap; }\n.qm .q-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; border-bottom-color: var(--dsw-alias-label-primary); }\n\n/* Help (؟) toggle and the protection definition note */\n.qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }\n.qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }\n.qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);\n  border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }\n.qm .q-note-quiet { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-bg-module-platform);\n  color: var(--dsw-alias-label-secondary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, toast, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 10px 16px; border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-alias-tooltip-bg, var(--dsw-alias-button-primary-fill)); color: var(--dsw-alias-label-primary-foreground); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n.qm .q-mini-bar { display: inline-flex; width: 56px; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l4); direction: ltr; vertical-align: middle; }\n.qm .q-mini-bar > span { display: block; height: 100%; }\n"
+    const QM_CSS = "/* «قيمة» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font\n   stacks): they live on body and switch with the Harness theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-h3 { margin: 0; font-size: 14px; font-weight: 600; }\n.qm .q-hero { font-size: 30px; font-weight: 600; line-height: 1.1; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-blue { color: var(--dsw-alias-state-business-primary); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-strong { font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-grow { flex: 1 1 auto; min-width: 0; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .q-pad { padding: 12px 16px; }\n.qm .q-sunken { background: var(--dsw-alias-bg-module-platform); }\n\n/* Panel header: icon + «قيمة» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-icon-btn { width: 32px; padding: 0; }\n.qm .q-field { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; }\n.qm .q-field:focus-within { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-field input, .qm .q-field select { border: 0; background: transparent; outline: none; min-width: 0; height: 30px; font-size: 13px; }\n.qm .q-field select { cursor: pointer; }\n.qm .q-field select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }\n.qm .q-field.on { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); }\n.qm .q-seg button { appearance: none; border: 0; background: transparent; height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; white-space: nowrap; }\n.qm .q-seg button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-weight: 500;\n  box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n\n/* Chips */\n.qm .q-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }\n.qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }\n.qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */\n.qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;\n  border: 1px solid var(--dsw-alias-state-warn-primary); }\n.qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;\n  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-fchip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .q-fchip[aria-pressed='true'] { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill);\n  color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-fchip .num { font-size: 12px; opacity: .85; }\n.qm .q-fchip.warn:not([aria-pressed='true']) .num { color: var(--dsw-alias-state-warn-label); opacity: 1; font-weight: 600; }\n\n/* Rating: 3 rising bars (1 safe, 2 balanced, 3 high risk) + text. */\n.qm .q-rating { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }\n.qm .q-bars { display: inline-flex; gap: 2px; align-items: flex-end; direction: ltr; height: 12px; }\n.qm .q-bars i { width: 3px; border-radius: 1px; background: var(--dsw-alias-border-l3); }\n.qm .q-bars i:nth-child(1) { height: 5px; } .qm .q-bars i:nth-child(2) { height: 8px; } .qm .q-bars i:nth-child(3) { height: 12px; }\n.qm .q-r1 .q-bars i:nth-child(-n+1), .qm .q-r2 .q-bars i:nth-child(-n+2), .qm .q-r3 .q-bars i:nth-child(-n+3) { background: var(--dsw-alias-label-secondary); }\n\n/* Grid table (no <table>): set the columns with --cols on the container. */\n.qm .q-scroll { overflow-x: auto; }\n.qm .q-grid { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 4px; }\n.qm .q-grid > * { padding: 0 8px; min-width: 0; }\n.qm .q-th { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--dsw-alias-bg-module-platform);\n  border-bottom: 1px solid var(--dsw-alias-border-l2); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-th button { appearance: none; border: 0; background: transparent; padding: 0; min-height: 32px; cursor: pointer; color: inherit;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }\n.qm .q-th button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-th button.on { color: var(--dsw-alias-label-primary); font-weight: 600; }\n.qm .q-tr { min-height: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .q-tr.q-click { cursor: pointer; }\n.qm .q-tr.q-click:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-tr.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .q-tr.q-sel { background: var(--dsw-alias-interactive-bg-active); box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary); }\n.qm .q-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-block: 8px; }\n.qm .q-cell small { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.35; }\n\n/* Valuation ruler: bear–bull band (soft blue), protection tick (amber), fair tick (blue), price dot. */\n.qm .q-rl { position: relative; display: block; height: 18px; direction: ltr; min-width: 120px; }\n.qm .q-rl .tr { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); }\n.qm .q-rl .bd { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .3; }\n.qm .q-rl .tk { position: absolute; top: 1px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 1px; }\n.qm .q-rl .tk.fair { background: var(--dsw-alias-state-business-primary); }\n.qm .q-rl .tk.prot { background: var(--dsw-alias-state-warn-primary); }\n.qm .q-rl .dt { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -8px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-rl-lg { height: 28px; }\n.qm .q-rl-lg .tr, .qm .q-rl-lg .bd { top: 10px; height: 8px; border-radius: 4px; }\n.qm .q-rl-lg .tk { top: 3px; height: 22px; width: 4px; margin-left: -2px; }\n.qm .q-rl-lg .dt { top: 5px; width: 12px; height: 12px; margin-left: -9px; }\n.qm .q-rl-labels { position: relative; height: 34px; direction: ltr; font-size: 12px; }\n.qm .q-rl-labels > span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; line-height: 1.4; }\n.qm .q-vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }\n.qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n\n/* Large valuation ruler with labels (Market detail, Analysis summary) */\n.qm .m-bigruler { position: relative; height: 112px; direction: ltr; margin: 0 24px; }\n.qm .m-bigruler .lg { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 12px; text-align: center; line-height: 1.4; }\n.qm .m-bigruler .bar { position: absolute; top: 46px; height: 12px; border-radius: 6px; }\n.qm .m-bigruler .edge { position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; background: var(--dsw-alias-label-tertiary); }\n.qm .m-bigruler .tk { position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; }\n.qm .m-bigruler .dt { position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n\n/* 52-week range */\n.qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }\n.qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }\n.qm .q-b52 .dt { position: absolute; top: -3px; width: 8px; height: 8px; margin-left: -7px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-b52n { display: flex; justify-content: space-between; direction: ltr; font-size: 12px; margin-top: 6px; color: var(--dsw-alias-label-secondary); }\n\n/* Fact cells */\n.qm .q-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .q-facts > div { padding: 8px 12px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }\n.qm .q-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; align-items: center; gap: 6px; }\n.qm .q-kv b { font-weight: 500; font-size: 14px; }\n\n/* Tabs */\n.qm .q-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-x: auto; }\n.qm .q-tab { appearance: none; border: 0; background: transparent; height: 40px; padding: 0 12px; cursor: pointer; color: var(--dsw-alias-label-secondary);\n  border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; white-space: nowrap; }\n.qm .q-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; border-bottom-color: var(--dsw-alias-label-primary); }\n\n/* Help (؟) toggle and the protection definition note */\n.qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }\n.qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-help { position: relative; }\n.qm .q-help::after { content: ''; position: absolute; inset: -6px; } /* 32px hit area around the 20px mark */\n.qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }\n.qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);\n  border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }\n.qm .q-note-quiet { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-bg-module-platform);\n  color: var(--dsw-alias-label-secondary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, toast, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 10px 16px; border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-alias-tooltip-bg, var(--dsw-alias-button-primary-fill)); color: var(--dsw-alias-label-primary-foreground); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n.qm .q-mini-bar { display: inline-flex; width: 56px; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l4); direction: ltr; vertical-align: middle; }\n.qm .q-mini-bar > span { display: block; height: 100%; }\n"
     // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.
     const N = (text, cls) => h('span', { className: cls ? `num ${cls}` : 'num' }, text)
 
@@ -933,6 +950,29 @@ function NumText({ text }) {
   return h(React.Fragment, null, parts.map((p, i) => (i % 2 ? h('span', { key: i, className: 'num' }, p.replace(/^-/, MINUS)) : p)))
 }
 
+/**
+ * The most important state: price under protection. Price vs protection, the gap, the critic's two
+ * possibilities (neither is a call to act), a link to the critic notes and the definition.
+ */
+function UnderProtectionCard({ price, fair, protection, asOf, onCritic }) {
+  const gap = belowProtectionBy(fair, price)
+  const box = (n, title, text) => h('div', { className: 'q-card q-pad', style: { flex: '1 1 220px', display: 'flex', flexDirection: 'column', gap: 4 } },
+    h('b', null, N(n), ' · ', title), h('span', { className: 'q-sec', style: { fontSize: 13, lineHeight: 1.7 } }, text))
+  return h('section', { className: 'q-note', role: 'note', 'aria-label': 'تحت سعر الحماية', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
+    h('div', null,
+      h('b', { className: 'q-amber', style: { display: 'flex', alignItems: 'center', gap: 6 } }, h(StatusMark, { status: 'under', size: 12 }), 'تحت سعر الحماية — يحتاج مراجعة'),
+      h('span', null, 'آخر إغلاق', asOf ? [' ', N(fmtDayMonth(asOf))] : null, ' عند ', N(fmtPrice(price)), ' أقل من سعر الحماية ', N(fmtPrice(protection)),
+        ' بنسبة ', N(fmtPct(gap)), ' تقريبًا، فالمحلل يراجع التقييم تلقائيًا.')),
+    h('div', null, h('b', null, 'رأي الناقد: احتمالان')),
+    h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 12 } },
+      box('1', 'التقييم فاته شيء', ['عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ', N(fmtPrice(fair)), ' جنيه.']),
+      box('2', 'السوق متشائم أكثر من اللازم', 'السعر يعكس مخاوف لا تدعمها المعطيات الحالية، فيبقى العادل صحيحًا والسعر دونه.')),
+    h('div', { className: 'q-row' },
+      onCritic ? h('button', { type: 'button', className: 'q-link', style: { padding: 0 }, onClick: onCritic }, 'عرض ملاحظات الناقد ←') : null,
+      h('span', { className: 'q-meta' }, 'لا نعرف أيهما بعد، والمراجعة هي التي تحدد.')),
+    h('span', { className: 'q-meta' }, 'سعر الحماية = ', N('80%'), ' من السعر العادل. ده تنبيه للمراجعة، مش أمر بيع.'))
+}
+
     // ── inlined from src/analyses.js ──
 // «قيمة / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). Inlined into
 // the factory scope: h, React, api, N, nav, Markdown, the format/labels helpers, identity.js and
@@ -1071,8 +1111,8 @@ function AnalysesList({ onOpen }) {
           h('span', { className: 'q-grow' }),
           h('span', { className: 'q-sec' }, g.list.length === 1 ? 'تقييم واحد' : [N(String(g.list.length)), ' تقييمات'])),
         latest.kind === 'light' && lastFull ? h('div', { className: 'a-ghead q-meta', style: { background: 'transparent' } }, h('span', null,
-          'مقارنة: تقييم كامل ', N(fmtDayMonth(lastFull.created_at)), ' (السعر وقتها ', N(fmtPrice(lastFull.price_at_valuation)), ') ثم تحديث خفيف ',
-          N(fmtDayMonth(latest.created_at)), ' (السعر وقتها ', N(fmtPrice(latest.price_at_valuation)), '). العادل لم يتغير وبقي ', N(fmtPrice(latest.fair_value)), ' جنيه.')) : null,
+          'مقارنة: تقييم كامل يوم ', N(fmtDayMonth(lastFull.created_at)), ' والسعر وقتها ', N(fmtPrice(lastFull.price_at_valuation)), ' ثم تحديث خفيف يوم ',
+          N(fmtDayMonth(latest.created_at)), ' والسعر وقتها ', N(fmtPrice(latest.price_at_valuation)), ' بينما العادل لم يتغير وبقي ', N(fmtPrice(latest.fair_value)), ' جنيه.')) : null,
         g.rows.map((v) => h(ListRow, { key: v.id, v, info: info[v.id], current: g.current, onOpen })))
     })))
 
@@ -1321,7 +1361,8 @@ function RiskSection({ item }) {
       rows: order.map((key) => {
         const [name, explain, ref, format] = RISK_LABEL[key]
         return [[h('b', { key: 'n', style: { fontWeight: 500 } }, name), h('small', { key: 'e' }, explain)],
-          N(riskValue(values[key], format), levels[key] === 2 ? 'q-amber' : 'q-strong'),
+          // Only digits go in .num spans; words like «آمن» or «غير متحفّظ» stay plain text.
+          h('b', { className: levels[key] === 2 ? 'q-amber' : 'q-strong' }, h(NumText, { text: riskValue(values[key], format) })),
           h('small', null, h(NumText, { text: ref }))]
       }),
     }),
@@ -1330,7 +1371,7 @@ function RiskSection({ item }) {
       'Altman Z-Score وPiotroski F-Score وBeneish M-Score مقاييس للشركات غير المالية (خطر التعثر، جودة الأداء، والتلاعب المحاسبي)، لذلك لا تُحسب لـ ',
       h('span', { className: 'q-sym' }, item.symbol), ' ولا تدخل في التصنيف.') : null,
     details.missing && details.missing.length ? h('p', { key: 'm', className: 'q-meta' }, 'بيانات ناقصة لم تدخل في التصنيف: ',
-      details.missing.map((k) => (RISK_LABEL[k] ? RISK_LABEL[k][0] : k)).join('، ')) : null,
+      details.missing.map((k) => (RISK_LABEL[k] ? RISK_LABEL[k][0] : k)).join(' · ')) : null,
   ]
 }
 
@@ -1357,7 +1398,14 @@ function ReportSection({ item, toast }) {
       h('button', { type: 'button', className: 'q-btn', onClick: copy }, 'نسخ النص')))
 }
 
-function AnalysisDetail({ id, onBack, onOpen }) {
+// The panel root is the scroll container; leave room for the sticky header and section nav.
+function scrollToSection(key) {
+  const target = document.getElementById(`a-${key}`)
+  const box = target && target.closest('.qm')
+  if (box) box.scrollTo({ top: target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 100 })
+}
+
+function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
   const [item, setItem] = useState(null)
   const [series, setSeries] = useState(null)
   const [bars, setBars] = useState([])
@@ -1385,6 +1433,15 @@ function AnalysisDetail({ id, onBack, onOpen }) {
     return () => { alive = false }
   }, [id])
 
+  const jumped = React.useRef(false)
+  useEffect(() => {
+    // Arriving from «عرض ملاحظات الناقد»: open on that section once the page has its height.
+    if (!initialSection || jumped.current || !item || !series) return
+    jumped.current = true
+    setActive(initialSection)
+    requestAnimationFrame(() => scrollToSection(initialSection))
+  }, [item, series, initialSection])
+
   const crumbs = [{ label: 'التحليلات', onClick: onBack }]
   if (!item) return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + ANALYSES_CSS),
     h(PanelHeader, { crumbs, here: error ? 'تعذّر التحميل' : '…' }),
@@ -1401,13 +1458,7 @@ function AnalysisDetail({ id, onBack, onOpen }) {
   const status = price != null ? statusOf(price, item.fair_value) : null
   const lastFull = item.kind === 'light' ? points.slice().reverse().find((p) => p.kind === 'full' && p.id < item.id) : null
   const name = current ? current.name_ar : ''
-  const go = (key) => {
-    setActive(key)
-    // The panel root is the scroll container; leave room for the sticky header and section nav.
-    const target = document.getElementById(`a-${key}`)
-    const box = target && target.closest('.qm')
-    if (box) box.scrollTo({ top: target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 100 })
-  }
+  const go = (key) => { setActive(key); scrollToSection(key) }
   const changes = series ? series.changes : []
   const changeFor = (pid) => changes.find((c) => c.valuation_id === pid)
 
@@ -1433,6 +1484,8 @@ function AnalysisDetail({ id, onBack, onOpen }) {
       item.kind === 'light' && lastFull ? h('div', { className: 'q-note-quiet' },
         'تحديث خفيف: نفس العادل ', N(fmtPrice(item.fair_value)), ' بدون إعادة تقييم. الطرق والافتراضات والمخاطر من التقييم الكامل بتاريخ ', N(fmtDate(lastFull.created_at)), ' ',
         h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(lastFull.id) }, 'افتح التقييم الكامل ←')) : null,
+
+      status === 'under' ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
 
       // Summary strip + large ruler
       h('section', { className: 'q-card', 'aria-label': 'ملخص التقييم', style: { overflow: 'hidden' } },
@@ -1499,14 +1552,17 @@ function AnalysisDetail({ id, onBack, onOpen }) {
 }
 
 function AnalysesPage() {
-  const [openId, setOpenId] = useState(() => {
-    const pending = nav.pendingAnalysisId
+  const [opening] = useState(() => {
+    const pending = { id: nav.pendingAnalysisId, section: nav.pendingSection }
     nav.pendingAnalysisId = null
+    nav.pendingSection = null
     return pending
   })
+  const [openId, setOpenId] = useState(opening.id)
   return openId == null
     ? h(AnalysesList, { onOpen: setOpenId })
-    : h(AnalysisDetail, { key: openId, id: openId, onBack: () => setOpenId(null), onOpen: setOpenId })
+    : h(AnalysisDetail, { key: openId, id: openId, onBack: () => setOpenId(null), onOpen: setOpenId,
+      initialSection: openId === opening.id ? opening.section : null })
 }
 
     // ── inlined from src/market.js ──
@@ -1561,9 +1617,12 @@ function sortRows(rows, key, desc, period) {
   })
 }
 
-function openAnalysis(id) {
+const lastCloseOf = (data) => data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+
+function openAnalysis(id, section = null) {
   if (id == null || !nav.selectPanel) return
   nav.pendingAnalysisId = id
+  nav.pendingSection = section
   nav.selectPanel(ANALYSES_ID)
 }
 
@@ -1614,6 +1673,54 @@ function StatusStrip({ data, portfolio }) {
       totals.today_has_fresh
         ? h('b', null, N(fmtChange(totals.today_change, totals.today_change_pct), toneOf(totals.today_change)))
         : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null)
+}
+
+// ── Sync alerts: failed refresh, daily limit, no fresh prices yet ───────────
+
+function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
+  const [why, setWhy] = useState(false)
+  const run = data.last_sync
+  const now = data.as_of
+  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now))
+  const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0
+  const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
+  const error = failure || (run && run.error)
+  const goodData = h('span', { className: 'q-meta' }, 'آخر بيانات سليمة: ',
+    lastClose ? ['إغلاق ', N(fmtDayMonth(lastClose))] : 'لا يوجد', run && run.finished_at && !run.error ? [' · مزامنة ', N(fmtTime(run.finished_at))] : null)
+  const card = (key, role, edge, children) => h('section', { key, className: 'q-card q-pad', role,
+    style: { borderInlineStart: `3px solid var(${edge})`, display: 'flex', flexDirection: 'column', gap: 6 } }, children)
+  const cards = []
+  if (error) {
+    cards.push(card('e', 'alert', '--dsw-alias-file-diff-deleted-marker', [
+      h('b', { key: 't' }, 'تعذّر تحديث الأسعار'),
+      h('span', { key: 'x', className: 'q-sec' }, 'فشل تحديث الأسعار من مزوّد الأسعار EODHD، والأسعار المعروضة من آخر مزامنة ناجحة. ',
+        h('span', { className: 'q-ter', dir: 'auto' }, `(${String(error).slice(0, 140)})`)),
+      h(React.Fragment, { key: 'g' }, goodData),
+      h('div', { key: 'b' }, h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: syncing, onClick: onRetry }, syncing ? 'جارٍ المحاولة…' : 'إعادة المحاولة'))]))
+  }
+  if (limitReached) {
+    const reset = nextLimitReset(now)
+    cards.push(card('l', 'status', '--dsw-alias-label-tertiary', [
+      h('b', { key: 't' }, 'بلغنا الحد اليومي لتحديثات الأسعار (', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit)), ')'),
+      h('span', { key: 'x', className: 'q-sec' }, 'الخطة المجانية تسمح بـ', N(fmtCount(run.daily_limit)), ' تحديثًا في اليوم، ويتجدد الحد ', reset.when, ' الساعة ', N(reset.time),
+        ' بتوقيت القاهرة. حتى ذلك الحين تبقى الأسعار الأقدم معروضة بوسم «سعر قديم».'),
+      h(React.Fragment, { key: 'g' }, goodData),
+      h('div', { key: 'b', className: 'q-row' },
+        h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: true }, 'إعادة المحاولة'),
+        h('button', { type: 'button', className: 'q-link', 'aria-expanded': why, onClick: () => setWhy(!why) }, 'لماذا هناك حد؟')),
+      why ? h('span', { key: 'w', className: 'q-meta', style: { lineHeight: 1.7 } },
+        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فتُستكمل أسهم المؤشر على يومين. الأولوية لأسهم محفظتك ثم الأكبر وزنًا في المؤشر.') : null]))
+  }
+  const b = data.breadth
+  const priced = data.rows.some((r) => r.price != null)
+  if (!error && !limitReached && priced && b.up + b.down + b.flat === 0) {
+    cards.push(card('f', 'status', '--dsw-alias-label-tertiary', [
+      h('b', { key: 't' }, 'لا أسعار محدّثة بعد'),
+      h('span', { key: 'x', className: 'q-sec' }, 'إغلاق جلسة ', N(fmtDayMonth(data.expected_last_bar)), ' لم يُجلب بعد، والمعروض هو إغلاق ',
+        N(fmtDayMonth(lastClose)), ' بوسم «سعر قديم» ولا يُحتسب كتغيّر لليوم. أيقونة قيمة محايدة حتى أول سعر محدّث.')]))
+  }
+  return cards.length ? h(React.Fragment, null, cards) : null
 }
 
 // ── Digest ─────────────────────────────────────────────────────────────────────
@@ -1760,6 +1867,11 @@ function BigRuler({ v, price }) {
   label('fair', 'السعر العادل', v.fair_value, 'q-blue q-strong'), label('bull', 'المتفائل', v.bull, 'q-sec'))
 }
 
+const lastFullId = (row) => {
+  const full = (row.valuation_history || []).filter((s) => s.kind === 'full')
+  return full.length ? full[full.length - 1].id : row.valuation && row.valuation.id
+}
+
 function ValuationCard({ row }) {
   const v = row.valuation
   const [help, setHelp] = useState(true)
@@ -1782,7 +1894,12 @@ function ValuationCard({ row }) {
       fact('النطاق (المتشائم – المتفائل)', N(`${fmtPrice(v.bear)} – ${fmtPrice(v.bull)}`)),
       h('div', { className: 'q-kv' }, h('small', null, 'سعر الحماية ', h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
         h('b', null, N(fmtPrice(v.protection_price), 'q-amber'))),
-      fact('الفرق عن العادل', m ? h('span', { style: { fontSize: 13 } }, m.text, m.value ? ' ' : null, m.value ? N(m.value) : null) : '—'),
+      fact('الفرق عن العادل', row.price == null ? '—' : (() => {
+        // Always measured against fair (the protection gap has its own line above).
+        const margin = marginToFair(v.fair_value, row.price)
+        if (Math.round(Math.abs(margin) * 1000) === 0) return 'عند السعر العادل'
+        return h('span', { style: { fontSize: 13 } }, margin > 0 ? 'أقل من العادل بـ ' : 'أعلى من العادل بـ ', N(fmtPct(Math.abs(margin))))
+      })()),
       fact('التصنيف', h(RatingChip, { rating: v.risk_rating })),
       fact('تاريخ التقييم', N(fmtDate(v.valuation_date))),
       fact('السعر وقت التقييم', N(fmtPrice(v.price_at_valuation)), h('small', { className: 'q-meta' }, 'إغلاق ', N(fmtDayMonth(v.valuation_date))))),
@@ -1940,8 +2057,13 @@ function SymbolDetail({ row, period, onValue }) {
     else if (!v) left = h('div', { className: 'm-dashed' },
       h('span', { className: 'q-h2' }, 'لم يُقيَّم ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
       h('span', { className: 'q-sec' }, 'لا يوجد سعر عادل ولا سعر حماية. اكتب في المحادثة: ', h('b', { style: { fontWeight: 500 } }, 'قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol))),
-      h('button', { type: 'button', className: 'q-btn', onClick: () => onValue(row.symbol) }, 'انسخ الرسالة للمحادثة'))
-    else left = h(ValuationCard, { row })
+      h('div', { className: 'q-row' },
+        h('button', { type: 'button', className: 'q-btn q-btn-p', onClick: () => onValue(row.symbol) }, 'قيّم في المحادثة'),
+        h('span', { className: 'q-chip q-chip-line' }, '«قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol), '»')))
+    else left = [
+      isUnder(row) ? h(UnderProtectionCard, { key: 'u', price: row.price, fair: v.fair_value, protection: v.protection_price, asOf: row.as_of,
+        onCritic: () => openAnalysis(lastFullId(row), 'critic') }) : null,
+      h(ValuationCard, { key: 'v', row })]
     panel = h('div', { className: 'm-panes' },
       h('div', { className: 'm-left' }, left),
       h('div', { className: 'm-right' }, error ? h('div', { className: 'q-error', role: 'alert' }, error) : h(CandlesPanel, { row, history })))
@@ -2013,6 +2135,7 @@ function MarketPage() {
   const [error, setError] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncNote, setSyncNote] = useState('')
+  const [syncFailure, setSyncFailure] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [mine, setMine] = useState(false)
@@ -2042,11 +2165,11 @@ function MarketPage() {
   }, [load])
 
   async function sync() {
-    setSyncing(true); setSyncNote('')
+    setSyncing(true); setSyncNote(''); setSyncFailure('')
     try {
       const r = await api('POST', '/egx/api/market/sync', {})
       if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD')
-      else if (r.ok === false) setSyncNote(`تعذّر التحديث: ${r.error}`)
+      else if (r.ok === false) setSyncFailure(r.error || 'خطأ غير معروف')
       else {
         const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
         if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
@@ -2055,7 +2178,7 @@ function MarketPage() {
       await load()
       qima.refresh()
     } catch (e) {
-      setSyncNote(e.message)
+      setSyncFailure(e.message)
     } finally {
       setSyncing(false)
     }
@@ -2104,6 +2227,7 @@ function MarketPage() {
     }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
       data ? h(StatusStrip, { data, portfolio }) : null,
+      data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data) }) : null,
       noKey ? h('section', { className: 'q-card q-pad q-sec', role: 'note' },
         h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
         'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',

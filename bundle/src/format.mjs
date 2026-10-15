@@ -298,3 +298,20 @@ export function parseDayInput(text) {
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return undefined
   return `${y}-${two(m)}-${two(d)}`
 }
+
+// ── EODHD daily limit ────────────────────────────────────────────────────────
+// EODHD resets the daily API-call counter at midnight GMT (eodhd.com/financial-apis/api-limits).
+// The Cairo clock time of that reset moves with Egypt's daylight saving, so it is computed.
+
+/** The last reset before `now` (a Date or ISO string), as a Date. */
+export function lastLimitReset(now) {
+  const t = new Date(now)
+  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
+}
+
+/** { when: 'اليوم' | 'بكره', time: 'HH:MM' } for the next reset, in Cairo time. */
+export function nextLimitReset(now) {
+  const next = new Date(lastLimitReset(now).getTime() + 864e5)
+  const today = cairoDay(new Date(now).toISOString())
+  return { when: cairoDay(next.toISOString()) === today ? 'اليوم' : 'بكره', time: fmtTime(next.toISOString()) }
+}

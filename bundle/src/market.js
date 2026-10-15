@@ -49,9 +49,12 @@ function sortRows(rows, key, desc, period) {
   })
 }
 
-function openAnalysis(id) {
+const lastCloseOf = (data) => data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+
+function openAnalysis(id, section = null) {
   if (id == null || !nav.selectPanel) return
   nav.pendingAnalysisId = id
+  nav.pendingSection = section
   nav.selectPanel(ANALYSES_ID)
 }
 
@@ -102,6 +105,54 @@ function StatusStrip({ data, portfolio }) {
       totals.today_has_fresh
         ? h('b', null, N(fmtChange(totals.today_change, totals.today_change_pct), toneOf(totals.today_change)))
         : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null)
+}
+
+// ── Sync alerts: failed refresh, daily limit, no fresh prices yet ───────────
+
+function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
+  const [why, setWhy] = useState(false)
+  const run = data.last_sync
+  const now = data.as_of
+  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now))
+  const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0
+  const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
+  const error = failure || (run && run.error)
+  const goodData = h('span', { className: 'q-meta' }, 'آخر بيانات سليمة: ',
+    lastClose ? ['إغلاق ', N(fmtDayMonth(lastClose))] : 'لا يوجد', run && run.finished_at && !run.error ? [' · مزامنة ', N(fmtTime(run.finished_at))] : null)
+  const card = (key, role, edge, children) => h('section', { key, className: 'q-card q-pad', role,
+    style: { borderInlineStart: `3px solid var(${edge})`, display: 'flex', flexDirection: 'column', gap: 6 } }, children)
+  const cards = []
+  if (error) {
+    cards.push(card('e', 'alert', '--dsw-alias-file-diff-deleted-marker', [
+      h('b', { key: 't' }, 'تعذّر تحديث الأسعار'),
+      h('span', { key: 'x', className: 'q-sec' }, 'فشل تحديث الأسعار من مزوّد الأسعار EODHD، والأسعار المعروضة من آخر مزامنة ناجحة. ',
+        h('span', { className: 'q-ter', dir: 'auto' }, `(${String(error).slice(0, 140)})`)),
+      h(React.Fragment, { key: 'g' }, goodData),
+      h('div', { key: 'b' }, h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: syncing, onClick: onRetry }, syncing ? 'جارٍ المحاولة…' : 'إعادة المحاولة'))]))
+  }
+  if (limitReached) {
+    const reset = nextLimitReset(now)
+    cards.push(card('l', 'status', '--dsw-alias-label-tertiary', [
+      h('b', { key: 't' }, 'بلغنا الحد اليومي لتحديثات الأسعار (', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit)), ')'),
+      h('span', { key: 'x', className: 'q-sec' }, 'الخطة المجانية تسمح بـ', N(fmtCount(run.daily_limit)), ' تحديثًا في اليوم، ويتجدد الحد ', reset.when, ' الساعة ', N(reset.time),
+        ' بتوقيت القاهرة. حتى ذلك الحين تبقى الأسعار الأقدم معروضة بوسم «سعر قديم».'),
+      h(React.Fragment, { key: 'g' }, goodData),
+      h('div', { key: 'b', className: 'q-row' },
+        h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: true }, 'إعادة المحاولة'),
+        h('button', { type: 'button', className: 'q-link', 'aria-expanded': why, onClick: () => setWhy(!why) }, 'لماذا هناك حد؟')),
+      why ? h('span', { key: 'w', className: 'q-meta', style: { lineHeight: 1.7 } },
+        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فتُستكمل أسهم المؤشر على يومين. الأولوية لأسهم محفظتك ثم الأكبر وزنًا في المؤشر.') : null]))
+  }
+  const b = data.breadth
+  const priced = data.rows.some((r) => r.price != null)
+  if (!error && !limitReached && priced && b.up + b.down + b.flat === 0) {
+    cards.push(card('f', 'status', '--dsw-alias-label-tertiary', [
+      h('b', { key: 't' }, 'لا أسعار محدّثة بعد'),
+      h('span', { key: 'x', className: 'q-sec' }, 'إغلاق جلسة ', N(fmtDayMonth(data.expected_last_bar)), ' لم يُجلب بعد، والمعروض هو إغلاق ',
+        N(fmtDayMonth(lastClose)), ' بوسم «سعر قديم» ولا يُحتسب كتغيّر لليوم. أيقونة قيمة محايدة حتى أول سعر محدّث.')]))
+  }
+  return cards.length ? h(React.Fragment, null, cards) : null
 }
 
 // ── Digest ─────────────────────────────────────────────────────────────────────
@@ -248,6 +299,11 @@ function BigRuler({ v, price }) {
   label('fair', 'السعر العادل', v.fair_value, 'q-blue q-strong'), label('bull', 'المتفائل', v.bull, 'q-sec'))
 }
 
+const lastFullId = (row) => {
+  const full = (row.valuation_history || []).filter((s) => s.kind === 'full')
+  return full.length ? full[full.length - 1].id : row.valuation && row.valuation.id
+}
+
 function ValuationCard({ row }) {
   const v = row.valuation
   const [help, setHelp] = useState(true)
@@ -270,7 +326,12 @@ function ValuationCard({ row }) {
       fact('النطاق (المتشائم – المتفائل)', N(`${fmtPrice(v.bear)} – ${fmtPrice(v.bull)}`)),
       h('div', { className: 'q-kv' }, h('small', null, 'سعر الحماية ', h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
         h('b', null, N(fmtPrice(v.protection_price), 'q-amber'))),
-      fact('الفرق عن العادل', m ? h('span', { style: { fontSize: 13 } }, m.text, m.value ? ' ' : null, m.value ? N(m.value) : null) : '—'),
+      fact('الفرق عن العادل', row.price == null ? '—' : (() => {
+        // Always measured against fair (the protection gap has its own line above).
+        const margin = marginToFair(v.fair_value, row.price)
+        if (Math.round(Math.abs(margin) * 1000) === 0) return 'عند السعر العادل'
+        return h('span', { style: { fontSize: 13 } }, margin > 0 ? 'أقل من العادل بـ ' : 'أعلى من العادل بـ ', N(fmtPct(Math.abs(margin))))
+      })()),
       fact('التصنيف', h(RatingChip, { rating: v.risk_rating })),
       fact('تاريخ التقييم', N(fmtDate(v.valuation_date))),
       fact('السعر وقت التقييم', N(fmtPrice(v.price_at_valuation)), h('small', { className: 'q-meta' }, 'إغلاق ', N(fmtDayMonth(v.valuation_date))))),
@@ -428,8 +489,13 @@ function SymbolDetail({ row, period, onValue }) {
     else if (!v) left = h('div', { className: 'm-dashed' },
       h('span', { className: 'q-h2' }, 'لم يُقيَّم ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
       h('span', { className: 'q-sec' }, 'لا يوجد سعر عادل ولا سعر حماية. اكتب في المحادثة: ', h('b', { style: { fontWeight: 500 } }, 'قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol))),
-      h('button', { type: 'button', className: 'q-btn', onClick: () => onValue(row.symbol) }, 'انسخ الرسالة للمحادثة'))
-    else left = h(ValuationCard, { row })
+      h('div', { className: 'q-row' },
+        h('button', { type: 'button', className: 'q-btn q-btn-p', onClick: () => onValue(row.symbol) }, 'قيّم في المحادثة'),
+        h('span', { className: 'q-chip q-chip-line' }, '«قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol), '»')))
+    else left = [
+      isUnder(row) ? h(UnderProtectionCard, { key: 'u', price: row.price, fair: v.fair_value, protection: v.protection_price, asOf: row.as_of,
+        onCritic: () => openAnalysis(lastFullId(row), 'critic') }) : null,
+      h(ValuationCard, { key: 'v', row })]
     panel = h('div', { className: 'm-panes' },
       h('div', { className: 'm-left' }, left),
       h('div', { className: 'm-right' }, error ? h('div', { className: 'q-error', role: 'alert' }, error) : h(CandlesPanel, { row, history })))
@@ -501,6 +567,7 @@ function MarketPage() {
   const [error, setError] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [syncNote, setSyncNote] = useState('')
+  const [syncFailure, setSyncFailure] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
   const [mine, setMine] = useState(false)
@@ -530,11 +597,11 @@ function MarketPage() {
   }, [load])
 
   async function sync() {
-    setSyncing(true); setSyncNote('')
+    setSyncing(true); setSyncNote(''); setSyncFailure('')
     try {
       const r = await api('POST', '/egx/api/market/sync', {})
       if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD')
-      else if (r.ok === false) setSyncNote(`تعذّر التحديث: ${r.error}`)
+      else if (r.ok === false) setSyncFailure(r.error || 'خطأ غير معروف')
       else {
         const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
         if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
@@ -543,7 +610,7 @@ function MarketPage() {
       await load()
       qima.refresh()
     } catch (e) {
-      setSyncNote(e.message)
+      setSyncFailure(e.message)
     } finally {
       setSyncing(false)
     }
@@ -592,6 +659,7 @@ function MarketPage() {
     }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
       data ? h(StatusStrip, { data, portfolio }) : null,
+      data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data) }) : null,
       noKey ? h('section', { className: 'q-card q-pad q-sec', role: 'note' },
         h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
         'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',

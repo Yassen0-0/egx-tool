@@ -135,8 +135,8 @@ function AnalysesList({ onOpen }) {
           h('span', { className: 'q-grow' }),
           h('span', { className: 'q-sec' }, g.list.length === 1 ? 'تقييم واحد' : [N(String(g.list.length)), ' تقييمات'])),
         latest.kind === 'light' && lastFull ? h('div', { className: 'a-ghead q-meta', style: { background: 'transparent' } }, h('span', null,
-          'مقارنة: تقييم كامل ', N(fmtDayMonth(lastFull.created_at)), ' (السعر وقتها ', N(fmtPrice(lastFull.price_at_valuation)), ') ثم تحديث خفيف ',
-          N(fmtDayMonth(latest.created_at)), ' (السعر وقتها ', N(fmtPrice(latest.price_at_valuation)), '). العادل لم يتغير وبقي ', N(fmtPrice(latest.fair_value)), ' جنيه.')) : null,
+          'مقارنة: تقييم كامل يوم ', N(fmtDayMonth(lastFull.created_at)), ' والسعر وقتها ', N(fmtPrice(lastFull.price_at_valuation)), ' ثم تحديث خفيف يوم ',
+          N(fmtDayMonth(latest.created_at)), ' والسعر وقتها ', N(fmtPrice(latest.price_at_valuation)), ' بينما العادل لم يتغير وبقي ', N(fmtPrice(latest.fair_value)), ' جنيه.')) : null,
         g.rows.map((v) => h(ListRow, { key: v.id, v, info: info[v.id], current: g.current, onOpen })))
     })))
 
@@ -385,7 +385,8 @@ function RiskSection({ item }) {
       rows: order.map((key) => {
         const [name, explain, ref, format] = RISK_LABEL[key]
         return [[h('b', { key: 'n', style: { fontWeight: 500 } }, name), h('small', { key: 'e' }, explain)],
-          N(riskValue(values[key], format), levels[key] === 2 ? 'q-amber' : 'q-strong'),
+          // Only digits go in .num spans; words like «آمن» or «غير متحفّظ» stay plain text.
+          h('b', { className: levels[key] === 2 ? 'q-amber' : 'q-strong' }, h(NumText, { text: riskValue(values[key], format) })),
           h('small', null, h(NumText, { text: ref }))]
       }),
     }),
@@ -394,7 +395,7 @@ function RiskSection({ item }) {
       'Altman Z-Score وPiotroski F-Score وBeneish M-Score مقاييس للشركات غير المالية (خطر التعثر، جودة الأداء، والتلاعب المحاسبي)، لذلك لا تُحسب لـ ',
       h('span', { className: 'q-sym' }, item.symbol), ' ولا تدخل في التصنيف.') : null,
     details.missing && details.missing.length ? h('p', { key: 'm', className: 'q-meta' }, 'بيانات ناقصة لم تدخل في التصنيف: ',
-      details.missing.map((k) => (RISK_LABEL[k] ? RISK_LABEL[k][0] : k)).join('، ')) : null,
+      details.missing.map((k) => (RISK_LABEL[k] ? RISK_LABEL[k][0] : k)).join(' · ')) : null,
   ]
 }
 
@@ -421,7 +422,14 @@ function ReportSection({ item, toast }) {
       h('button', { type: 'button', className: 'q-btn', onClick: copy }, 'نسخ النص')))
 }
 
-function AnalysisDetail({ id, onBack, onOpen }) {
+// The panel root is the scroll container; leave room for the sticky header and section nav.
+function scrollToSection(key) {
+  const target = document.getElementById(`a-${key}`)
+  const box = target && target.closest('.qm')
+  if (box) box.scrollTo({ top: target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 100 })
+}
+
+function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
   const [item, setItem] = useState(null)
   const [series, setSeries] = useState(null)
   const [bars, setBars] = useState([])
@@ -449,6 +457,15 @@ function AnalysisDetail({ id, onBack, onOpen }) {
     return () => { alive = false }
   }, [id])
 
+  const jumped = React.useRef(false)
+  useEffect(() => {
+    // Arriving from «عرض ملاحظات الناقد»: open on that section once the page has its height.
+    if (!initialSection || jumped.current || !item || !series) return
+    jumped.current = true
+    setActive(initialSection)
+    requestAnimationFrame(() => scrollToSection(initialSection))
+  }, [item, series, initialSection])
+
   const crumbs = [{ label: 'التحليلات', onClick: onBack }]
   if (!item) return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' }, h('style', null, QM_CSS + ANALYSES_CSS),
     h(PanelHeader, { crumbs, here: error ? 'تعذّر التحميل' : '…' }),
@@ -465,13 +482,7 @@ function AnalysisDetail({ id, onBack, onOpen }) {
   const status = price != null ? statusOf(price, item.fair_value) : null
   const lastFull = item.kind === 'light' ? points.slice().reverse().find((p) => p.kind === 'full' && p.id < item.id) : null
   const name = current ? current.name_ar : ''
-  const go = (key) => {
-    setActive(key)
-    // The panel root is the scroll container; leave room for the sticky header and section nav.
-    const target = document.getElementById(`a-${key}`)
-    const box = target && target.closest('.qm')
-    if (box) box.scrollTo({ top: target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 100 })
-  }
+  const go = (key) => { setActive(key); scrollToSection(key) }
   const changes = series ? series.changes : []
   const changeFor = (pid) => changes.find((c) => c.valuation_id === pid)
 
@@ -497,6 +508,8 @@ function AnalysisDetail({ id, onBack, onOpen }) {
       item.kind === 'light' && lastFull ? h('div', { className: 'q-note-quiet' },
         'تحديث خفيف: نفس العادل ', N(fmtPrice(item.fair_value)), ' بدون إعادة تقييم. الطرق والافتراضات والمخاطر من التقييم الكامل بتاريخ ', N(fmtDate(lastFull.created_at)), ' ',
         h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(lastFull.id) }, 'افتح التقييم الكامل ←')) : null,
+
+      status === 'under' ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
 
       // Summary strip + large ruler
       h('section', { className: 'q-card', 'aria-label': 'ملخص التقييم', style: { overflow: 'hidden' } },
@@ -563,12 +576,15 @@ function AnalysisDetail({ id, onBack, onOpen }) {
 }
 
 function AnalysesPage() {
-  const [openId, setOpenId] = useState(() => {
-    const pending = nav.pendingAnalysisId
+  const [opening] = useState(() => {
+    const pending = { id: nav.pendingAnalysisId, section: nav.pendingSection }
     nav.pendingAnalysisId = null
+    nav.pendingSection = null
     return pending
   })
+  const [openId, setOpenId] = useState(opening.id)
   return openId == null
     ? h(AnalysesList, { onOpen: setOpenId })
-    : h(AnalysisDetail, { key: openId, id: openId, onBack: () => setOpenId(null), onOpen: setOpenId })
+    : h(AnalysisDetail, { key: openId, id: openId, onBack: () => setOpenId(null), onOpen: setOpenId,
+      initialSection: openId === opening.id ? opening.section : null })
 }

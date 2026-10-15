@@ -172,3 +172,11 @@ test('form inputs: numbers and dates as people type them', async () => {
   assert.equal(parseDayInput(''), null)
   assert.equal(parseDayInput('31/02/2026'), undefined)
 })
+
+test('EODHD limit resets at midnight GMT, shown in Cairo time', async () => {
+  const { nextLimitReset, lastLimitReset } = await import('../src/format.mjs')
+  assert.deepEqual(nextLimitReset('2026-10-15T06:02:00Z'), { when: 'بكره', time: '03:00' }) // 09:02 Cairo, summer time
+  assert.deepEqual(nextLimitReset('2026-11-05T10:00:00Z'), { when: 'بكره', time: '02:00' }) // winter time
+  assert.deepEqual(nextLimitReset('2026-10-15T22:30:00Z'), { when: 'اليوم', time: '03:00' }) // 01:30 Cairo, reset later today
+  assert.equal(lastLimitReset('2026-10-15T06:02:00Z').toISOString(), '2026-10-15T00:00:00.000Z')
+})

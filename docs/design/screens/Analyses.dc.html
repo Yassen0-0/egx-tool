@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>التحليلات — قائمة التقييمات</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+body{margin:0}
+.t-light,.t-dark{font-family:var(--dsw-font-family);--dsw-font-family:-apple-system,BlinkMacSystemFont,"SF Arabic","Segoe UI","Geeza Pro",sans-serif;--ds-font-family-code:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--dsw-radius-xs:4px;--dsw-radius-sm:8px;--dsw-radius-md:12px;--dsw-radius-lg:16px;--dsw-radius-xl:20px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);min-height:100vh;direction:rtl}
+.t-light{--dsw-alias-bg-base:#FFFFFF;--dsw-alias-bg-layer-1:#FFFFFF;--dsw-alias-bg-layer-2:#FFFFFF;--dsw-alias-bg-layer-3:#FFFFFF;--dsw-alias-bg-module-platform:#F5F6F7;--dsw-alias-bg-overlay:#E9ECF2;--dsw-alias-bg-skeleton:rgba(0,0,0,.04);--dsw-alias-border-l1:rgba(0,0,0,.04);--dsw-alias-border-l2:rgba(0,0,0,.10);--dsw-alias-border-l3:rgba(0,0,0,.12);--dsw-alias-border-l4:rgba(0,0,0,.16);--dsw-alias-brand-primary:#0F1115;--dsw-alias-button-primary-fill:#0F1115;--dsw-alias-button-primary-hover:#43454A;--dsw-alias-label-primary-foreground:#FFFFFF;--dsw-alias-button-ghost-active-fill:#EBEEF2;--dsw-alias-button-ghost-active-border:#979DA6;--dsw-alias-interactive-bg-hover:rgba(38,49,72,.06);--dsw-alias-interactive-bg-active:rgba(38,49,72,.10);--dsw-alias-label-primary:#0F1115;--dsw-alias-label-secondary:#61666B;--dsw-alias-label-tertiary:#81858C;--dsw-alias-label-caption:#ADB2B8;--dsw-alias-link:#4176E6;--dsw-alias-state-business-primary:#4176E6;--dsw-alias-state-business-tertiary:#E4EDFD;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#E6FAED;--dsw-alias-state-error-primary:#EC1313;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#FEF5E7;--dsw-alias-file-diff-added-marker:#01A241;--dsw-alias-file-diff-deleted-marker:#BA2723;--dsw-alias-markdown-code-block:#F9FAFB;--dsw-alias-markdown-tag:#F1F3F5;--dsw-specific-sidebar-fill:#F9FAFB;--dsw-specific-sidebar-nav-item-active:#EBEEF2;--dsw-specific-sidebar-nav-item-hover:#F1F3F5;--dsw-specific-input-major:#FFFFFF;--dsw-alias-tooltip-bg:#2C2C2E}
+.t-dark{--dsw-alias-bg-base:#151517;--dsw-alias-bg-layer-1:#232324;--dsw-alias-bg-layer-2:#2C2C2E;--dsw-alias-bg-layer-3:#353638;--dsw-alias-bg-module-platform:#353638;--dsw-alias-bg-overlay:#61666B;--dsw-alias-bg-skeleton:rgba(255,255,255,.08);--dsw-alias-border-l1:rgba(255,255,255,.06);--dsw-alias-border-l2:rgba(255,255,255,.12);--dsw-alias-border-l3:rgba(255,255,255,.16);--dsw-alias-border-l4:rgba(255,255,255,.20);--dsw-alias-brand-primary:#F9FAFB;--dsw-alias-button-primary-fill:#F9FAFB;--dsw-alias-button-primary-hover:#EBEEF2;--dsw-alias-label-primary-foreground:#0F1115;--dsw-alias-button-ghost-active-fill:#43454A;--dsw-alias-button-ghost-active-border:#81858C;--dsw-alias-interactive-bg-hover:rgba(255,255,255,.08);--dsw-alias-interactive-bg-active:rgba(255,255,255,.14);--dsw-alias-label-primary:#F9FAFB;--dsw-alias-label-secondary:#CFD3D6;--dsw-alias-label-tertiary:#ADB2B8;--dsw-alias-label-caption:#81858C;--dsw-alias-link:#7AAAFF;--dsw-alias-state-business-primary:#7AAAFF;--dsw-alias-state-business-tertiary:#34415B;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#233C2C;--dsw-alias-state-error-primary:#F25A5A;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#27241F;--dsw-alias-file-diff-added-marker:#41C977;--dsw-alias-file-diff-deleted-marker:#FA423E;--dsw-alias-markdown-code-block:#1B1B1C;--dsw-alias-markdown-tag:#2C2C2E;--dsw-specific-sidebar-fill:#1B1B1C;--dsw-specific-sidebar-nav-item-active:#43454A;--dsw-specific-sidebar-nav-item-hover:#2C2C2E;--dsw-specific-input-major:#2C2C2E;--dsw-alias-tooltip-bg:#43454A}
+.num{font-family:var(--ds-font-family-code);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.root{font-size:14px;line-height:1.5}
+.root *{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.phead{height:48px;border-bottom:1px solid var(--dsw-alias-border-l2);display:flex;align-items:center}
+.phead .in{display:flex;align-items:center;gap:10px;width:100%}
+.phead b{font-weight:600}
+.sep{color:var(--dsw-alias-label-tertiary)}
+.grow{flex:1}
+.meta{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.demo{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);font-size:12px;white-space:nowrap}
+h1{font-size:20px;font-weight:600;margin:0}
+.top{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 16px;padding:20px 0 12px}
+.top .meta{flex:1}
+.filters{display:flex;flex-wrap:wrap;gap:8px;align-items:center;padding-bottom:12px}
+.fld{display:flex;align-items:center;gap:6px;height:32px;padding:0 4px 0 10px;border:1px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);background:var(--dsw-specific-input-major);font-size:13px}
+.fld label{color:var(--dsw-alias-label-secondary);font-size:12px}
+.fld select{appearance:none;-webkit-appearance:none;border:0;background:transparent;outline:none;font-size:13px;font-weight:500;color:var(--dsw-alias-label-primary);height:30px;padding:0 6px 0 22px;cursor:pointer;direction:rtl}
+.fld select option{color:#0F1115;background:#FFFFFF}
+.fld{position:relative;flex:none}
+.fld .car{position:absolute;inset-inline-end:8px;top:50%;margin-top:-4px;pointer-events:none;color:var(--dsw-alias-label-tertiary)}
+.fld select{padding-inline-end:22px;padding-inline-start:4px}
+.fld:focus-within,.seg button:focus-visible,.item:focus-visible,.btn:focus-visible{outline:2px solid var(--dsw-alias-link);outline-offset:1px}
+.fld.on{border-color:var(--dsw-alias-state-business-primary);background:var(--dsw-alias-state-business-tertiary)}
+.seg{display:flex;border:1px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-sm);overflow:hidden;height:32px}
+.seg button{appearance:none;border:0;background:transparent;padding:0 14px;font-size:13px;cursor:pointer;color:var(--dsw-alias-label-secondary)}
+.seg button+button{border-inline-start:1px solid var(--dsw-alias-border-l3)}
+.seg button:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.seg button[aria-pressed="true"]{background:var(--dsw-alias-button-ghost-active-fill);color:var(--dsw-alias-label-primary);font-weight:600}
+.btn{appearance:none;height:32px;padding:0 12px;border-radius:var(--dsw-radius-sm);border:1px solid transparent;background:transparent;font-size:13px;cursor:pointer;color:var(--dsw-alias-link)}
+.btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.btn[disabled]{color:var(--dsw-alias-label-tertiary);cursor:default;background:transparent}
+.spacer{flex:1}
+
+.cols,.item{display:grid;grid-template-columns:132px 64px 176px 92px 248px minmax(0,1fr);column-gap:14px;align-items:start}
+.cols{padding:0 16px;height:30px;align-items:center;font-size:12px;color:var(--dsw-alias-label-secondary);border-bottom:1px solid var(--dsw-alias-border-l2)}
+.group{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);overflow:hidden;margin-top:12px;background:var(--dsw-alias-bg-layer-1)}
+.ghead{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 12px;padding:9px 16px;background:var(--dsw-alias-bg-module-platform);border-bottom:1px solid var(--dsw-alias-border-l2)}
+.ghead b{font-weight:600;font-size:14px}
+.ghead .nm{color:var(--dsw-alias-label-secondary);font-size:13px}
+.ghead .gr{margin-inline-start:auto;font-size:12px;color:var(--dsw-alias-label-secondary)}
+.gnote{flex:1 1 100%;font-size:12px;color:var(--dsw-alias-label-secondary);padding-top:2px}
+.item{text-decoration:none;color:inherit;padding:12px 16px;min-height:56px;border-bottom:1px solid var(--dsw-alias-border-l2);cursor:pointer}
+.item:last-child{border-bottom:0}
+.item:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.item.latest.under{background:var(--dsw-alias-state-warn-tertiary)}
+.item.old{position:relative}
+.item.old::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:2px;background:var(--dsw-alias-border-l4)}
+.item.old .fair{font-size:14px;font-weight:500;color:var(--dsw-alias-label-secondary)}
+.c{display:flex;flex-direction:column;gap:3px;min-width:0}
+.d1{font-weight:600;font-size:14px}
+.item.old .d1{font-weight:500;color:var(--dsw-alias-label-secondary)}
+.fair{font-size:18px;font-weight:600;line-height:1.3;color:var(--dsw-alias-state-business-primary)}
+.chg{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.chip{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-markdown-tag);font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap;align-self:flex-start}
+.chip.full{color:var(--dsw-alias-label-primary);font-weight:500}
+.chip.light{border:1px dashed var(--dsw-alias-border-l4);background:transparent}
+.chip.under{background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label);font-weight:600;border:1px solid var(--dsw-alias-state-warn-primary)}
+.chip.between{background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l3)}
+.chip.above{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary)}
+.rate{font-size:13px;font-weight:500}
+.item.old .rate{font-weight:400;color:var(--dsw-alias-label-secondary)}
+.reason{font-size:13px;color:var(--dsw-alias-label-secondary)}
+.gap{font-size:13px;color:var(--dsw-alias-label-primary)}
+.rl{position:relative;height:14px;width:100%;max-width:200px;direction:ltr}
+.rl .tr{position:absolute;left:0;right:0;top:6px;height:2px;background:var(--dsw-alias-border-l4);border-radius:1px}
+.rl .bd{position:absolute;top:4px;height:6px;background:var(--dsw-alias-state-business-tertiary);border:1px solid var(--dsw-alias-border-l3);border-radius:1px}
+.rl .pt{position:absolute;top:2px;width:2px;height:10px;margin-left:-1px;background:var(--dsw-alias-state-warn-primary)}
+.rl .fv{position:absolute;top:2px;width:3px;height:10px;margin-left:-1.5px;background:var(--dsw-alias-state-business-primary)}
+.rl .pr{position:absolute;top:2px;width:10px;height:10px;margin-left:-5px;border-radius:50%;background:var(--dsw-alias-label-primary);border:2px solid var(--dsw-alias-bg-layer-1)}
+.rich span{white-space:pre-wrap}
+.rich .num{white-space:pre}
+.empty{margin-top:12px;border:1px dashed var(--dsw-alias-border-l4);border-radius:var(--dsw-radius-md);padding:32px;text-align:center;color:var(--dsw-alias-label-secondary)}
+.foot{padding:20px 0 28px;font-size:12px;color:var(--dsw-alias-label-secondary);display:flex;flex-wrap:wrap;gap:6px 24px}
+.legend{display:flex;flex-wrap:wrap;gap:6px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);margin-top:12px;align-items:center}
+.legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-inline-end:6px;vertical-align:baseline}
+@media (max-width:1040px){
+  .cols{display:none}
+  .item{grid-template-columns:130px 64px 160px 90px minmax(0,1fr);row-gap:8px}
+  .item .c-reason{grid-column:1 / -1}
+  .item .c-status{grid-column:5}
+}
+</style>
+</helmet>
+<div class="t-{{theme}} root">
+  <div class="phead">
+    <div class="wrap in">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" style="fill: var(--dsw-alias-file-diff-added-marker)"></rect><path d="M12 18.5V6M6.5 11.5L12 6l5.5 5.5" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--dsw-alias-bg-base)"></path></svg>
+      <b>قيمة</b>
+      <span class="sep">/</span>
+      <span>التحليلات</span>
+      <span class="demo">بيانات تجريبية</span>
+      <span class="grow"></span>
+      <span class="meta">لإضافة تقييم اكتب في المحادثة: «قيّم سهم COMI»</span>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="top">
+      <h1>التحليلات</h1>
+      <span class="meta">{{countLine}} · أسعار إغلاق <span class="num">14/10/2026</span> من EODHD (مزوّد بيانات الأسعار) · متأخرة وليست لحظية</span>
+    </div>
+
+    <div class="filters" role="search" aria-label="تصفية التحليلات">
+      <div class="fld {{stockOn}}"><label for="f-stock">السهم</label>
+        <select id="f-stock" value="{{stock}}" onChange="{{setStock}}">
+          <option value="all">الكل</option>
+          <option value="COMI">COMI</option>
+          <option value="TMGH">TMGH</option>
+          <option value="EAST">EAST</option>
+        </select><svg class="car" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5l3 3 3-3"/></svg></div>
+      <div class="fld {{ratingOn}}"><label for="f-rate">التصنيف</label>
+        <select id="f-rate" value="{{rating}}" onChange="{{setRating}}">
+          <option value="all">الكل</option>
+          <option value="آمن">آمن</option>
+          <option value="متوازن">متوازن</option>
+          <option value="مرتفع المخاطر">مرتفع المخاطر</option>
+        </select><svg class="car" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5l3 3 3-3"/></svg></div>
+      <div class="fld {{periodOn}}"><label for="f-per">التاريخ</label>
+        <select id="f-per" value="{{period}}" onChange="{{setPeriod}}">
+          <option value="9999">كل الفترات</option>
+          <option value="7">آخر 7 أيام</option>
+          <option value="30">آخر 30 يومًا</option>
+          <option value="90">آخر 90 يومًا</option>
+          <option value="200">آخر 6 أشهر</option>
+        </select><svg class="car" width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 2.5l3 3 3-3"/></svg></div>
+      <div class="seg" role="group" aria-label="نوع التقييم">
+        <button aria-pressed="{{tAll}}" onClick="{{setTAll}}">كل الأنواع</button>
+        <button aria-pressed="{{tFull}}" onClick="{{setTFull}}">كامل</button>
+        <button aria-pressed="{{tLight}}" onClick="{{setTLight}}">خفيف</button>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn" onClick="{{reset}}" disabled="{{resetOff}}">إعادة ضبط التصفية</button>
+    </div>
+
+    <div class="cols" aria-hidden="true">
+      <span>تاريخ التقييم</span><span>النوع</span><span>السعر العادل</span><span>التصنيف</span><span>الحالة مقابل السعر الحالي</span><span>السبب</span>
+    </div>
+
+    <sc-if value="{{noGroups}}" hint-placeholder-val="{{false}}">
+      <div class="empty">لا توجد تقييمات تطابق هذه التصفية. اضغط «إعادة ضبط التصفية» أو اكتب في المحادثة: «قيّم سهم COMI».</div>
+    </sc-if>
+
+    <sc-for list="{{groups}}" as="g" hint-placeholder-count="3">
+      <section class="group" aria-label="{{g.sym}}">
+        <div class="ghead">
+          <b class="num">{{g.sym}}</b><span class="nm">{{g.name}}</span>
+          <span class="meta">السعر <span class="num">{{g.price}}</span> · إغلاق <span class="num">{{g.priceDate}}</span></span>
+          <span class="gr">{{g.count}}</span>
+          <sc-if value="{{g.hasNote}}" hint-placeholder-val="{{false}}">
+            <span class="gnote rich"><sc-for list="{{g.noteS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span>
+          </sc-if>
+        </div>
+        <sc-for list="{{g.items}}" as="it" hint-placeholder-count="3">
+          <a class="item {{it.cls}}" href="Analysis.dc.html" aria-label="{{it.aria}}">
+            <div class="c"><span class="d1 num">{{it.date}}</span><span class="chg">النسخة&nbsp;<span class="num">{{it.ver}}</span>{{it.verTag}}</span></div>
+            <div class="c"><span class="chip {{it.typeCls}}">{{it.type}}</span></div>
+            <div class="c"><span class="fair num">{{it.fair}}</span><span class="chg">{{it.chgPre}}<span class="num">{{it.chgNum}}</span></span></div>
+            <div class="c"><span class="rate">{{it.rating}}</span></div>
+            <div class="c c-status">
+              <sc-if value="{{it.latest}}" hint-placeholder-val="{{true}}">
+                <span class="chip {{it.stCls}}">{{it.status}}</span>
+                <div class="rl" aria-hidden="true"><div class="tr"></div><div class="bd" style="{{it.bandStyle}}"></div><div class="pt" style="{{it.protStyle}}"></div><div class="fv" style="{{it.fairStyle}}"></div><div class="pr" style="{{it.priceStyle}}"></div></div>
+                <span class="gap">{{it.gapWord}} <span class="num">{{it.gapNum}}</span></span>
+                <sc-if value="{{it.hasProt}}" hint-placeholder-val="{{false}}">
+                  <span class="gap">تحت سعر الحماية بـ <span class="num">{{it.protNum}}</span></span>
+                </sc-if>
+              </sc-if>
+              <sc-if value="{{it.old}}" hint-placeholder-val="{{false}}">
+                <span class="gap" style="color:var(--dsw-alias-label-secondary)">السعر وقتها <span class="num">{{it.priceThen}}</span></span>
+                <span class="chg">{{it.gapWord}} <span class="num">{{it.gapNum}}</span></span>
+                <span class="chg rich"><sc-for list="{{it.oldNoteS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span>
+              </sc-if>
+            </div>
+            <div class="c c-reason"><span class="reason rich"><sc-for list="{{it.reasonS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span></div>
+          </a>
+        </sc-for>
+      </section>
+    </sc-for>
+
+    <div class="legend" aria-label="دليل المقياس">
+      <span><i style="background:var(--dsw-alias-state-business-primary)"></i>السعر العادل</span>
+      <span><i style="background:var(--dsw-alias-state-warn-primary)"></i>سعر الحماية</span>
+      <span><i style="background:var(--dsw-alias-label-primary);border-radius:50%"></i>السعر الحالي</span>
+      <span><i style="background:var(--dsw-alias-state-business-tertiary);border:1px solid var(--dsw-alias-border-l3)"></i>النطاق (المتشائم – المتفائل)</span>
+    </div>
+
+    <div class="foot">
+      <span><b style="font-weight:600;color:var(--dsw-alias-label-primary)">تقييم وليس توصية بالشراء أو البيع.</b></span>
+      <span>سعر الحماية = <span class="num">80%</span> من السعر العادل: لو السعر نزل تحته يُراجَع التقييم تلقائيًا. المرجع = السعر العادل نفسه.</span>
+      <span>التقييم الكامل يعيد بناء النموذج من الأرقام الأساسية، والخفيف يفحص السعر والأخبار فقط. الأحدث لكل سهم في الأعلى والأقدم أسفله بلون أهدأ.</span>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":1067}}'>
+class Component extends DCLogic {
+  constructor(props){ super(props); this.state = { stock:'all', rating:'all', type:'all', period:'9999' }; }
+  renderVals() {
+    const S = this.state;
+    const stocks = {
+      EAST:{ name:'الشرقية للدخان', price:'27.77', p:27.77, prot:28.8, fair:36, bear:25.2, bull:45 },
+      TMGH:{ name:'طلعت مصطفى القابضة', price:'83.94', p:83.94, prot:76, fair:95, bear:70, bull:118.75 },
+      COMI:{ name:'البنك التجاري الدولي', price:'122.00', p:122, prot:104.8, fair:131, bear:100, bull:163.75 }
+    };
+    const raw = [
+      { sym:'EAST', date:'15/10/2026', days:0, ver:'1', type:'full', fair:36, chgPre:'', chgNum:'أول تقييم', rating:'مرتفع المخاطر', latest:true, pThen:27.77, reason:'أول تقييم: ضغط على الهوامش من تكلفة المواد الخام والضرائب على التبغ. السعر تحت سعر الحماية، والناقد يراجع التقييم.' },
+      { sym:'COMI', date:'15/10/2026', days:0, ver:'3', verTag:' · الأحدث', type:'full', fair:131, chgPre:'', chgNum:'118.00 → 131.00 (+11.0%)', rating:'آمن', latest:true, pThen:122, reason:'خفض أسعار الفائدة من البنك المركزي خفّض تكلفة حقوق الملكية من 27.5% إلى 26.0% سنويًا.' },
+      { sym:'COMI', date:'20/07/2026', days:87, ver:'2', type:'full', fair:118, chgPre:'', chgNum:'110.00 → 118.00 (+7.3%)', rating:'آمن', latest:false, pThen:136.6, oldNote:'حلّ محلّه تقييم 15/10', reason:'نتائج الربع الثاني: نمو صافي الدخل وتحسّن جودة الأصول.' },
+      { sym:'COMI', date:'15/04/2026', days:183, ver:'1', type:'full', fair:110, chgPre:'', chgNum:'أول تقييم', rating:'آمن', latest:false, pThen:137.5, oldNote:'حلّ محلّه تقييم 20/07', reason:'تقييم أولي بثلاث طرق: العائد الزائد ومضاعف القيمة الدفترية وخصم التوزيعات.' },
+      { sym:'TMGH', date:'15/10/2026', days:0, ver:'2', verTag:' · الأحدث', type:'light', fair:95, chgPre:'بلا تغيير عن التقييم الكامل', chgNum:'', rating:'متوازن', latest:true, pThen:83.94, reason:'تحديث خفيف: العادل كما هو 95.00 جنيه والسعر 83.94 جنيه. تحديث أسبوعي: لا تغيير جوهري في الأخبار أو الأرقام.' },
+      { sym:'TMGH', date:'10/09/2026', days:35, ver:'1', type:'full', fair:95, chgPre:'', chgNum:'أول تقييم', rating:'متوازن', latest:false, pThen:99.05, oldNote:'الأساس الذي بُني عليه التحديث الخفيف', reason:'تقييم كامل: صافي القيمة الأصلية للأراضي ومشروعات قيد التنفيذ، مع خصم مخاطر التنفيذ والتمويل.' }
+    ];
+    const segs = (str)=>{ const re=/[−+]?\d[\d.,]*%?×?(?:\s*[≤→+×−–=/]\s*[−+]?\d[\d.,]*%?×?)*/g; const out=[]; let last=0, m; while((m=re.exec(str))){ if(m.index>last) out.push({t:str.slice(last,m.index),n:false,x:true}); out.push({t:m[0],n:true,x:false}); last=m.index+m[0].length; } if(last<str.length) out.push({t:str.slice(last),n:false,x:true}); return out; };
+    const fmt1 = (x)=>x.toFixed(1);
+    const f2 = (x)=>x.toFixed(2);
+    const gapOf = (price, fair)=>{ const g=(fair-price)/fair*100; return g>=0 ? { w:'أقل من العادل بـ', n:fmt1(g)+'%' } : { w:'أعلى من العادل بـ', n:fmt1(-g)+'%' }; };
+    const pos = (s, v)=>{ const pad=(s.bull-s.bear)*0.1; const lo=Math.min(s.p,s.bear)-pad, hi=Math.max(s.p,s.bull)+pad; return ((v-lo)/(hi-lo)*100).toFixed(2); };
+    const per = Number(S.period);
+    const keep = (r)=> (S.stock==='all'||S.stock===r.sym) && (S.rating==='all'||S.rating===r.rating) && (S.type==='all'||S.type===r.type) && r.days<=per;
+    const order = ['EAST','COMI','TMGH'];
+    const groups = [];
+    order.forEach((k)=>{
+      const st = stocks[k];
+      const all = raw.filter((r)=>r.sym===k);
+      const items = all.filter(keep).map((r)=>{
+        const under = st.p < st.prot, above = st.p > st.fair;
+        const stKey = under ? 'under' : (above ? 'above' : 'between');
+        const now = gapOf(st.p, r.fair), then = gapOf(r.pThen, r.fair);
+        return Object.assign({}, r, {
+          cls: r.latest ? ('latest' + (under ? ' under' : '')) : 'old',
+          old: !r.latest,
+          verTag: r.verTag || '',
+          fair: f2(r.fair),
+          type: r.type==='full' ? 'كامل' : 'خفيف',
+          typeCls: r.type==='full' ? 'full' : 'light',
+          stCls: stKey,
+          status: under ? 'تحت سعر الحماية — يحتاج مراجعة' : (above ? 'أعلى من العادل' : 'بين الحماية والعادل'),
+          gapWord: r.latest ? now.w : 'وقتها: '+then.w,
+          gapNum: r.latest ? now.n : then.n,
+          hasProt: r.latest && under,
+          protNum: fmt1((st.prot-st.p)/st.prot*100)+'%',
+          priceThen: f2(r.pThen),
+          oldNote: r.oldNote || '', oldNoteS: segs(r.oldNote || ''), reasonS: segs(r.reason),
+          bandStyle: 'left:'+pos(st,st.bear)+'%;width:'+(pos(st,st.bull)-pos(st,st.bear)).toFixed(2)+'%',
+          protStyle: 'left:'+pos(st,st.prot)+'%',
+          fairStyle: 'left:'+pos(st,st.fair)+'%',
+          priceStyle: 'left:'+pos(st,st.p)+'%',
+          aria: 'تقييم '+r.sym+' بتاريخ '+r.date
+        });
+      });
+      if (items.length) {
+        const both = k==='TMGH' && items.length===2;
+        groups.push({ sym:k, name:st.name, price:st.price, priceDate:'14/10', count: all.length+' '+(all.length===1?'تقييم':'تقييمات'), items,
+          hasNote: both, noteS: segs(both ? 'مقارنة: تقييم كامل 10/09 (السعر وقتها 99.05) ثم تحديث خفيف 15/10 (السعر وقتها 83.94). العادل لم يتغير وبقي 95.00 جنيه.' : '') });
+      }
+    });
+    const n = groups.reduce((a,g)=>a+g.items.length,0);
+    const filtered = S.stock!=='all'||S.rating!=='all'||S.type!=='all'||S.period!=='9999';
+    return {
+      theme: this.props.theme ?? 'light',
+      groups, noGroups: groups.length===0,
+      countLine: n+' '+(n===1?'تقييم':'تقييمات')+' في '+groups.length+' '+(groups.length===1?'سهم':'أسهم'),
+      stock:S.stock, rating:S.rating, period:S.period,
+      stockOn: S.stock!=='all'?'on':'', ratingOn: S.rating!=='all'?'on':'', periodOn: S.period!=='9999'?'on':'',
+      setStock:(e)=>this.setState({stock:e.target.value}),
+      setRating:(e)=>this.setState({rating:e.target.value}),
+      setPeriod:(e)=>this.setState({period:e.target.value}),
+      tAll:S.type==='all', tFull:S.type==='full', tLight:S.type==='light',
+      setTAll:()=>this.setState({type:'all'}), setTFull:()=>this.setState({type:'full'}), setTLight:()=>this.setState({type:'light'}),
+      resetOff: !filtered,
+      reset:()=>this.setState({stock:'all',rating:'all',type:'all',period:'9999'})
+    };
+  }
+}
+</script>
+</body>
+</html>

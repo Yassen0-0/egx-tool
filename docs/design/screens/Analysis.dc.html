@@ -1,0 +1,502 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>تحليل COMI — تقييم كامل</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<style>
+body{margin:0}
+body{margin:0}
+.t-light,.t-dark{font-family:var(--dsw-font-family);--dsw-font-family:-apple-system,BlinkMacSystemFont,"SF Arabic","Segoe UI","Geeza Pro",sans-serif;--ds-font-family-code:"SF Mono","JetBrains Mono",Menlo,Consolas,monospace;--dsw-radius-xs:4px;--dsw-radius-sm:8px;--dsw-radius-md:12px;--dsw-radius-lg:16px;--dsw-radius-xl:20px;background:var(--dsw-alias-bg-base);color:var(--dsw-alias-label-primary);min-height:100vh;direction:rtl}
+.t-light{--dsw-alias-bg-base:#FFFFFF;--dsw-alias-bg-layer-1:#FFFFFF;--dsw-alias-bg-layer-2:#FFFFFF;--dsw-alias-bg-layer-3:#FFFFFF;--dsw-alias-bg-module-platform:#F5F6F7;--dsw-alias-bg-overlay:#E9ECF2;--dsw-alias-bg-skeleton:rgba(0,0,0,.04);--dsw-alias-border-l1:rgba(0,0,0,.04);--dsw-alias-border-l2:rgba(0,0,0,.10);--dsw-alias-border-l3:rgba(0,0,0,.12);--dsw-alias-border-l4:rgba(0,0,0,.16);--dsw-alias-brand-primary:#0F1115;--dsw-alias-button-primary-fill:#0F1115;--dsw-alias-button-primary-hover:#43454A;--dsw-alias-label-primary-foreground:#FFFFFF;--dsw-alias-button-ghost-active-fill:#EBEEF2;--dsw-alias-button-ghost-active-border:#979DA6;--dsw-alias-interactive-bg-hover:rgba(38,49,72,.06);--dsw-alias-interactive-bg-active:rgba(38,49,72,.10);--dsw-alias-label-primary:#0F1115;--dsw-alias-label-secondary:#61666B;--dsw-alias-label-tertiary:#81858C;--dsw-alias-label-caption:#ADB2B8;--dsw-alias-link:#4176E6;--dsw-alias-state-business-primary:#4176E6;--dsw-alias-state-business-tertiary:#E4EDFD;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#E6FAED;--dsw-alias-state-error-primary:#EC1313;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#FEF5E7;--dsw-alias-file-diff-added-marker:#01A241;--dsw-alias-file-diff-deleted-marker:#BA2723;--dsw-alias-markdown-code-block:#F9FAFB;--dsw-alias-markdown-tag:#F1F3F5;--dsw-specific-sidebar-fill:#F9FAFB;--dsw-specific-sidebar-nav-item-active:#EBEEF2;--dsw-specific-sidebar-nav-item-hover:#F1F3F5;--dsw-specific-input-major:#FFFFFF;--dsw-alias-tooltip-bg:#2C2C2E}
+.t-dark{--dsw-alias-bg-base:#151517;--dsw-alias-bg-layer-1:#232324;--dsw-alias-bg-layer-2:#2C2C2E;--dsw-alias-bg-layer-3:#353638;--dsw-alias-bg-module-platform:#353638;--dsw-alias-bg-overlay:#61666B;--dsw-alias-bg-skeleton:rgba(255,255,255,.08);--dsw-alias-border-l1:rgba(255,255,255,.06);--dsw-alias-border-l2:rgba(255,255,255,.12);--dsw-alias-border-l3:rgba(255,255,255,.16);--dsw-alias-border-l4:rgba(255,255,255,.20);--dsw-alias-brand-primary:#F9FAFB;--dsw-alias-button-primary-fill:#F9FAFB;--dsw-alias-button-primary-hover:#EBEEF2;--dsw-alias-label-primary-foreground:#0F1115;--dsw-alias-button-ghost-active-fill:#43454A;--dsw-alias-button-ghost-active-border:#81858C;--dsw-alias-interactive-bg-hover:rgba(255,255,255,.08);--dsw-alias-interactive-bg-active:rgba(255,255,255,.14);--dsw-alias-label-primary:#F9FAFB;--dsw-alias-label-secondary:#CFD3D6;--dsw-alias-label-tertiary:#ADB2B8;--dsw-alias-label-caption:#81858C;--dsw-alias-link:#7AAAFF;--dsw-alias-state-business-primary:#7AAAFF;--dsw-alias-state-business-tertiary:#34415B;--dsw-alias-state-success-primary:#22C55E;--dsw-alias-state-success-tertiary:#233C2C;--dsw-alias-state-error-primary:#F25A5A;--dsw-alias-state-warn-primary:#F59E0B;--dsw-alias-state-warn-label:#DD8629;--dsw-alias-state-warn-tertiary:#27241F;--dsw-alias-file-diff-added-marker:#41C977;--dsw-alias-file-diff-deleted-marker:#FA423E;--dsw-alias-markdown-code-block:#1B1B1C;--dsw-alias-markdown-tag:#2C2C2E;--dsw-specific-sidebar-fill:#1B1B1C;--dsw-specific-sidebar-nav-item-active:#43454A;--dsw-specific-sidebar-nav-item-hover:#2C2C2E;--dsw-specific-input-major:#2C2C2E;--dsw-alias-tooltip-bg:#43454A}
+.num{font-family:var(--ds-font-family-code);font-variant-numeric:tabular-nums;direction:ltr;unicode-bidi:isolate}
+.root{font-size:14px;line-height:1.55}
+.root *{box-sizing:border-box}
+button,input,select{font:inherit;color:inherit}
+a{color:var(--dsw-alias-link);text-decoration:none}
+a:hover{text-decoration:underline}
+a:focus-visible,button:focus-visible{outline:2px solid var(--dsw-alias-link);outline-offset:2px;border-radius:var(--dsw-radius-xs)}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+.phead{height:48px;border-bottom:1px solid var(--dsw-alias-border-l2);display:flex;align-items:center}
+.phead .in{display:flex;align-items:center;gap:10px;width:100%}
+.sep{color:var(--dsw-alias-label-tertiary)}
+.grow{flex:1}
+.meta{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.demo{display:inline-flex;align-items:center;height:22px;padding:0 8px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-secondary);font-size:12px;white-space:nowrap}
+.back{display:inline-flex;align-items:center;gap:6px;font-size:13px;margin:12px 0 4px}
+.titlerow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:16px 0 12px}
+h1{font-size:20px;font-weight:600;margin:0}
+.chip{display:inline-flex;align-items:center;gap:4px;height:22px;padding:0 8px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-markdown-tag);font-size:12px;color:var(--dsw-alias-label-secondary);white-space:nowrap}
+.chip.blue{background:var(--dsw-alias-state-business-tertiary);color:var(--dsw-alias-label-primary)}
+.chip.between{background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-primary);border:1px solid var(--dsw-alias-border-l3);font-weight:500}
+.btn{appearance:none;height:32px;padding:0 12px;border-radius:var(--dsw-radius-sm);border:1px solid var(--dsw-alias-border-l3);background:transparent;font-size:13px;cursor:pointer}
+.btn:hover{background:var(--dsw-alias-interactive-bg-hover)}
+.btn.pri{background:var(--dsw-alias-button-primary-fill);color:var(--dsw-alias-label-primary-foreground);border-color:transparent}
+.btn.pri:hover{background:var(--dsw-alias-button-primary-hover)}
+
+.card{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);overflow:hidden}
+.strip{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1px;background:var(--dsw-alias-border-l2)}
+.cell{background:var(--dsw-alias-bg-layer-1);padding:12px 16px;display:flex;flex-direction:column;gap:3px;min-width:0}
+.cell.hero{grid-column:span 2}
+.cell.wide{grid-column:span 3}
+.cell .k{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.cell .v{font-size:20px;font-weight:600;line-height:1.3}
+.cell .s{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.hero .v{font-size:32px;line-height:1.15;color:var(--dsw-alias-state-business-primary)}
+.prot .v{color:var(--dsw-alias-state-warn-label)}
+.lbl-blue{color:var(--dsw-alias-state-business-primary)}
+.stline{display:flex;flex-wrap:wrap;align-items:center;gap:6px 12px;margin-top:2px;font-size:14px}
+.help{display:flex;gap:10px;align-items:flex-start;padding:10px 16px;border-top:1px solid var(--dsw-alias-border-l2);background:var(--dsw-alias-bg-module-platform);font-size:13px;color:var(--dsw-alias-label-secondary)}
+.help svg{flex:none;margin-top:3px;color:var(--dsw-alias-label-secondary)}
+.help b{font-weight:600;color:var(--dsw-alias-label-primary)}
+
+.ruler{padding:12px 32px 4px;direction:ltr}
+.rtrack{position:relative;height:118px}
+.rbar{position:absolute;left:0;right:0;top:61px;height:4px;background:var(--dsw-alias-border-l4);border-radius:2px}
+.rband{position:absolute;top:57px;height:12px;background:var(--dsw-alias-bg-overlay);border-radius:2px;opacity:.55}
+.rzone{position:absolute;top:57px;height:12px;background:var(--dsw-alias-state-business-tertiary);border:1px solid var(--dsw-alias-border-l3);border-radius:2px}
+.rtick{position:absolute;width:2px;margin-left:-1px}
+.rt-warn{top:51px;height:24px;background:var(--dsw-alias-state-warn-primary)}
+.rt-blue{top:51px;height:24px;background:var(--dsw-alias-state-business-primary);width:3px}
+.rt-gray{top:55px;height:16px;background:var(--dsw-alias-label-tertiary)}
+.rdot{position:absolute;top:56px;width:14px;height:14px;margin-left:-7px;border-radius:50%;background:var(--dsw-alias-label-primary);border:3px solid var(--dsw-alias-bg-layer-1);box-shadow:0 0 0 1px var(--dsw-alias-label-primary)}
+.rstem{position:absolute;top:42px;height:15px;width:1px;margin-left:-.5px;background:var(--dsw-alias-label-primary)}
+.rlab{position:absolute;transform:translateX(-50%);text-align:center;white-space:nowrap;font-size:12px;line-height:1.35;color:var(--dsw-alias-label-secondary)}
+.rlab b{display:block;font-size:15px;font-weight:600;color:var(--dsw-alias-label-primary)}
+.rlab.top{top:0}
+.rlab.bot{top:80px}
+.rlab.blue b{color:var(--dsw-alias-state-business-primary)}
+.rlab.warn b{color:var(--dsw-alias-state-warn-label)}
+.rnote{padding:8px 24px;font-size:12px;color:var(--dsw-alias-label-secondary);border-top:1px solid var(--dsw-alias-border-l2);display:flex;flex-wrap:wrap;gap:6px 20px}
+.rnote i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-inline-end:6px}
+
+.hrow{display:flex;flex-wrap:wrap;align-items:center;gap:8px 16px;padding:12px 16px;border-bottom:1px solid var(--dsw-alias-border-l2)}
+.hrow h2{margin:0;font-size:16px;font-weight:600}
+.hrow .lg{display:flex;flex-wrap:wrap;gap:4px 16px;font-size:12px;color:var(--dsw-alias-label-secondary);margin-inline-start:auto}
+.hrow .lg i{display:inline-block;width:16px;height:0;border-top:2px solid;vertical-align:middle;margin-inline-end:6px}
+.chartwrap{padding:8px 16px 0}
+.chartwrap svg{width:100%;max-width:none;height:auto;display:block;direction:ltr}
+.chartwrap text{font-family:var(--dsw-font-family);font-size:11px;fill:var(--dsw-alias-label-secondary)}
+.chartwrap .nt{font-family:var(--ds-font-family-code);font-size:11px}
+.cap{padding:2px 16px 10px;font-size:12px;color:var(--dsw-alias-label-secondary)}
+
+.glog,.g{display:grid;align-items:center;column-gap:12px;padding:0 16px}
+.glog{grid-template-columns:52px 92px 170px 64px 84px 150px minmax(0,1fr)}
+.gh{height:30px;font-size:12px;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);border-top:1px solid var(--dsw-alias-border-l2);border-bottom:1px solid var(--dsw-alias-border-l2)}
+.gr{min-height:36px;padding-block:5px;font-size:13px;border-bottom:1px solid var(--dsw-alias-border-l2)}
+.gr:last-child{border-bottom:0}
+.gr.cur{background:var(--dsw-alias-state-business-tertiary)}
+
+.snav{position:sticky;top:0;z-index:5;background:var(--dsw-alias-bg-base);border-bottom:1px solid var(--dsw-alias-border-l2);margin-top:16px;display:flex;gap:2px;overflow-x:auto;padding:6px 0}
+.snav a{flex:none;display:inline-flex;align-items:center;height:32px;padding:0 12px;border-radius:var(--dsw-radius-sm);color:var(--dsw-alias-label-secondary);font-size:13px}
+.snav a:hover{background:var(--dsw-specific-sidebar-nav-item-hover);text-decoration:none;color:var(--dsw-alias-label-primary)}
+.snav a.on{background:var(--dsw-specific-sidebar-nav-item-active);color:var(--dsw-alias-label-primary);font-weight:600}
+.sec{padding:12px 0;border-top:1px solid var(--dsw-alias-border-l2);scroll-margin-top:52px}
+.sec:first-of-type{border-top:0}
+.sec h2{font-size:16px;font-weight:600;margin:0 0 2px}
+.sec .lead{font-size:13px;color:var(--dsw-alias-label-secondary);margin:0 0 12px;max-width:760px}
+.prose{max-width:760px}
+.prose p{margin:0 0 10px}
+.prose h3{font-size:14px;font-weight:600;margin:14px 0 6px}
+.prose h3:first-child{margin-top:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:10px}
+.chips .chip{height:28px;padding:0 10px;font-size:13px;color:var(--dsw-alias-label-primary)}
+.tgl{display:inline-flex;align-items:center;gap:6px}
+.ul{margin:0 0 8px;padding-inline-start:20px}
+.ul li{margin-bottom:4px}
+.two{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:8px 32px}
+.note{border:1px solid var(--dsw-alias-border-l2);border-inline-start:3px solid var(--dsw-alias-state-business-primary);background:var(--dsw-alias-bg-module-platform);border-radius:var(--dsw-radius-sm);padding:10px 14px;font-size:13px;margin-top:12px}
+.note b{font-weight:600}
+
+.g-m{grid-template-columns:minmax(0,2.2fr) 64px repeat(3,minmax(0,1fr))}
+.g-a{grid-template-columns:minmax(0,1.7fr) 124px minmax(0,2fr) 96px}
+.g-c{grid-template-columns:24px minmax(0,1.6fr) 84px minmax(0,2.4fr)}
+.g-r{grid-template-columns:minmax(0,2.6fr) 84px minmax(0,1.6fr)}
+.g-n{grid-template-columns:minmax(0,2.2fr) minmax(0,1.6fr) 120px}
+.g-s{grid-template-columns:110px minmax(0,2.4fr) 96px}
+.g>.num,.glog>.num{text-align:right}
+.tbl{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-sm);overflow:hidden;background:var(--dsw-alias-bg-layer-1)}
+.gt{background:var(--dsw-alias-bg-module-platform);font-weight:600;font-size:12px;color:var(--dsw-alias-label-secondary);min-height:32px;padding-block:6px;border-bottom:1px solid var(--dsw-alias-border-l2)}
+.tot{background:var(--dsw-alias-bg-module-platform);font-weight:600}
+.sub{display:block;font-size:12px;color:var(--dsw-alias-label-secondary);font-weight:400}
+.fieldlike{display:inline-flex;align-items:center;justify-content:space-between;gap:8px;height:28px;padding:0 8px;border:1px solid var(--dsw-alias-border-l3);border-radius:var(--dsw-radius-xs);background:var(--dsw-specific-input-major);min-width:0;width:100%}
+.fieldlike svg{color:var(--dsw-alias-label-secondary);flex:none}
+.ic{width:18px;height:18px;border-radius:50%;border:1.5px solid var(--dsw-alias-label-tertiary);display:inline-flex;align-items:center;justify-content:center;color:var(--dsw-alias-label-tertiary)}
+.ic.pass{border-color:var(--dsw-alias-label-primary);background:var(--dsw-alias-label-primary);color:var(--dsw-alias-label-primary-foreground)}
+.ic.fail{border-color:var(--dsw-alias-state-warn-primary);background:var(--dsw-alias-state-warn-tertiary);color:var(--dsw-alias-state-warn-label)}
+.rs{white-space:nowrap;font-size:12px;font-weight:500}
+.rs.fail{color:var(--dsw-alias-state-warn-label);font-weight:600}
+.chk-sum{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:13px;color:var(--dsw-alias-label-secondary);margin-bottom:10px;align-items:center}
+.chk-sum span{display:inline-flex;align-items:center;gap:6px}
+.grp{font-size:12px;font-weight:600;color:var(--dsw-alias-label-secondary);background:var(--dsw-alias-bg-module-platform);min-height:28px;padding-block:4px;grid-template-columns:1fr;border-bottom:1px solid var(--dsw-alias-border-l2)}
+.thr{font-size:12px;color:var(--dsw-alias-label-secondary)}
+.worry{display:block;margin-top:6px;padding:6px 10px;border-radius:var(--dsw-radius-xs);background:var(--dsw-alias-bg-module-platform);color:var(--dsw-alias-label-primary);font-size:12px}
+.worry b{font-weight:600}
+.rich span{white-space:pre-wrap}
+.rich .num{white-space:pre}
+.okv{font-weight:600}
+.full{border:1px solid var(--dsw-alias-border-l2);border-radius:var(--dsw-radius-md);background:var(--dsw-alias-bg-layer-1);padding:16px 20px}
+.full .bar{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.excerpt{position:relative;max-height:92px;overflow:hidden;font-size:13px;color:var(--dsw-alias-label-secondary)}
+.excerpt p{margin:0 0 8px}
+.excerpt::after{content:"";position:absolute;inset-inline:0;bottom:0;height:44px;background:linear-gradient(to bottom,transparent,var(--dsw-alias-bg-layer-1))}
+.md h3{font-size:14px;font-weight:600;margin:14px 0 6px}
+.md p{margin:0 0 10px;font-size:13px}
+.foot{padding:16px 0 28px;border-top:1px solid var(--dsw-alias-border-l2);font-size:12px;color:var(--dsw-alias-label-secondary);display:flex;flex-wrap:wrap;gap:6px 24px}
+.foot b{color:var(--dsw-alias-label-primary);font-weight:600}
+@media (max-width:1000px){
+  .strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .cell.wide{grid-column:span 2}
+  .glog{grid-template-columns:44px 90px 150px 64px minmax(0,1fr)}
+  .glog .c-pr,.glog .c-st{display:none}
+  .ruler{padding-inline:20px}
+  .two{grid-template-columns:1fr}
+}
+</style>
+</helmet>
+<div class="t-{{theme}} root">
+  <div class="phead">
+    <div class="wrap in">
+      <svg width="22" height="22" viewBox="0 0 24 24" aria-hidden="true"><rect width="24" height="24" rx="6" style="fill: var(--dsw-alias-file-diff-added-marker)"></rect><path d="M12 18.5V6M6.5 11.5L12 6l5.5 5.5" fill="none" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round" style="stroke: var(--dsw-alias-bg-base)"></path></svg>
+      <b style="font-weight:600">قيمة</b>
+      <span class="sep">/</span>
+      <a href="Analyses.dc.html" style="color:inherit">التحليلات</a>
+      <span class="sep">/</span>
+      <span class="num">COMI</span>
+      <span class="demo">بيانات تجريبية</span>
+      <span class="grow"></span>
+      <span class="meta">الأسعار من EODHD (مزوّد بيانات أسعار الأسهم) · إغلاق <span class="num">14/10/2026</span></span>
+    </div>
+  </div>
+
+  <div class="wrap">
+
+    <div class="titlerow">
+      <h1><span class="num">COMI</span> · البنك التجاري الدولي</h1>
+      <span class="chip">تقييم كامل</span>
+      <span class="chip blue">النسخة <span class="num">3</span> · الأحدث</span>
+      <span class="meta">تاريخ التقييم <span class="num">15/10/2026</span></span>
+      <span class="grow"></span>
+      <button class="btn">نسخ الرابط</button>
+      <button class="btn pri">تحديث التقييم من المحادثة</button>
+    </div>
+
+    <div class="meta" style="margin:-4px 0 10px">كامل = إعادة بناء النموذج من الأرقام الأساسية. أما التحديث الخفيف فمراجعة للسعر والأخبار فقط من غير إعادة بناء.</div>
+
+    <!-- Summary strip -->
+    <div class="card" role="group" aria-label="ملخص التقييم">
+      <div class="strip">
+        <div class="cell hero"><span class="k">السعر العادل</span><span class="v num">131.00</span><span class="s">النطاق (المتشائم – المتفائل) <span class="num">100.00 – 163.75</span></span></div>
+        <div class="cell prot"><span class="k">سعر الحماية</span><span class="v num">104.80</span><span class="s"><span class="num">80%</span> من السعر العادل</span></div>
+        <div class="cell"><span class="k">السعر الحالي</span><span class="v num">122.00</span><span class="s">إغلاق <span class="num">14/10</span> · متأخر وليس لحظيًا</span></div>
+        <div class="cell"><span class="k">التصنيف</span><span class="v">آمن</span><span class="s">الأسباب في قسم المخاطر</span></div>
+        <div class="cell wide"><span class="k">الحالة مقابل السعر الحالي</span>
+          <div class="stline"><span class="chip between" title="السعر الحالي فوق سعر الحماية وتحت السعر العادل">بين الحماية والعادل</span><span>أقل من العادل بـ <b class="num okv">6.9%</b></span><span class="sub" style="display:inline">أعلى من سعر الحماية بـ <span class="num">16.4%</span></span></div>
+        </div>
+      </div>
+      <div class="help">
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" aria-hidden="true"><circle cx="8" cy="8" r="6.3"/><path d="M8 7.2V11M8 4.9v.1"/></svg>
+        <span><b>ما هو سعر الحماية؟</b> سعر الحماية = <span class="num">80%</span> من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع. مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.</span>
+      </div>
+
+      <!-- Ruler -->
+      <div class="ruler" aria-label="مسطرة التقييم: المتشائم 100.00، الحماية 104.80، السعر 122.00، العادل 131.00، المتفائل 163.75">
+        <div class="rtrack">
+          <div class="rbar"></div>
+          <div class="rband" style="left:10%;width:79.69%"></div>
+          <div class="rzone" style="left:16%;width:32.75%"></div>
+          <div class="rtick rt-gray" style="left:10%"></div>
+          <div class="rtick rt-warn" style="left:16%"></div>
+          <div class="rtick rt-blue" style="left:48.75%"></div>
+          <div class="rtick rt-gray" style="left:89.69%"></div>
+          <div class="rstem" style="left:37.5%"></div>
+          <div class="rstem" style="left:16%;background:var(--dsw-alias-state-warn-primary)"></div>
+          <div class="rdot" style="left:37.5%"></div>
+          <div class="rlab top" style="left:37.5%"><b class="num">122.00</b>السعر الحالي · <span class="num">14/10</span></div>
+          <div class="rlab top warn" style="left:16%"><b class="num">104.80</b>سعر الحماية</div>
+          <div class="rlab bot" style="left:10%"><b class="num">100.00</b>المتشائم</div>
+          <div class="rlab bot blue" style="left:48.75%"><b class="num">131.00</b>السعر العادل</div>
+          <div class="rlab bot" style="left:89.69%"><b class="num">163.75</b>المتفائل</div>
+        </div>
+      </div>
+      <div class="rnote"><span><i style="background:var(--dsw-alias-border-l4)"></i>الشريط الرمادي: النطاق من المتشائم إلى المتفائل</span><span><i style="background:var(--dsw-alias-state-business-tertiary);border:1px solid var(--dsw-alias-border-l3)"></i>الشريط الأزرق: بين الحماية والعادل</span></div>
+    </div>
+
+    <!-- Chart + log -->
+    <div class="card" style="margin-top:16px">
+      <div class="hrow">
+        <h2>تاريخ السعر العادل مقابل السعر</h2>
+        <div class="lg">
+          <span><i style="border-color:var(--dsw-alias-state-business-primary);border-top-width:3px"></i>السعر العادل</span>
+          <span><i style="border-color:var(--dsw-alias-label-primary)"></i>إغلاق نهاية الشهر وأيام التقييم</span>
+          <span><i style="border-color:var(--dsw-alias-state-warn-primary);border-top-width:3px"></i>سعر الحماية</span>
+          <span><i style="border-top:8px solid var(--dsw-alias-state-business-tertiary)"></i>السعر أقل من العادل</span>
+          <span><i style="border-top:8px solid var(--dsw-alias-state-warn-tertiary)"></i>السعر أعلى من العادل</span>
+        </div>
+      </div>
+      <div class="chartwrap">
+        <svg viewBox="0 0 1000 282" role="img" aria-label="السعر العادل 110 ثم 118 ثم 131، وسعر الحماية 88 ثم 94.40 ثم 104.80، مقابل إغلاق نهاية كل شهر من 137.50 في 15 أبريل إلى 122.00 في 14 أكتوبر">
+          <g stroke="var(--dsw-alias-border-l2)" stroke-width="1"><line x1="64" x2="880" y1="195.4" y2="195.4"/><line x1="64" x2="880" y1="166.9" y2="166.9"/><line x1="64" x2="880" y1="138.3" y2="138.3"/><line x1="64" x2="880" y1="109.7" y2="109.7"/><line x1="64" x2="880" y1="81.1" y2="81.1"/><line x1="64" x2="880" y1="52.6" y2="52.6"/></g>
+          <g stroke="var(--dsw-alias-border-l3)" stroke-width="1" stroke-dasharray="2 4"><line x1="64.0" x2="64.0" y1="24" y2="224"/><line x1="469.9" x2="469.9" y1="24" y2="224"/><line x1="837.7" x2="837.7" y1="24" y2="224"/></g>
+          <g class="nt" text-anchor="start"><text class="nt" x="892" y="228.0">80</text><text class="nt" x="892" y="199.4">90</text><text class="nt" x="892" y="170.9">100</text><text class="nt" x="892" y="142.3">110</text><text class="nt" x="892" y="113.7">120</text><text class="nt" x="892" y="85.1">130</text><text class="nt" x="892" y="56.6">140</text><text class="nt" x="892" y="28.0">150</text></g>
+          <polygon fill="var(--dsw-alias-state-warn-tertiary)" stroke="none" points="64.0,138.3 68.2,138.3 72.5,138.3 76.7,138.3 80.9,138.3 85.1,138.3 89.4,138.3 93.6,138.3 97.8,138.3 102.1,138.3 106.3,138.3 110.5,138.3 114.7,138.3 119.0,138.3 123.2,138.3 127.4,138.3 131.6,138.3 135.9,138.3 140.1,138.3 144.3,138.3 148.6,138.3 152.8,138.3 157.0,138.3 161.2,138.3 165.5,138.3 169.7,138.3 173.9,138.3 178.2,138.3 182.4,138.3 186.6,138.3 190.8,138.3 195.1,138.3 199.3,138.3 203.5,138.3 207.8,138.3 212.0,138.3 216.2,138.3 220.4,138.3 224.7,138.3 228.9,138.3 233.1,138.3 237.3,138.3 241.6,138.3 245.8,138.3 250.0,138.3 254.3,138.3 258.5,138.3 262.7,138.3 266.9,138.3 271.2,138.3 275.4,138.3 279.6,138.3 283.9,138.3 288.1,138.3 292.3,138.3 296.5,138.3 300.8,138.3 305.0,138.3 309.2,138.3 313.5,138.3 317.7,138.3 321.9,138.3 326.1,138.3 330.4,138.3 334.6,138.3 338.8,138.3 343.0,138.3 347.3,138.3 351.5,138.3 355.7,138.3 360.0,138.3 364.2,138.3 368.4,138.3 372.6,138.3 376.9,138.3 381.1,138.3 385.3,138.3 389.6,138.3 393.8,138.3 398.0,138.3 402.2,138.3 406.5,138.3 410.7,138.3 414.9,138.3 419.2,138.3 423.4,138.3 427.6,138.3 431.8,138.3 436.1,138.3 440.3,138.3 444.5,138.3 448.7,138.3 453.0,138.3 457.2,138.3 461.4,138.3 465.7,138.3 469.9,115.4 474.1,115.4 478.3,115.4 482.6,115.4 486.8,115.4 491.0,115.4 495.3,115.4 499.5,115.4 503.7,115.4 507.9,115.4 512.2,115.4 516.4,115.4 520.6,115.4 524.8,115.4 529.1,115.4 533.3,115.4 537.5,115.4 541.8,115.4 546.0,115.4 550.2,115.4 554.4,115.4 558.7,115.4 562.9,115.4 567.1,115.4 571.4,115.4 575.6,115.4 579.8,115.4 584.0,115.4 588.3,115.4 592.5,115.4 596.7,115.4 601.0,115.4 605.2,115.4 609.4,115.4 613.6,115.4 617.9,115.4 622.1,115.4 626.3,115.4 630.5,115.4 634.8,115.4 639.0,115.4 643.2,115.4 647.5,115.4 651.7,115.4 655.9,115.4 660.1,115.4 664.4,115.4 668.6,115.4 672.8,115.4 677.1,115.4 681.3,115.4 685.5,115.4 689.7,115.4 694.0,115.4 698.2,115.4 702.4,115.4 706.7,115.4 710.9,115.4 715.1,115.4 719.3,115.4 723.6,115.4 727.8,115.4 732.0,115.4 736.2,115.4 740.5,115.4 744.7,115.4 748.9,115.4 753.2,115.4 757.4,115.4 761.6,115.4 765.8,115.4 770.1,115.4 774.3,115.4 778.5,115.4 782.8,115.4 787.0,115.4 791.2,115.4 795.4,115.4 799.7,115.4 803.9,115.4 808.1,115.4 812.4,115.4 816.6,115.4 820.8,115.4 825.0,115.4 829.3,115.4 833.5,115.4 837.7,115.4 837.7,104.0 833.5,104.0 829.3,103.1 825.0,102.2 820.8,101.4 816.6,100.5 812.4,99.6 808.1,98.7 803.9,97.9 799.7,97.0 795.4,96.1 791.2,95.2 787.0,94.3 782.8,93.5 778.5,92.6 774.3,91.7 770.1,90.8 765.8,89.8 761.6,88.9 757.4,87.9 753.2,87.0 748.9,86.0 744.7,85.0 740.5,84.1 736.2,83.1 732.0,82.2 727.8,81.2 723.6,80.3 719.3,79.3 715.1,78.4 710.9,77.4 706.7,76.5 702.4,75.5 698.2,74.6 694.0,73.6 689.7,72.7 685.5,71.7 681.3,70.8 677.1,69.8 672.8,68.9 668.6,67.9 664.4,67.0 660.1,66.0 655.9,65.0 651.7,64.1 647.5,63.1 643.2,62.7 639.0,62.3 634.8,61.9 630.5,61.5 626.3,61.0 622.1,60.6 617.9,60.2 613.6,59.8 609.4,59.4 605.2,58.9 601.0,58.5 596.7,58.1 592.5,57.7 588.3,57.3 584.0,56.8 579.8,56.4 575.6,56.0 571.4,55.6 567.1,55.2 562.9,54.7 558.7,54.3 554.4,53.9 550.2,53.5 546.0,53.1 541.8,52.7 537.5,52.2 533.3,51.8 529.1,51.4 524.8,51.0 520.6,50.6 516.4,50.1 512.2,49.7 507.9,51.0 503.7,52.2 499.5,53.5 495.3,54.7 491.0,56.0 486.8,57.3 482.6,58.5 478.3,59.8 474.1,61.0 469.9,62.3 465.7,63.6 461.4,64.9 457.2,66.2 453.0,67.5 448.7,68.8 444.5,70.1 440.3,71.4 436.1,72.7 431.8,74.0 427.6,75.3 423.4,76.6 419.2,77.9 414.9,79.2 410.7,80.5 406.5,81.8 402.2,83.1 398.0,84.4 393.8,85.7 389.6,87.0 385.3,88.3 381.1,87.8 376.9,87.4 372.6,87.0 368.4,86.5 364.2,86.1 360.0,85.7 355.7,85.2 351.5,84.8 347.3,84.4 343.0,83.9 338.8,83.5 334.6,83.0 330.4,82.6 326.1,82.2 321.9,81.7 317.7,81.3 313.5,80.9 309.2,80.4 305.0,80.0 300.8,79.6 296.5,79.1 292.3,78.7 288.1,78.2 283.9,77.8 279.6,77.4 275.4,76.9 271.2,76.5 266.9,76.1 262.7,75.6 258.5,75.2 254.3,74.8 250.0,74.3 245.8,73.9 241.6,73.4 237.3,73.0 233.1,72.6 228.9,72.3 224.7,72.1 220.4,71.9 216.2,71.7 212.0,71.4 207.8,71.2 203.5,71.0 199.3,70.7 195.1,70.5 190.8,70.3 186.6,70.1 182.4,69.8 178.2,69.6 173.9,69.4 169.7,69.1 165.5,68.9 161.2,68.7 157.0,68.5 152.8,68.2 148.6,68.0 144.3,67.8 140.1,67.5 135.9,67.3 131.6,67.1 127.4,66.9 123.2,66.4 119.0,65.9 114.7,65.4 110.5,65.0 106.3,64.5 102.1,64.0 97.8,63.5 93.6,63.0 89.4,62.6 85.1,62.1 80.9,61.6 76.7,61.1 72.5,60.7 68.2,60.2 64.0,59.7"/>
+          <polyline fill="none" stroke="var(--dsw-alias-state-warn-primary)" stroke-width="2" stroke-linejoin="round" points="64.0,201.1 469.9,201.1 469.9,182.9 837.7,182.9 837.7,153.1 880.0,153.1"/>
+          <polyline fill="none" stroke="var(--dsw-alias-label-primary)" stroke-width="1.75" stroke-linejoin="round" points="64.0,59.7 127.4,66.9 233.1,72.6 385.3,88.3 469.9,62.3 512.2,49.7 647.5,63.1 774.3,91.7 833.5,104.0"/>
+          <polyline fill="none" stroke="var(--dsw-alias-state-business-primary)" stroke-width="2.75" stroke-linejoin="round" points="64.0,138.3 469.9,138.3 469.9,115.4 837.7,115.4 837.7,78.3 880.0,78.3"/>
+          <g fill="var(--dsw-alias-bg-layer-1)" stroke="var(--dsw-alias-state-business-primary)" stroke-width="2.5"><circle cx="64.0" cy="138.3" r="4"/><circle cx="469.9" cy="115.4" r="4"/><circle cx="837.7" cy="78.3" r="4"/></g>
+          <g fill="var(--dsw-alias-state-warn-primary)"><circle cx="64.0" cy="201.1" r="3"/><circle cx="469.9" cy="182.9" r="3"/><circle cx="837.7" cy="153.1" r="3"/></g>
+          <g fill="var(--dsw-alias-bg-layer-1)" stroke="var(--dsw-alias-label-primary)" stroke-width="1.5"><circle cx="127.4" cy="66.9" r="2.5"/><circle cx="233.1" cy="72.6" r="2.5"/><circle cx="385.3" cy="88.3" r="2.5"/><circle cx="512.2" cy="49.7" r="2.5"/><circle cx="647.5" cy="63.1" r="2.5"/><circle cx="774.3" cy="91.7" r="2.5"/></g>
+          <g fill="var(--dsw-alias-label-primary)"><circle cx="64.0" cy="59.7" r="4.5"/><circle cx="469.9" cy="62.3" r="4.5"/><circle cx="833.5" cy="104.0" r="4.5"/></g>
+          <g style="font-weight:600"><text x="71.0" y="130.3" style="fill:var(--dsw-alias-state-business-primary)"><tspan class="nt">110.00</tspan></text><text x="476.9" y="107.4" style="fill:var(--dsw-alias-state-business-primary)"><tspan class="nt">118.00 (+7.3%)</tspan></text><text x="829.7" y="69.3" text-anchor="end" style="fill:var(--dsw-alias-state-business-primary)"><tspan class="nt">131.00 (+11.0%)</tspan></text><text x="71.0" y="50.7" style="fill:var(--dsw-alias-label-primary)"><tspan class="nt">137.50</tspan></text><text x="477.9" y="79.3" style="fill:var(--dsw-alias-label-primary)"><tspan class="nt">136.60</tspan></text><text x="825.5" y="95.0" text-anchor="end" style="fill:var(--dsw-alias-label-primary)"><tspan class="nt">122.00</tspan></text><text x="71.0" y="216.1" style="fill:var(--dsw-alias-state-warn-label)"><tspan class="nt">88.00</tspan></text><text x="476.9" y="197.9" style="fill:var(--dsw-alias-state-warn-label)"><tspan class="nt">94.40</tspan></text><text x="829.7" y="169.1" text-anchor="end" style="fill:var(--dsw-alias-state-warn-label)"><tspan class="nt">104.80</tspan></text></g>
+          <line x1="64" x2="880" y1="224" y2="224" stroke="var(--dsw-alias-border-l4)"/>
+          <g stroke="var(--dsw-alias-border-l4)"><line x1="131.6" x2="131.6" y1="224" y2="229"/><line x1="262.7" x2="262.7" y1="224" y2="229"/><line x1="389.6" x2="389.6" y1="224" y2="229"/><line x1="520.6" x2="520.6" y1="224" y2="229"/><line x1="651.7" x2="651.7" y1="224" y2="229"/><line x1="778.5" x2="778.5" y1="224" y2="229"/><line x1="64.0" x2="64.0" y1="224" y2="232"/><line x1="469.9" x2="469.9" y1="224" y2="232"/><line x1="837.7" x2="837.7" y1="224" y2="232"/></g>
+          <g text-anchor="middle"><text class="nt" x="131.6" y="243" style="fill:var(--dsw-alias-label-secondary)">01/05</text><text class="nt" x="262.7" y="243" style="fill:var(--dsw-alias-label-secondary)">01/06</text><text class="nt" x="389.6" y="243" style="fill:var(--dsw-alias-label-secondary)">01/07</text><text class="nt" x="520.6" y="243" style="fill:var(--dsw-alias-label-secondary)">01/08</text><text class="nt" x="651.7" y="243" style="fill:var(--dsw-alias-label-secondary)">01/09</text><text class="nt" x="778.5" y="243" style="fill:var(--dsw-alias-label-secondary)">01/10</text><text class="nt" x="64.0" y="259" style="fill:var(--dsw-alias-label-primary);font-weight:600">15/04/2026</text><text class="nt" x="469.9" y="259" style="fill:var(--dsw-alias-label-primary);font-weight:600">20/07/2026</text><text class="nt" x="837.7" y="259" style="fill:var(--dsw-alias-label-primary);font-weight:600">15/10/2026</text><text x="64.0" y="274">النسخة 1</text><text x="469.9" y="274">النسخة 2</text><text x="837.7" y="274">النسخة 3</text></g>
+        </svg>
+      </div>
+      <div class="cap">الزمن من اليسار إلى اليمين. الخط الأسود هو إغلاق آخر يوم في كل شهر من مصدر الأسعار، مع إغلاق يوم كل تقييم. وهو نفس الأسعار المعروضة في شاشة السوق، لذلك الشاشتان متسقتان.</div>
+
+      <div class="glog gh" aria-hidden="true"><span>النسخة</span><span>التاريخ</span><span>السعر العادل: السابق → الجديد</span><span>التغيّر</span><span class="c-pr">الإغلاق وقتها</span><span class="c-st">الحالة وقتها</span><span>السبب</span></div>
+      <sc-for list="{{log}}" as="l" hint-placeholder-count="3">
+        <div class="glog gr {{l.cls}}">
+          <span class="num">{{l.v}}</span>
+          <span class="num">{{l.date}}</span>
+          <span class="num">{{l.flow}}</span>
+          <span class="num">{{l.chg}}</span>
+          <span class="num c-pr">{{l.price}}</span>
+          <span class="c-st">{{l.stW}} <span class="num">{{l.stN}}</span></span>
+          <span>{{l.reason}}</span>
+        </div>
+      </sc-for>
+    </div>
+
+    <!-- Sticky section nav -->
+    <nav class="snav" aria-label="أقسام التحليل">
+      <sc-for list="{{nav}}" as="n" hint-placeholder-count="8">
+        <a href="{{n.href}}" class="{{n.cls}}" onClick="{{n.pick}}">{{n.label}}</a>
+      </sc-for>
+    </nav>
+
+    <div class="content">
+      <section class="sec" id="s-summary">
+        <h2>الملخص والأطروحة</h2>
+        <p class="lead">الرقم، ولماذا هو عند هذا المستوى، وما الذي قد يغيّره.</p>
+        <div class="two">
+          <div class="prose">
+            <h3>الملخص</h3>
+            <p>السعر العادل التقديري للبنك التجاري الدولي <b class="num">131.00</b> جنيه، والسعر الحالي <span class="num">122.00</span> جنيه أقل منه بنسبة <span class="num">6.9%</span> من العادل. الرقم متوسط مرجّح لثلاث طرق مبنية على حقوق الملكية.</p>
+            <h3>الأطروحة</h3>
+            <p>البنك التجاري الدولي أكبر بنك خاص في مصر، وأرباحه تأتي أساسًا من هامش الفائدة على القروض والاستثمار في أذون الخزانة. يفترض التقييم عائدًا مستدامًا على حقوق الملكية قدره <span class="num">30%</span> مع نمو طويل الأجل قدره <span class="num">12%</span> ونسبة توزيع <span class="num">25%</span> من الأرباح، وجودة أصول مستقرة. وتتوقف قوة هذا الافتراض على بقاء الفائدة الحقيقية موجبة وعلى بقاء القروض المتعثرة أقل من <span class="num">5%</span> من إجمالي القروض. هذا تقدير للقيمة وليس توصية.</p>
+          </div>
+          <div class="prose">
+            <h3>ما الذي تغيّر منذ النسخة السابقة</h3>
+            <p>رُفع السعر العادل من <span class="num">118.00 → 131.00</span> (<span class="num">+11.0%</span>) بعد خفض البنك المركزي لأسعار الفائدة، فانخفضت تكلفة حقوق الملكية من <span class="num">27.5%</span> إلى <span class="num">26.0%</span> سنويًا.</p>
+            <h3>ما الذي قد يغيّر هذا التقدير</h3>
+            <ul class="ul"><li>عائد على حقوق الملكية <span class="num">27.5%</span> بدل <span class="num">30%</span>: العادل يقترب من <span class="num">124.00</span> جنيه.</li><li>خفض إضافي للفائدة يضغط هامش الفائدة: أثر بين <span class="num">3%</span> و<span class="num">4%</span> من العادل.</li><li>قروض متعثرة فوق <span class="num">5%</span> ترفع تكلفة المخاطر: أثر نحو <span class="num">5%</span> من العادل.</li></ul>
+          </div>
+        </div>
+      </section>
+
+      <section class="sec" id="s-methods">
+        <h2>طرق التقييم</h2>
+        <p class="lead">كل طريقة تعطي ثلاث قيم، والعادل هو المتوسط المرجّح بالأوزان. لا يوجد خصم تدفقات نقدية لأنه لا يناسب البنوك.</p>
+        <div class="tbl">
+          <div class="g g-m gt"><span>الطريقة</span><span>الوزن</span><span>المتشائم</span><span>الأساسي</span><span>المتفائل</span></div>
+          <sc-for list="{{methods}}" as="m" hint-placeholder-count="3">
+            <div class="g g-m gr"><span>{{m.name}}<span class="sub">{{m.sub}}</span></span><span class="num">{{m.w}}</span><span class="num">{{m.lo}}</span><span class="num">{{m.base}}</span><span class="num">{{m.hi}}</span></div>
+          </sc-for>
+          <div class="g g-m gr tot"><span>النتيجة المجمّعة (متوسط مرجّح)</span><span class="num">100%</span><span class="num">100.00</span><span class="num lbl-blue">131.00</span><span class="num">163.75</span></div>
+        </div>
+        <p class="cap" style="padding:8px 0 0">المتشائم <span class="num">100.00</span> ناتج سيناريو متشائم للطرق الثلاث، أما سعر الحماية <span class="num">104.80</span> فهو <span class="num">80%</span> من العادل. هما رقمان مختلفان لغرضين مختلفين.</p>
+      </section>
+
+      <section class="sec" id="s-assumptions">
+        <h2>الافتراضات</h2>
+        <p class="lead">المدخلات التي بُني عليها الرقم. تعديل أي قيمة يعيد حساب العادل ويُنشئ نسخة جديدة.</p>
+        <div class="tbl">
+          <div class="g g-a gt"><span>الافتراض</span><span>القيمة</span><span>المصدر</span><span>آخر مراجعة</span></div>
+          <sc-for list="{{assumptions}}" as="a" hint-placeholder-count="7">
+            <div class="g g-a gr">
+              <span>{{a.name}}</span>
+              <span class="fieldlike"><span class="num okv">{{a.val}}</span><svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linecap="round" aria-hidden="true"><path d="M2 10l1-3 5-5 2 2-5 5z"/></svg></span>
+              <span class="thr rich"><sc-for list="{{a.srcS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span>
+              <span class="num">{{a.date}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="sec" id="s-checks">
+        <h2>فحوصات المنطق</h2>
+        <p class="lead">اختبارات آلية على الرقم نفسه: ما فُحص، والنتيجة، ولماذا.</p>
+        <div class="chk-sum">
+          <span><b class="num okv">7 / 8</b> فحوصات نجحت</span>
+          <span><i class="ic pass"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M2 5.2l2 2 4-4.4"/></svg></i>نجح</span>
+          <span><i class="ic fail"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg></i>لم ينجح، وله ملاحظة عند الناقد</span>
+          <button class="btn tgl" onClick="{{toggleChk}}" aria-expanded="{{chkOpen}}" style="margin-inline-start:auto">{{chkLabel}}</button>
+        </div>
+        <div class="tbl">
+          <div class="g g-c gt"><span></span><span>الفحص</span><span>النتيجة</span><span>السبب</span></div>
+          <sc-for list="{{checks}}" as="c" hint-placeholder-count="12">
+            <sc-if value="{{c.group}}" hint-placeholder-val="{{false}}">
+              <div class="g gr grp"><span>{{c.name}}</span></div>
+            </sc-if>
+            <sc-if value="{{c.row}}" hint-placeholder-val="{{true}}">
+              <div class="g g-c gr">
+                <span class="ic {{c.icls}}"><sc-if value="{{c.pass}}" hint-placeholder-val="{{true}}"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-label="نجح"><path d="M2 5.2l2 2 4-4.4"/></svg></sc-if><sc-if value="{{c.fail}}" hint-placeholder-val="{{false}}"><svg width="10" height="10" viewBox="0 0 10 10" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" aria-label="لم ينجح"><path d="M2.5 2.5l5 5M7.5 2.5l-5 5"/></svg></sc-if></span>
+                <span>{{c.name}}</span>
+                <span class="rs {{c.rcls}}">{{c.result}}</span>
+                <span class="thr rich"><sc-for list="{{c.whyS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for>
+                <sc-if value="{{c.hasWorry}}" hint-placeholder-val="{{false}}"><span class="worry"><b>هل ده يقلق؟</b> <sc-for list="{{c.worryS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span></sc-if></span>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="sec" id="s-risk">
+        <h2>المخاطر</h2>
+        <p class="lead">التصنيف الحالي: <b style="font-weight:600">آمن</b>. كل مقاييس البنك أفضل من حدّها المرجعي ولا يوجد تحفظ من مراقب الحسابات.</p>
+        <div class="chips" aria-label="ملخص مقاييس البنك"><sc-for list="{{riskChips}}" as="c" hint-placeholder-count="5"><span class="chip">{{c.k}}&nbsp;<b class="num" style="font-weight:600">{{c.v}}</b></span></sc-for><button class="btn tgl" onClick="{{toggleRisk}}" aria-expanded="{{riskOpen}}" style="margin-inline-start:auto">{{riskLabel}}</button></div>
+        <sc-if value="{{riskOpen}}" hint-placeholder-val="{{false}}">
+        <div class="tbl">
+          <div class="g g-r gt"><span>المقياس وما يعنيه</span><span>القيمة</span><span>الحد المرجعي</span></div>
+          <sc-for list="{{risks}}" as="r" hint-placeholder-count="6">
+            <div class="g g-r gr">
+              <span>{{r.name}}<span class="sub">{{r.sub}}</span></span>
+              <span class="num okv">{{r.val}}</span>
+              <span class="thr rich"><sc-for list="{{r.thrS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span>
+            </div>
+          </sc-for>
+        </div>
+        </sc-if>
+        <div class="note"><b>مؤشرات لا تنطبق على البنوك:</b> <span class="num">Altman Z-Score</span> و<span class="num">Piotroski F-Score</span> و<span class="num">Beneish M-Score</span> (مقاييس سلامة مالية) مصممة للشركات غير المالية، لذلك لا تُحتسب لـ COMI ولا تدخل في التصنيف.</div>
+      </section>
+
+      <section class="sec" id="s-critic">
+        <h2>ملاحظات الناقد</h2>
+        <p class="lead">مراجعة آلية مستقلة للتقييم: الملاحظة، وأثرها على السعر العادل، وهل عولجت.</p>
+        <div class="tbl">
+          <div class="g g-n gt"><span>الملاحظة</span><span>الأثر على السعر العادل</span><span>الحالة</span></div>
+          <sc-for list="{{critic}}" as="k" hint-placeholder-count="3">
+            <div class="g g-n gr"><span class=" rich"><sc-for list="{{k.tS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span><span class="thr rich"><sc-for list="{{k.effS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span><span class="rs {{k.cls}}">{{k.st}}</span></div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="sec" id="s-sources">
+        <h2 style="margin-bottom:10px">المصادر <span class="meta" style="font-weight:400">· المصدر بلا تاريخ لا يُعتمد عليه</span></h2>
+        <div class="tbl">
+          <div class="g g-s gt"><span>النوع</span><span>المصدر</span><span>التاريخ</span></div>
+          <sc-for list="{{sources}}" as="s" hint-placeholder-count="4">
+            <div class="g g-s gr"><span>{{s.type}}</span><span class="thr rich"><sc-for list="{{s.nameS}}" as="p"><sc-if value="{{p.n}}" hint-placeholder-val="{{false}}"><span class="num">{{p.t}}</span></sc-if><sc-if value="{{p.x}}" hint-placeholder-val="{{true}}"><span>{{p.t}}</span></sc-if></sc-for></span><span class="num">{{s.date}}</span></div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="sec" id="s-full">
+        <h2 style="margin-bottom:10px">التقرير الكامل <span class="meta" style="font-weight:400">· مطويّ افتراضيًا</span></h2>
+        <div class="full">
+          <div class="excerpt">
+            <p>البنك التجاري الدولي (COMI) يحقق عائدًا على حقوق الملكية قرب <span class="num">30%</span> بقاعدة رأسمالية قوية. اعتمد التقييم على ثلاث طرق: العائد الزائد، ومضاعف القيمة الدفترية مقابل العائد على حقوق الملكية، وخصم التوزيعات.</p>
+            <p>النتيجة المجمّعة <span class="num">131.00</span> جنيه ضمن نطاق من <span class="num">100.00</span> إلى <span class="num">163.75</span> جنيه، وسعر الحماية <span class="num">104.80</span> جنيه…</p>
+          </div>
+          <sc-if value="{{open}}" hint-placeholder-val="{{false}}">
+            <div class="md">
+              <h3>1. نظرة عامة على النشاط</h3>
+              <p>يعمل البنك في الخدمات المصرفية للشركات والأفراد، ويستحوذ على حصة كبيرة من ودائع القطاع الخاص. يأتي أغلب الدخل من صافي الفائدة، مع مساهمة معتبرة من الرسوم والعمولات.</p>
+              <h3>2. من القيمة الدفترية إلى السعر العادل</h3>
+              <p>القيمة الدفترية للسهم <span class="num">100.00</span> جنيه بنهاية الربع الثاني من العام. مضاعف القيمة الدفترية المبرَّر <span class="num">1.29×</span> من المعادلة (العائد المستدام − النمو) ÷ (تكلفة حقوق الملكية − النمو) أي <span class="num">(30% − 12%) ÷ (26% − 12%)</span> فيعطي نحو <span class="num">128.00</span> جنيه للسهم.</p>
+              <h3>3. ما بعد الأرقام</h3>
+              <p>أبرز حساسية هي العائد المستدام وهامش الفائدة بعد خفض الفائدة. راجع قسمي فحوصات المنطق وملاحظات الناقد أعلاه. هذا تقييم وليس توصية بالشراء أو البيع.</p>
+            </div>
+          </sc-if>
+          <div class="bar">
+            <button class="btn" onClick="{{toggleFull}}" aria-expanded="{{open}}">{{toggleLabel}}</button>
+            <button class="btn">نسخ النص</button>
+            <button class="btn">تنزيل Markdown</button>
+          </div>
+        </div>
+      </section>
+
+      <div class="foot">
+        <b>تقييم وليس توصية بالشراء أو البيع.</b>
+        <span>النسخة <span class="num">3</span> · <span class="num">15/10/2026</span> · الأسعار متأخرة وليست لحظية · بيانات تجريبية</span>
+      </div>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1280,"height":3762}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { sec:'s-summary', open:false, chk:false, risk:true }; }
+  renderVals() {
+    const sec = this.state.sec;
+    const navDef = [['s-summary','الملخص والأطروحة'],['s-methods','طرق التقييم'],['s-assumptions','الافتراضات'],['s-checks','فحوصات المنطق'],['s-risk','المخاطر'],['s-critic','ملاحظات الناقد'],['s-sources','المصادر'],['s-full','التقرير الكامل']];
+    const nav = navDef.map(([id,label])=>({ href:'#'+id, label, cls: id===sec?'on':'', pick:()=>this.setState({sec:id}) }));
+    const log = [
+      { v:'3', date:'15/10/2026', flow:'118.00 → 131.00', chg:'+11.0%', price:'122.00', stW:'أقل من العادل بـ', stN:'6.9%', reason:'خفض أسعار الفائدة من البنك المركزي', cls:'cur' },
+      { v:'2', date:'20/07/2026', flow:'110.00 → 118.00', chg:'+7.3%', price:'136.60', stW:'أعلى من العادل بـ', stN:'15.8%', reason:'نتائج الربع الثاني', cls:'' },
+      { v:'1', date:'15/04/2026', flow:'— → 110.00', chg:'—', price:'137.50', stW:'أعلى من العادل بـ', stN:'25.0%', reason:'تقييم أولي', cls:'' }
+    ];
+    const methods = [
+      { name:'نموذج العائد الزائد على حقوق الملكية', sub:'يقيس القيمة التي يضيفها البنك فوق تكلفة رأس ماله', w:'45%', lo:'101.00', base:'135.00', hi:'168.00' },
+      { name:'مضاعف القيمة الدفترية مقابل العائد على حقوق الملكية', sub:'كلما ارتفع العائد على الملكية استحق السهم مضاعفًا أعلى', w:'30%', lo:'96.00', base:'128.00', hi:'158.00' },
+      { name:'نموذج خصم التوزيعات', sub:'القيمة الحالية للتوزيعات النقدية المتوقعة', w:'25%', lo:'103.00', base:'127.40', hi:'163.00' }
+    ];
+    const assumptions = [
+      { name:'عائد أذون الخزانة لسنة (الخالي من المخاطر)', val:'22.0%', src:'البنك المركزي المصري', date:'08/10/2026' },
+      { name:'علاوة مخاطر الأسهم', val:'5.0%', src:'تقدير المحلل', date:'15/10/2026' },
+      { name:'بيتا السهم', val:'0.80', src:'أسعار 3 سنوات من EODHD', date:'14/10/2026' },
+      { name:'تكلفة حقوق الملكية', val:'26.0%', src:'محسوبة: 22.0% + 0.80 × 5.0%', date:'15/10/2026' },
+      { name:'العائد المستدام على حقوق الملكية', val:'30.0%', src:'قوائم الربع الثاني 2026', date:'14/07/2026' },
+      { name:'النمو طويل الأجل', val:'12.0%', src:'تقدير المحلل', date:'15/10/2026' },
+      { name:'نسبة التوزيع النقدي', val:'25.0%', src:'إفصاح التوزيعات، البورصة المصرية', date:'05/03/2026' }
+    ];
+    const C = (name, result, pass, why, worry)=>({ isRow:true, isGroup:false, name, result, pass, fail:!pass, icls: pass?'pass':'fail', rcls: pass?'':'fail', why, worry: worry||'', hasWorry: !!worry });
+    const checks = [
+      { isGroup:true, isRow:false, name:'الاتساق الحسابي' },
+      C('مجموع أوزان الطرق = 100%','نجح',true,'مجموع الأوزان 45% و30% و25% يساوي 100% بالضبط.'),
+      C('سعر الحماية = العادل × 0.80','نجح',true,'131.00 × 0.80 = 104.80 ويطابق المعروض.'),
+      C('القيمة الأساسية داخل النطاق (المتشائم – المتفائل)','نجح',true,'القيمة الأساسية 131.00 تقع بين المتشائم 100.00 والمتفائل 163.75 فعلًا.'),
+      { isGroup:true, isRow:false, name:'المعقولية' },
+      C('تكلفة حقوق الملكية أعلى من العائد الخالي من المخاطر','نجح',true,'26.0% أعلى من 22.0% بعلاوة 4.0 نقطة.'),
+      C('النمو لا يتجاوز النمو الاسمي طويل الأجل','نجح',true,'12.0% أقل من 14.0% نمو الناتج الاسمي المفترض.'),
+      C('مضاعف القيمة الدفترية الضمني مقابل تاريخه','نجح',true,'1.31× عند العادل، مقابل متوسط 5 سنوات 1.35×، وهو ضمن نطاقه المعتاد.'),
+      C('العائد المستدام مقابل متوسط 5 سنوات','لم ينجح',false,'30.0% أعلى من المتوسط 27.5%، وعند الناقد ملاحظة.', 'ليس بشكل مباشر: النتيجة تعني فقط أن التقييم أكثر حساسية لهذا الافتراض. الناقد جرّب عائدًا 27.5% فنزل العادل إلى نحو 124.00 جنيه، أي أقل بنسبة 5.3% تقريبًا وما زال أعلى من سعر الحماية.'),
+      { isGroup:true, isRow:false, name:'الاتساق مع التقييم السابق' },
+      C('حجم التغيّر ضمن حد المراجعة','نجح',true,'+11.0% ضمن حد 15% للتغيّر بين نسختين.')
+    ];
+    const risks = [
+      { name:'كفاية رأس المال (CAR)', sub:'نسبة رأس مال البنك إلى أصوله المعرّضة للخسارة؛ كل ما زادت زاد أمان المودعين.', val:'19.8%', thr:'الحد الأدنى 12.5%' },
+      { name:'الشريحة الأولى من رأس المال (CET1)', sub:'الجزء الأقوى من رأس المال (أسهم وأرباح محتجزة) وهو أول ما يمتص الخسائر.', val:'15.2%', thr:'أعلى من 10% قوي' },
+      { name:'نسبة القروض المتعثرة (NPL)', sub:'حصة القروض التي تأخر العميل في سدادها طويلًا من إجمالي القروض.', val:'3.9%', thr:'أقل من 5% مقبول' },
+      { name:'تغطية المخصصات', sub:'كم جنيهًا محجوزًا مقابل كل جنيه من القروض المتعثرة.', val:'152%', thr:'أعلى من 100% يغطيها كاملة' },
+      { name:'السيولة (نسبة تغطية السيولة LCR)', sub:'قدرة البنك على تلبية طلبات السحب القريبة من أصول سائلة.', val:'240%', thr:'الحد الأدنى 100%' },
+      { name:'رأي مراقب الحسابات', sub:'هل المراجع يرى أن قوائم البنك تعبّر عن واقعه؟', val:'غير متحفظ', thr:'التحفظ إشارة تحذير' }
+    ];
+    const critic = [
+      { t:'العائد المستدام 30% أعلى من متوسط 5 سنوات البالغ 27.5% تقريبًا.', eff:'عند عائد 27.5% ينزل العادل إلى نحو 124.00 جنيه أي أقل بنسبة 5.3% تقريبًا.', st:'مفتوحة', cls:'fail' },
+      { t:'خفض الفائدة قد يضغط هامش صافي الفائدة بعد رفع العادل.', eff:'بين −3% و −4% من العادل، داخل النطاق المتشائم.', st:'عولجت', cls:'' },
+      { t:'ارتفاع القروض المتعثرة فوق 5% يرفع تكلفة المخاطر.', eff:'نحو −5% من العادل. تحت المراقبة كل ربع.', st:'عولجت', cls:'' }
+    ];
+    const sources = [
+      { type:'قوائم مالية', name:'القوائم المجمّعة للربع الثاني من 2026 وإفصاحات البورصة المصرية (EGX)', date:'14/07/2026' },
+      { type:'أسعار الفائدة', name:'البنك المركزي المصري: عائد أذون الخزانة وسعر الإيداع', date:'08/10/2026' },
+      { type:'توزيعات', name:'إفصاح التوزيعات النقدية، البورصة المصرية (EGX)', date:'05/03/2026' },
+      { type:'سعر السوق', name:'EODHD (مزوّد بيانات أسعار الأسهم): إغلاق يومي متأخر', date:'14/10/2026' }
+    ];
+    const segs = (str)=>{ const re=/[−+]?\d[\d.,]*%?×?(?:\s*[≤→+×−–=/]\s*[−+]?\d[\d.,]*%?×?)*/g; const out=[]; let last=0, m; while((m=re.exec(str))){ if(m.index>last) out.push({t:str.slice(last,m.index),n:false,x:true}); out.push({t:m[0],n:true,x:false}); last=m.index+m[0].length; } if(last<str.length) out.push({t:str.slice(last),n:false,x:true}); return out; };
+    assumptions.forEach(a=>{a.srcS=segs(a.src);}); const chkOpen=this.state.chk, riskOpen=this.state.risk; checks.forEach(c=>{ if(c.isRow){ c.whyS=segs(c.why); c.worryS=segs(c.worry); } c.group = !!c.isGroup && chkOpen; c.row = !!c.isRow && (chkOpen || c.fail); }); risks.forEach(r=>{r.thrS=segs(r.thr);}); critic.forEach(k=>{k.tS=segs(k.t);k.effS=segs(k.eff);}); sources.forEach(x=>{x.nameS=segs(x.name);});
+    const open = this.state.open;
+    const riskChips=[{k:'كفاية رأس المال (CAR)',v:'19.8%'},{k:'الشريحة الأولى (CET1)',v:'15.2%'},{k:'القروض المتعثرة (NPL)',v:'3.9%'},{k:'تغطية المخصصات',v:'152%'},{k:'السيولة (LCR)',v:'240%'}];
+    return { riskChips, chkOpen, riskOpen, chkLabel: chkOpen?'عرض الفحوصات الفاشلة فقط':'عرض كل الفحوصات الثمانية', riskLabel: riskOpen?'إخفاء الشرح':'عرض شرح كل مقياس', toggleChk:()=>this.setState({chk:!this.state.chk}), toggleRisk:()=>this.setState({risk:!this.state.risk}), theme: this.props.theme ?? 'light', nav, log, methods, assumptions, checks, risks, critic, sources, open, toggleLabel: open ? 'طيّ التقرير' : 'عرض التقرير الكامل', toggleFull:()=>this.setState({open:!this.state.open}) };
+  }
+}
+</script>
+</body>
+</html>

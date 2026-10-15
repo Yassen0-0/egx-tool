@@ -709,6 +709,15 @@ window.__ModuleLoader__.load({
 .egxm-link { all: unset; cursor: pointer; color: var(--dsw-alias-brand-primary); font-size: 12px; }
 .egxm-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .egxm-link:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 2px; border-radius: 3px; }
+.egxm-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l3); margin-bottom: 14px; }
+.egxm-tab { all: unset; cursor: pointer; padding: 7px 12px; font-size: 13px; color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color .15s ease, border-color .15s ease; }
+.egxm-tab:hover { color: var(--dsw-alias-label-primary); }
+.egxm-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-brand-primary); font-weight: 500; }
+.egxm-tab:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: -2px; border-radius: 4px; }
+.egxm-tv { direction: ltr; border: 1px solid var(--dsw-alias-border-l3); border-radius: 8px; overflow: hidden; background: var(--dsw-alias-bg-layer-1); color-scheme: normal; }
+.egxm-tv-note { display: flex; gap: 8px; align-items: baseline; font-size: 12px; line-height: 1.7; color: var(--dsw-alias-label-secondary); margin: 8px 0 0; }
+.egxm-caution { font-size: 13px; line-height: 1.7; padding: 10px 12px; margin-bottom: 10px; border-radius: 8px; color: var(--dsw-alias-label-primary); background: color-mix(in srgb, var(--dsw-alias-state-warn-primary) 12%, transparent); }
+.egxm-caution strong { font-weight: 600; }
 .egxp-page ::selection { background: color-mix(in srgb, var(--dsw-alias-brand-primary) 28%, transparent); }
 `
 
@@ -780,7 +789,73 @@ window.__ModuleLoader__.load({
       return h('div', { ref, className: 'egxm-chart' })
     }
 
+
+    // The Harness theme can differ from the OS setting, so read it from the host's own
+    // label token: light text means a dark surface. Re-evaluated when the root's
+    // attributes change (theme switch) or the OS scheme changes.
+    function hostTheme() {
+      // Resolve the token through a probe element, then read the pixel through a canvas so any
+      // color syntax (hex, rgb, oklch, color()) ends up as sRGB bytes.
+      const probe = document.createElement('span')
+      probe.style.cssText = 'position:absolute;visibility:hidden;color:var(--dsw-alias-label-primary)'
+      document.body.append(probe)
+      const color = getComputedStyle(probe).color
+      probe.remove()
+      const canvas = document.createElement('canvas')
+      canvas.width = canvas.height = 1
+      const g = canvas.getContext('2d')
+      if (!g || !color) return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'
+      g.fillStyle = color
+      g.fillRect(0, 0, 1, 1)
+      const [r, gr, b] = g.getImageData(0, 0, 1, 1).data
+      return 0.299 * r + 0.587 * gr + 0.114 * b > 140 ? 'dark' : 'light'
+    }
+
+    function useHostTheme() {
+      const [theme, setTheme] = useState(hostTheme)
+      useEffect(() => {
+        const update = () => setTheme(hostTheme())
+        const observer = new MutationObserver(update)
+        observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class', 'style', 'data-theme', 'data-color-scheme'] })
+        observer.observe(document.body, { attributes: true, attributeFilter: ['class', 'style', 'data-theme'] })
+        const media = window.matchMedia('(prefers-color-scheme: dark)')
+        media.addEventListener('change', update)
+        return () => { observer.disconnect(); media.removeEventListener('change', update) }
+      }, [])
+      return theme
+    }
+
+    // A TradingView embed widget (iframe from tradingview-widget.com). Its data stays inside the
+    // widget: it is for display only and never feeds valuations. Attribution stays visible.
+    function TvWidget({ name, config, height }) {
+      const ref = React.useRef(null)
+      const key = JSON.stringify(config)
+      useEffect(() => {
+        const box = ref.current
+        const container = document.createElement('div')
+        container.className = 'tradingview-widget-container'
+        container.style.height = '100%'
+        const target = document.createElement('div')
+        target.className = 'tradingview-widget-container__widget'
+        target.style.height = '100%'
+        const script = document.createElement('script')
+        script.async = true
+        script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${name}.js`
+        script.textContent = key
+        container.append(target, script)
+        box.append(container)
+        return () => { box.replaceChildren() }
+      }, [name, key])
+      return h('div', { ref, className: 'egxm-tv', style: { height } })
+    }
+
+    const TV_LOCALE = 'ar_AE'
+    const tvSymbol = (symbol) => `EGX:${symbol}`
+    const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
+
     function SymbolDetail({ row, colSpan }) {
+      const [tab, setTab] = useState('ours')
+      const theme = useHostTheme()
       const [history, setHistory] = useState(null)
       const [error, setError] = useState('')
       const [rangeDays, setRangeDays] = useState(182)
@@ -834,7 +909,44 @@ window.__ModuleLoader__.load({
                 h('td', { className: 'egxm-num' }, price2(b.low)),
                 h('td', { className: 'egxm-num' }, b.volume == null ? '—' : compactFmt.format(b.volume)))
             }))))))
-      return h('tr', { className: 'egxm-detail' }, h('td', { colSpan }, body))
+      const symbol = tvSymbol(row.symbol)
+      const shared = { colorTheme: theme, isTransparent: true, width: '100%', height: '100%', locale: TV_LOCALE }
+      const tvNote = h('p', { className: 'egxm-tv-note' },
+        'بيانات TradingView متأخرة (علامة D) وللعرض فقط؛ لا تدخل في حسابات التقييم. الأرقام قد تختلف قليلًا عن EODHD بسبب توقيت التحديث.')
+      let panel = body
+      if (tab === 'chart') panel = h('div', null,
+        h(TvWidget, { name: 'symbol-info', height: 190, config: { ...shared, symbol, height: 190 } }),
+        h('div', { style: { height: 12 } }),
+        h(TvWidget, { name: 'advanced-chart', height: 560, config: {
+          autosize: true, symbol, interval: 'D', timezone: 'Africa/Cairo', theme, style: '1', locale: TV_LOCALE,
+          allow_symbol_change: false, withdateranges: true, hide_side_toolbar: false, details: false,
+          width: '100%', height: '100%' } }),
+        tvNote)
+      else if (tab === 'financials') panel = h('div', null,
+        h(TvWidget, { name: 'financials', height: 620, config: { ...shared, symbol, displayMode: 'adaptive', largeChartUrl: '' } }),
+        h('p', { className: 'egxm-tv-note' },
+          'البيانات المالية من TradingView للعرض والمقارنة فقط. التقييم يعتمد على القوائم المالية المحفوظة بمصادرها، وبعض التعريفات تختلف بين المصادر (مثل إيرادات البنوك).'))
+      else if (tab === 'technical') panel = h('div', null,
+        h('div', { className: 'egxm-caution', role: 'note' },
+          h('strong', null, 'تنبيه: '),
+          'هذه إشارة فنية آلية من TradingView تعتمد على المتوسطات المتحركة والمؤشرات الفنية فقط. ليست تقييمنا، ولا تأخذ في الاعتبار السعر العادل أو القوائم المالية، وليست توصية بالشراء أو البيع.'),
+        h(TvWidget, { name: 'technical-analysis', height: 440, config: { ...shared, symbol, interval: '1D', displayMode: 'single', showIntervalTabs: true } }),
+        tvNote)
+      const tabs = h('div', { className: 'egxm-tabs', role: 'tablist', 'aria-label': `تفاصيل ${row.symbol}` },
+        DETAIL_TABS.map(([key, label]) => h('button', {
+          key, type: 'button', role: 'tab', className: 'egxm-tab', 'aria-selected': tab === key,
+          tabIndex: tab === key ? 0 : -1, onClick: () => setTab(key),
+          onKeyDown: (e) => {
+            const i = DETAIL_TABS.findIndex(([k]) => k === tab)
+            if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+              e.preventDefault()
+              // Right-to-left: ArrowLeft moves to the next tab.
+              const step = e.key === 'ArrowLeft' ? 1 : -1
+              setTab(DETAIL_TABS[(i + step + DETAIL_TABS.length) % DETAIL_TABS.length][0])
+            }
+          },
+        }, label)))
+      return h('tr', { className: 'egxm-detail' }, h('td', { colSpan }, tabs, h('div', { role: 'tabpanel' }, panel)))
     }
 
     function MarketRow({ row, period, expanded, onToggle }) {

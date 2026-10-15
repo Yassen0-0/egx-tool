@@ -18,9 +18,10 @@
         toolCallTimeoutMs: 120000
         failOnStartupError: false
 
-    # The portfolio screen (/egx/portfolio) and its same-origin JSON API.
+    # The portfolio panel: this row's host half serves /egx/api/*, and the
+    # package's client.js (dsh.client) adds the sidebar entry and page.
     - id: egx-portfolio
-      name: ./host/egx-portfolio.mjs
+      name: dsh-egx-bundle
 
 # New sessions start with the EGX analyst preset; users can still pick another
 # preset from the session menu.

@@ -1,6 +1,7 @@
-// EGX portfolio screen: serves the page at /egx/portfolio and a small JSON API at
-// /egx/api/*, backed by the same Python portfolio logic the MCP tools use
-// (egx-cli). Also injects a "المحفظة" entry into the Web UI index.
+// Host half of the EGX portfolio panel: a small JSON API at /egx/api/*, backed by
+// the same Python portfolio logic the MCP tools use (egx-cli). The panel itself is
+// client.js, rendered in the sidebar and main area of the Web and Desktop client.
+// Desktop forwards dsh-app://app requests here after dropping Host and Origin.
 //
 // The API answers same-origin requests only: mutating requests must carry
 // X-EGX-Request and a JSON body (which forces a CORS preflight that this route
@@ -9,22 +10,14 @@
 
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { readFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { join } from 'node:path'
 
-export const name = 'egx-portfolio'
+export const name = 'dsh-egx-bundle'
 export const inject = ['webServer']
 
-const here = dirname(fileURLToPath(import.meta.url))
-const pagePath = join(here, 'portfolio.html')
 const MAX_BODY_BYTES = 16 * 1024
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
-const NAV_LINK = `<a id="egx-portfolio-link" href="/egx/portfolio" dir="rtl"
-  style="position:fixed;left:12px;bottom:56px;z-index:50;display:flex;align-items:center;gap:6px;
-  padding:6px 12px;border-radius:8px;background:#1f6f5c;color:#fff;font:500 13px system-ui,sans-serif;
-  text-decoration:none;box-shadow:0 1px 4px rgba(0,0,0,.3)">المحفظة</a>`
 
 function cliCommand() {
   const home = process.env.EGX_HOME
@@ -118,23 +111,12 @@ async function handleApi(req, res, path) {
 export function apply(ctx) {
   ctx.effect(() => ctx.webServer.register({
     kind: 'prefix',
-    path: '/egx',
+    path: '/egx/api',
     async handler(req, res) {
       const path = new URL(req.url ?? '/', 'http://local').pathname.replace(/\/+$/, '')
       if (!hostAllowed(req)) return sendJson(res, 403, { error: 'forbidden host or origin' })
-      if (path === '/egx/portfolio' || path === '/egx') {
-        const html = await readFile(pagePath, 'utf8')
-        res.writeHead(200, {
-          'content-type': 'text/html; charset=utf-8',
-          'cache-control': 'no-store',
-          'content-security-policy': "default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'; frame-ancestors 'none'",
-          'x-frame-options': 'DENY',
-        })
-        return res.end(html)
-      }
       if (path.startsWith('/egx/api/')) return handleApi(req, res, path)
       return sendJson(res, 404, { error: 'not found' })
     },
   }))
-  ctx.effect(() => ctx.webServer.tapIndex((html) => html.replace('</body>', `${NAV_LINK}</body>`)))
 }

@@ -1,27 +1,39 @@
 {
   "name": "dsh-egx-bundle",
-  "version": "0.1.0",
-  "description": "EGX30 analyst for DeepSeek Harness: valuation MCP server, methodology skills and a restricted analyst preset",
+  "version": "0.2.0",
+  "description": "EGX30 analyst for DeepSeek Harness: valuation MCP server, methodology skills, a restricted analyst preset and a portfolio panel",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",
   "exports": {
+    ".": "./host/egx-portfolio.mjs",
+    "./client": "./client.js",
     "./cordis.patch.yml": "./cordis.patch.yml",
     "./presets/egx-analyst.patch.yml": "./presets/egx-analyst.patch.yml",
-    "./host/egx-portfolio.mjs": "./host/egx-portfolio.mjs",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
     "./package.json": "./package.json"
   },
   "files": [
+    "host/egx-portfolio.mjs",
+    "client.js",
     "cordis.patch.yml",
     "presets/egx-analyst.patch.yml",
-    "host/egx-portfolio.mjs",
-    "host/portfolio.html"
+    "locale/*.json",
+    "icon.svg"
   ],
   "dsh": {
     "bundle": {
       "patch": [
         "./cordis.patch.yml",
         "./presets/egx-analyst.patch.yml"
+      ]
+    },
+    "client": {
+      "platform": "web",
+      "inject": [
+        "@deepseek-ai/dsh-client-ui-layout",
+        "@deepseek-ai/dsh-client-ui-sidebar"
       ]
     }
   }

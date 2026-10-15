@@ -295,6 +295,34 @@ function rangePosition(low, high, price) {
 const RATING_LEVEL = { safe: 1, balanced: 2, high_risk: 3 }
 const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
 
+/** Parses what the user types as a number: Arabic-Indic digits, «٫»/«,» decimals and spaces allowed. */
+function parseNumberInput(text) {
+  if (text == null) return null
+  const latin = String(text).trim()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/٫/g, '.').replace(/[٬\s]/g, '')
+  if (!latin) return null
+  const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(latin) ? latin.replace(/,/g, '') : latin.replace(',', '.')
+  const value = Number(normalized)
+  return Number.isFinite(value) ? value : NaN
+}
+
+/**
+ * The execution date typed as «يوم/شهر/سنة» (or ISO). Empty → null (the server keeps it empty and
+ * the UI reads that as today). Returns 'YYYY-MM-DD', null, or undefined when it is not a real date.
+ */
+function parseDayInput(text) {
+  const raw = String(text || '').trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+  if (!raw) return null
+  let y, m, d
+  let match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw)
+  if (match) { [, d, m, y] = match.map(Number) } else if ((match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw))) { [, y, m, d] = match.map(Number) } else return undefined
+  const date = new Date(Date.UTC(y, m - 1, d))
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return undefined
+  return `${y}-${two(m)}-${two(d)}`
+}
+
     const React = require('react')
     const { useState, useEffect, useCallback } = React
     const h = React.createElement
@@ -307,28 +335,6 @@ const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'م�
     const QM_CSS = "/* «قيمة» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font\n   stacks): they live on body and switch with the Harness theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-h3 { margin: 0; font-size: 14px; font-weight: 600; }\n.qm .q-hero { font-size: 30px; font-weight: 600; line-height: 1.1; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-blue { color: var(--dsw-alias-state-business-primary); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-strong { font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-grow { flex: 1 1 auto; min-width: 0; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .q-pad { padding: 12px 16px; }\n.qm .q-sunken { background: var(--dsw-alias-bg-module-platform); }\n\n/* Panel header: icon + «قيمة» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 28px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-icon-btn { width: 32px; padding: 0; }\n.qm .q-field { display: inline-flex; align-items: center; gap: 8px; height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; }\n.qm .q-field:focus-within { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-field input, .qm .q-field select { border: 0; background: transparent; outline: none; min-width: 0; height: 30px; font-size: 13px; }\n.qm .q-field select { cursor: pointer; }\n.qm .q-field select option { color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1); }\n.qm .q-field.on { border-color: var(--dsw-alias-state-business-primary); background: var(--dsw-alias-state-business-tertiary); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; padding: 2px; gap: 2px; background: var(--dsw-alias-bg-module-platform); border-radius: var(--dsw-radius-sm); }\n.qm .q-seg button { appearance: none; border: 0; background: transparent; height: 28px; padding: 0 12px; border-radius: 6px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; white-space: nowrap; }\n.qm .q-seg button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary); font-weight: 500;\n  box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n\n/* Chips */\n.qm .q-chip { display: inline-flex; align-items: center; gap: 4px; height: 20px; padding: 0 6px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }\n.qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }\n.qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */\n.qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;\n  border: 1px solid var(--dsw-alias-state-warn-primary); }\n.qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;\n  cursor: pointer; display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-fchip:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .q-fchip[aria-pressed='true'] { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill);\n  color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-fchip .num { font-size: 12px; opacity: .85; }\n.qm .q-fchip.warn:not([aria-pressed='true']) .num { color: var(--dsw-alias-state-warn-label); opacity: 1; font-weight: 600; }\n\n/* Rating: 3 rising bars (1 safe, 2 balanced, 3 high risk) + text. */\n.qm .q-rating { display: inline-flex; align-items: center; gap: 6px; font-size: 12px; white-space: nowrap; }\n.qm .q-bars { display: inline-flex; gap: 2px; align-items: flex-end; direction: ltr; height: 12px; }\n.qm .q-bars i { width: 3px; border-radius: 1px; background: var(--dsw-alias-border-l3); }\n.qm .q-bars i:nth-child(1) { height: 5px; } .qm .q-bars i:nth-child(2) { height: 8px; } .qm .q-bars i:nth-child(3) { height: 12px; }\n.qm .q-r1 .q-bars i:nth-child(-n+1), .qm .q-r2 .q-bars i:nth-child(-n+2), .qm .q-r3 .q-bars i:nth-child(-n+3) { background: var(--dsw-alias-label-secondary); }\n\n/* Grid table (no <table>): set the columns with --cols on the container. */\n.qm .q-scroll { overflow-x: auto; }\n.qm .q-grid { display: grid; grid-template-columns: var(--cols); align-items: center; column-gap: 4px; }\n.qm .q-grid > * { padding: 0 8px; min-width: 0; }\n.qm .q-th { position: sticky; top: 0; z-index: 1; min-height: 40px; background: var(--dsw-alias-bg-module-platform);\n  border-bottom: 1px solid var(--dsw-alias-border-l2); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-th button { appearance: none; border: 0; background: transparent; padding: 0; min-height: 32px; cursor: pointer; color: inherit;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 12px; }\n.qm .q-th button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-th button.on { color: var(--dsw-alias-label-primary); font-weight: 600; }\n.qm .q-tr { min-height: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .q-tr.q-click { cursor: pointer; }\n.qm .q-tr.q-click:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-tr.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .q-tr.q-sel { background: var(--dsw-alias-interactive-bg-active); box-shadow: inset 3px 0 0 var(--dsw-alias-state-business-primary); }\n.qm .q-cell { display: flex; flex-direction: column; gap: 2px; align-items: flex-start; padding-block: 8px; }\n.qm .q-cell small { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.35; }\n\n/* Valuation ruler: bear–bull band (soft blue), protection tick (amber), fair tick (blue), price dot. */\n.qm .q-rl { position: relative; display: block; height: 18px; direction: ltr; min-width: 120px; }\n.qm .q-rl .tr { position: absolute; left: 0; right: 0; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); }\n.qm .q-rl .bd { position: absolute; top: 6px; height: 6px; border-radius: 3px; background: var(--dsw-alias-state-business-primary); opacity: .3; }\n.qm .q-rl .tk { position: absolute; top: 1px; width: 3px; height: 16px; margin-left: -1.5px; border-radius: 1px; }\n.qm .q-rl .tk.fair { background: var(--dsw-alias-state-business-primary); }\n.qm .q-rl .tk.prot { background: var(--dsw-alias-state-warn-primary); }\n.qm .q-rl .dt { position: absolute; top: 2px; width: 10px; height: 10px; margin-left: -8px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-rl-lg { height: 28px; }\n.qm .q-rl-lg .tr, .qm .q-rl-lg .bd { top: 10px; height: 8px; border-radius: 4px; }\n.qm .q-rl-lg .tk { top: 3px; height: 22px; width: 4px; margin-left: -2px; }\n.qm .q-rl-lg .dt { top: 5px; width: 12px; height: 12px; margin-left: -9px; }\n.qm .q-rl-labels { position: relative; height: 34px; direction: ltr; font-size: 12px; }\n.qm .q-rl-labels > span { position: absolute; transform: translateX(-50%); white-space: nowrap; text-align: center; line-height: 1.4; }\n.qm .q-vline { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 12px; margin-top: 4px; }\n.qm .q-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-status.under { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n\n/* Large valuation ruler with labels (Market detail, Analysis summary) */\n.qm .m-bigruler { position: relative; height: 112px; direction: ltr; margin: 0 24px; }\n.qm .m-bigruler .lg { position: absolute; transform: translateX(-50%); white-space: nowrap; font-size: 12px; text-align: center; line-height: 1.4; }\n.qm .m-bigruler .bar { position: absolute; top: 46px; height: 12px; border-radius: 6px; }\n.qm .m-bigruler .edge { position: absolute; top: 44px; width: 2px; height: 16px; margin-left: -1px; background: var(--dsw-alias-label-tertiary); }\n.qm .m-bigruler .tk { position: absolute; top: 40px; width: 4px; height: 24px; margin-left: -2px; border-radius: 2px; }\n.qm .m-bigruler .dt { position: absolute; top: 43px; width: 14px; height: 14px; margin-left: -10px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n\n/* 52-week range */\n.qm .q-b52 { position: relative; height: 6px; border-radius: 3px; background: var(--dsw-alias-border-l4); direction: ltr; margin-top: 6px; }\n.qm .q-b52 .fl { position: absolute; left: 0; top: 0; height: 6px; border-radius: 3px; background: var(--dsw-alias-label-secondary); opacity: .55; }\n.qm .q-b52 .dt { position: absolute; top: -3px; width: 8px; height: 8px; margin-left: -7px; border-radius: 50%; background: var(--dsw-alias-label-primary);\n  border: 3px solid var(--dsw-alias-bg-base); box-sizing: content-box; box-shadow: 0 0 0 1px var(--dsw-alias-label-primary); }\n.qm .q-b52n { display: flex; justify-content: space-between; direction: ltr; font-size: 12px; margin-top: 6px; color: var(--dsw-alias-label-secondary); }\n\n/* Fact cells */\n.qm .q-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .q-facts > div { padding: 8px 12px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; min-width: 0; }\n.qm .q-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; align-items: center; gap: 6px; }\n.qm .q-kv b { font-weight: 500; font-size: 14px; }\n\n/* Tabs */\n.qm .q-tabs { display: flex; gap: 4px; padding: 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l2); overflow-x: auto; }\n.qm .q-tab { appearance: none; border: 0; background: transparent; height: 40px; padding: 0 12px; cursor: pointer; color: var(--dsw-alias-label-secondary);\n  border-bottom: 2px solid transparent; margin-bottom: -1px; font-size: 14px; white-space: nowrap; }\n.qm .q-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-tab[aria-selected='true'] { color: var(--dsw-alias-label-primary); font-weight: 600; border-bottom-color: var(--dsw-alias-label-primary); }\n\n/* Help (؟) toggle and the protection definition note */\n.qm .q-help { appearance: none; width: 20px; height: 20px; border-radius: 50%; border: 1px solid var(--dsw-alias-border-l4); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; display: inline-grid; place-items: center; flex: none; }\n.qm .q-help:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-help[aria-expanded='true'] { background: var(--dsw-alias-state-warn-tertiary); border-color: var(--dsw-alias-state-warn-primary); }\n.qm .q-note { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-state-warn-tertiary);\n  border: 1px solid var(--dsw-alias-state-warn-primary); color: var(--dsw-alias-label-primary); }\n.qm .q-note-quiet { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.7; background: var(--dsw-alias-bg-module-platform);\n  color: var(--dsw-alias-label-secondary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, toast, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); z-index: 10; padding: 10px 16px; border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-alias-tooltip-bg, var(--dsw-alias-button-primary-fill)); color: var(--dsw-alias-label-primary-foreground); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n.qm .q-mini-bar { display: inline-flex; width: 56px; height: 4px; border-radius: 2px; overflow: hidden; background: var(--dsw-alias-border-l4); direction: ltr; vertical-align: middle; }\n.qm .q-mini-bar > span { display: block; height: 100%; }\n"
     // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.
     const N = (text, cls) => h('span', { className: cls ? `num ${cls}` : 'num' }, text)
-    const num = { format: (v) => fmtNumber(v, 2) }
-    const qtyFmt = { format: fmtQty }
-    const pct = { format: (v) => fmtPct(v, { signed: true }) }
-    const weightFmt = { format: (v) => fmtPct(v) }
-    const RATING = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
-    const STATUS = {
-      above_fair_value: 'أعلى من السعر العادل',
-      at_or_below_fair_value: 'بين سعر الحماية والسعر العادل',
-      below_protection: 'تحت سعر الحماية — يحتاج مراجعة',
-    }
-    const money = (v) => (v == null ? '—' : N(fmtPrice(v)))
-    const moneySigned = (v) => (v == null ? '—' : N(fmtSigned(v), toneOf(v)))
-    const pctSigned = (v) => (v == null ? '—' : N(fmtPct(v, { signed: true }), toneOf(v)))
-    const dayFmt = new Intl.DateTimeFormat('ar-EG-u-nu-latn', { day: 'numeric', month: 'long', timeZone: 'UTC' })
-    const fmtDay = (iso) => (iso ? dayFmt.format(new Date(`${iso.slice(0, 10)}T00:00:00Z`)) : '—')
-    const tone = toneOf
-    // «أقل من العادل بـ 6.9%»: words, then the number in its own span; the sentence ends on it.
-    const marginParts = (price, fair) => {
-      const m = marginSentence(price, fair)
-      if (!m) return []
-      return [m.mark, ' ', m.text, m.value ? ' ' : null, m.value ? N(m.value) : null]
-    }
 
     async function api(method, path, body) {
       const init = { method, headers: {} }
@@ -510,84 +516,6 @@ async function copyValuationPrompt(symbol, toast) {
 }
 
 
-    const CSS = `
-.egxp-page { height: 100%; overflow: auto; box-sizing: border-box; padding: 0 clamp(24px, 4vw, 48px) 48px;
-  color: var(--dsw-alias-label-primary); display: flex; flex-direction: column; align-items: center; gap: 24px; }
-.egxp-page > * { width: 100%; max-width: 1100px; }
-.egxp-head { padding-top: 28px; display: flex; flex-direction: column; gap: 4px; }
-[data-platform='darwin'] .egxp-head { padding-top: calc(28px + var(--dsh-frame-top-clearance, 0px)); }
-.egxp-title { margin: 0; font-size: 20px; font-weight: 500; line-height: 28px; }
-.egxp-intro { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
-.egxp-cards { display: flex; flex-wrap: wrap; gap: 12px 0; padding: 4px 0 14px; border-bottom: 1px solid var(--dsw-alias-border-l3); }
-.egxp-card { padding: 0 20px; border-inline-start: 1px solid var(--dsw-alias-border-l3); min-width: 140px; }
-.egxp-card:first-child { padding-inline-start: 0; border-inline-start: 0; }
-.egxp-card-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.egxp-card-value { font-size: 18px; font-weight: 500; margin-top: 2px; font-variant-numeric: tabular-nums; }
-.egxp-card-note { font-size: 12px; color: var(--dsw-alias-label-tertiary); margin-top: 2px; }
-.egxp-section { border: 1px solid var(--dsw-alias-border-l3); border-radius: 12px; padding: 16px; }
-.egxp-section-title { margin: 0 0 12px; font-size: 14px; font-weight: 500; }
-.egxp-form { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; align-items: end; }
-.egxp-field { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
-.egxp-input { font: inherit; font-size: 13px; color: var(--dsw-alias-label-primary); background: var(--dsw-alias-bg-layer-1);
-  border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; padding: 6px 10px; min-width: 0; height: 32px; box-sizing: border-box; }
-.egxp-input:focus-visible, .egxp-btn:focus-visible, .egxp-seg button:focus-visible { outline: 2px solid var(--dsw-alias-brand-primary); outline-offset: 1px; }
-.egxp-seg { display: flex; gap: 2px; padding: 2px; border: 1px solid var(--dsw-alias-border-l2); border-radius: 8px; height: 32px; box-sizing: border-box; }
-.egxp-seg button { flex: 1; border: 0; border-radius: 6px; background: transparent; color: var(--dsw-alias-label-secondary); font: inherit; font-size: 12px; cursor: pointer; }
-.egxp-seg button[aria-pressed='true'] { background: var(--dsw-alias-bg-layer-3); color: var(--dsw-alias-label-primary); }
-.egxp-btn { font: inherit; font-size: 13px; height: 32px; padding: 0 14px; border-radius: 8px; cursor: pointer;
-  border: 1px solid var(--dsw-alias-border-l2); background: transparent; color: var(--dsw-alias-label-primary); }
-.egxp-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.egxp-btn-primary { background: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); border-color: transparent; }
-.egxp-btn-primary:hover { background: var(--dsw-alias-button-primary-hover); }
-.egxp-btn-small { height: 26px; padding: 0 10px; font-size: 12px; }
-.egxp-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger); color: var(--dsw-alias-state-error-primary); }
-.egxp-btn:disabled { opacity: .55; cursor: default; }
-.egxp-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; margin-top: 8px; }
-.egxp-table-wrap { overflow-x: auto; }
-.egxp-table { width: 100%; border-collapse: collapse; font-size: 13px; font-variant-numeric: tabular-nums; }
-.egxp-table th { font-weight: 500; font-size: 12px; color: var(--dsw-alias-label-secondary); text-align: start; padding: 8px; white-space: nowrap; border-bottom: 1px solid var(--dsw-alias-border-l3); }
-.egxp-table td { padding: 10px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); white-space: nowrap; vertical-align: middle; }
-.egxp-table tr:last-child td { border-bottom: 0; }
-.egxp-num { text-align: end !important; }
-.egxp-sym { font-weight: 500; }
-.egxp-sub { font-size: 11px; color: var(--dsw-alias-label-tertiary); }
-.egxp-badge { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 11px; font-weight: 500; border: 1px solid currentColor; }
-.egxp-safe, .egxp-balanced, .egxp-high_risk { color: var(--dsw-alias-label-secondary); }
-.egxp-status-below_protection { color: var(--dsw-alias-state-warn-label); font-weight: 600; }
-.egxp-status-at_or_below_fair_value, .egxp-status-above_fair_value { color: var(--dsw-alias-label-secondary); }
-.egxp-empty { padding: 24px 8px; text-align: center; color: var(--dsw-alias-label-tertiary); }
-.egxp-actions { display: flex; gap: 6px; }
-.egxp-cell-input { width: 90px; }
-.egxp-foot { font-size: 12px; color: var(--dsw-alias-label-tertiary); }
-.egxp-filters { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; margin-bottom: 12px; }
-.egxp-filters .egxp-field { min-width: 140px; }
-.egxp-row-link { cursor: pointer; }
-.egxp-row-link:hover td { background: var(--dsw-alias-interactive-bg-hover); }
-.egxp-reason { max-width: 280px; overflow: hidden; text-overflow: ellipsis; }
-.egxp-back { align-self: flex-start; }
-.egxp-chart { height: 260px; direction: ltr; }
-.egxp-grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
-.egxp-kv { width: 100%; border-collapse: collapse; font-size: 13px; }
-.egxp-kv td { padding: 6px 8px; border-bottom: 1px solid var(--dsw-alias-border-l4); vertical-align: top; }
-.egxp-kv td:first-child { color: var(--dsw-alias-label-secondary); white-space: nowrap; width: 40%; }
-.egxp-check-pass { color: var(--dsw-alias-label-secondary); }
-.egxp-check-warn, .egxp-check-fail { color: var(--dsw-alias-state-warn-label); font-weight: 600; }
-.egxp-pre { white-space: pre-wrap; font-size: 13px; line-height: 1.7; margin: 0; }
-.egxp-md { font-size: 14px; line-height: 1.8; }
-.egxp-md h1 { font-size: 18px; font-weight: 500; margin: 8px 0; }
-.egxp-md h2 { font-size: 16px; font-weight: 500; margin: 16px 0 6px; }
-.egxp-md h3 { font-size: 14px; font-weight: 500; margin: 12px 0 4px; }
-.egxp-md p { margin: 6px 0; }
-.egxp-md ul, .egxp-md ol { margin: 6px 0; padding-inline-start: 22px; }
-.egxp-md blockquote { margin: 8px 0; padding: 6px 12px; border-inline-start: 3px solid var(--dsw-alias-border-l2); color: var(--dsw-alias-label-secondary); }
-.egxp-md code { font-size: 12px; padding: 1px 5px; border-radius: 4px; background: var(--dsw-alias-bg-layer-3); }
-.egxp-md table { border-collapse: collapse; margin: 8px 0; font-size: 13px; }
-.egxp-md th, .egxp-md td { border: 1px solid var(--dsw-alias-border-l3); padding: 4px 10px; text-align: start; }
-.egxp-md hr { border: 0; border-top: 1px solid var(--dsw-alias-border-l3); margin: 12px 0; }
-.egxp-legend { display: flex; gap: 16px; font-size: 12px; color: var(--dsw-alias-label-secondary); margin-top: 6px; }
-.egxp-swatch { display: inline-block; width: 12px; height: 3px; border-radius: 2px; vertical-align: middle; margin-inline-end: 4px; }
-`
-
     function PortfolioIcon({ size }) {
       return h('svg', {
         width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor',
@@ -597,175 +525,6 @@ async function copyValuationPrompt(symbol, toast) {
       h('rect', { x: 3.5, y: 8, width: 17, height: 11, rx: 2.5 }),
       h('path', { d: 'M16 13.5h2' }),
       h('path', { d: 'M7 16l2.5-2.5 2 1.5L14 12' }))
-    }
-
-    function Cards({ totals }) {
-      const unpriced = totals.unpriced_holdings
-      return h('div', { className: 'egxp-cards' },
-        h('div', { className: 'egxp-card' },
-          h('div', { className: 'egxp-card-label' }, 'إجمالي التكلفة'),
-          h('div', { className: 'egxp-card-value' }, money(totals.cost), ' ', h('span', { className: 'egxp-sub' }, 'ج.م'))),
-        h('div', { className: 'egxp-card' },
-          h('div', { className: 'egxp-card-label' }, 'القيمة الحالية'),
-          h('div', { className: 'egxp-card-value' }, money(totals.market_value), ' ', h('span', { className: 'egxp-sub' }, 'ج.م'))),
-        h('div', { className: 'egxp-card' },
-          h('div', { className: 'egxp-card-label' }, 'الربح / الخسارة'),
-          h('div', { className: 'egxp-card-value' }, moneySigned(totals.pnl),
-            totals.pnl_pct == null ? null : h('span', { className: 'egxp-sub' }, ' ', pctSigned(totals.pnl_pct)))),
-        h('div', { className: 'egxp-card' },
-          h('div', { className: 'egxp-card-label' }, 'أسهم بدون سعر حالي'),
-          h('div', { className: 'egxp-card-value' }, String(unpriced.length)),
-          unpriced.length ? h('div', { className: 'egxp-card-note' }, `${unpriced.join('، ')} — بانتظار تحديث السوق`) : null))
-    }
-
-    function AddForm({ universe, onAdded }) {
-      const [symbol, setSymbol] = useState('')
-      const [buyPrice, setBuyPrice] = useState('')
-      const [mode, setMode] = useState('amount')
-      const [value, setValue] = useState('')
-      const [buyDate, setBuyDate] = useState('')
-      const [note, setNote] = useState('')
-      const [busy, setBusy] = useState(false)
-      const [error, setError] = useState('')
-
-      async function submit(event) {
-        event.preventDefault()
-        setError('')
-        const price = Number(buyPrice), amount = Number(value)
-        if (!symbol) return setError('اختر السهم.')
-        if (!(price > 0)) return setError('أدخل سعر شراء أكبر من صفر.')
-        if (!(amount > 0)) return setError(mode === 'amount' ? 'أدخل المبلغ المستثمر.' : 'أدخل عدد الأسهم.')
-        const body = { symbol, buy_price: price, buy_date: buyDate || null, note: note || null }
-        body[mode === 'amount' ? 'invested_amount' : 'quantity'] = amount
-        setBusy(true)
-        try {
-          await api('POST', '/egx/api/holdings', body)
-          setSymbol(''); setBuyPrice(''); setValue(''); setBuyDate(''); setNote('')
-          onAdded()
-        } catch (e) {
-          setError(e.message)
-        } finally {
-          setBusy(false)
-        }
-      }
-
-      const field = (label, control) => h('label', { className: 'egxp-field' }, label, control)
-      return h('section', { className: 'egxp-section' },
-        h('h2', { className: 'egxp-section-title' }, 'إضافة سهم'),
-        h('form', { className: 'egxp-form', onSubmit: submit, noValidate: true },
-          field('السهم', h('select', { className: 'egxp-input', value: symbol, onChange: (e) => setSymbol(e.target.value) },
-            h('option', { value: '' }, 'اختر سهمًا'),
-            universe.map((c) => h('option', { key: c.symbol, value: c.symbol }, `${c.symbol} — ${c.name}`)))),
-          field('سعر الشراء (ج.م)', h('input', { className: 'egxp-input', type: 'number', inputMode: 'decimal', min: 0, step: 'any',
-            value: buyPrice, onChange: (e) => setBuyPrice(e.target.value) })),
-          h('div', { className: 'egxp-field' },
-            h('div', { className: 'egxp-seg', role: 'group', 'aria-label': 'طريقة الإدخال' },
-              h('button', { type: 'button', 'aria-pressed': mode === 'amount', onClick: () => setMode('amount') }, 'المبلغ المستثمر'),
-              h('button', { type: 'button', 'aria-pressed': mode === 'quantity', onClick: () => setMode('quantity') }, 'عدد الأسهم')),
-            h('input', { className: 'egxp-input', type: 'number', inputMode: 'decimal', min: 0, step: 'any', value,
-              'aria-label': mode === 'amount' ? 'المبلغ المستثمر بالجنيه' : 'عدد الأسهم',
-              placeholder: mode === 'amount' ? 'مثال: 5000' : 'مثال: 100', onChange: (e) => setValue(e.target.value) })),
-          field('تاريخ الشراء (اختياري)', h('input', { className: 'egxp-input', type: 'date', value: buyDate, onChange: (e) => setBuyDate(e.target.value) })),
-          field('ملاحظة (اختياري)', h('input', { className: 'egxp-input', type: 'text', maxLength: 200, value: note, onChange: (e) => setNote(e.target.value) })),
-          h('button', { className: 'egxp-btn egxp-btn-primary', type: 'submit', disabled: busy }, busy ? 'جارٍ الإضافة…' : 'إضافة')),
-        error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null)
-    }
-
-    function HoldingRow({ row, onChanged, onError }) {
-      const [editing, setEditing] = useState(false)
-      const [confirming, setConfirming] = useState(false)
-      const [quantity, setQuantity] = useState(String(row.quantity))
-      const [buyPrice, setBuyPrice] = useState(String(row.buy_price))
-      const [busy, setBusy] = useState(false)
-
-      async function run(action) {
-        setBusy(true)
-        try { await action(); onChanged() } catch (e) { onError(e.message) } finally { setBusy(false) }
-      }
-      const save = () => run(async () => {
-        await api('PATCH', `/egx/api/holdings/${row.id}`, { quantity: Number(quantity), buy_price: Number(buyPrice) })
-        setEditing(false)
-      })
-      const remove = () => run(() => api('DELETE', `/egx/api/holdings/${row.id}`, {}))
-
-      const td = (content, numeric) => h('td', { className: numeric ? 'egxp-num' : undefined }, content)
-      const sub = (text, cls) => h('div', { className: `egxp-sub ${cls || ''}` }, text)
-      const actions = editing
-        ? [h('button', { key: 's', className: 'egxp-btn egxp-btn-small egxp-btn-primary', disabled: busy, onClick: save }, 'حفظ'),
-           h('button', { key: 'c', className: 'egxp-btn egxp-btn-small', onClick: () => setEditing(false) }, 'إلغاء')]
-        : confirming
-          ? [h('button', { key: 'd', className: 'egxp-btn egxp-btn-small egxp-btn-danger', disabled: busy, onClick: remove }, 'تأكيد الحذف'),
-             h('button', { key: 'c', className: 'egxp-btn egxp-btn-small', onClick: () => setConfirming(false) }, 'إلغاء')]
-          : [h('button', { key: 'e', className: 'egxp-btn egxp-btn-small', onClick: () => setEditing(true) }, 'تعديل'),
-             h('button', { key: 'r', className: 'egxp-btn egxp-btn-small egxp-btn-danger', onClick: () => setConfirming(true) }, 'حذف')]
-
-      return h('tr', null,
-        td([h('div', { key: 's', className: 'egxp-sym' }, row.symbol), sub(row.name || '')]),
-        td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: quantity,
-          'aria-label': 'الكمية', onChange: (e) => setQuantity(e.target.value) }) : N(qtyFmt.format(row.quantity)), true),
-        td(editing ? h('input', { className: 'egxp-input egxp-cell-input', type: 'number', min: 0, step: 'any', value: buyPrice,
-          'aria-label': 'سعر الشراء', onChange: (e) => setBuyPrice(e.target.value) }) : money(row.buy_price), true),
-        td(money(row.cost), true),
-        td([money(row.current_price), row.price_as_of ? sub(N(fmtDate(row.price_as_of))) : null], true),
-        td(money(row.market_value), true),
-        td([h('span', { key: 'p' }, moneySigned(row.pnl)),
-          row.pnl_pct == null ? null : h('div', { key: 'q', className: 'egxp-sub' }, pctSigned(row.pnl_pct))], true),
-        td(row.weight == null ? '—' : N(weightFmt.format(row.weight)), true),
-        td(money(row.fair_value), true),
-        td(money(row.protection_price), true),
-        td(row.risk_rating
-          ? h('span', { className: `egxp-badge egxp-${row.risk_rating}` }, RATING[row.risk_rating] || row.risk_rating)
-          : h('span', { className: 'egxp-sub' }, 'لم يُقيَّم')),
-        td(row.status ? h('span', { className: `egxp-status-${row.status}` }, STATUS[row.status] || row.status) : '—'),
-        td(h('div', { className: 'egxp-actions' }, actions)))
-    }
-
-    function PortfolioPage() {
-      const [data, setData] = useState(null)
-      const [universe, setUniverse] = useState([])
-      const [error, setError] = useState('')
-
-      const load = useCallback(async () => {
-        setError('')
-        try {
-          const next = await api('GET', '/egx/api/portfolio')
-          setData(next)
-          qima.set(next)
-        } catch (e) { setError(e.message) }
-      }, [])
-
-      useEffect(() => {
-        load()
-        api('GET', '/egx/api/universe')
-          .then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol))))
-          .catch((e) => setError(`تعذّر تحميل قائمة الأسهم: ${e.message}`))
-      }, [load])
-
-      const headers = ['السهم', 'الكمية', 'سعر الشراء', 'التكلفة', 'السعر الحالي', 'القيمة', 'الربح/الخسارة', 'الوزن',
-        'السعر العادل', 'سعر الحماية', 'التصنيف', 'الموقع من التقييم', '']
-      const numericHeader = new Set([1, 2, 3, 4, 5, 6, 7, 8, 9])
-
-      let body
-      if (!data) body = h('tr', null, h('td', { colSpan: 13, className: 'egxp-empty' }, error ? 'تعذّر تحميل المحفظة.' : 'جارٍ التحميل…'))
-      else if (!data.holdings.length) body = h('tr', null, h('td', { colSpan: 13, className: 'egxp-empty' }, 'لا توجد أسهم بعد. أضف أول سهم من النموذج أعلاه.'))
-      else body = data.holdings.map((row) => h(HoldingRow, { key: `${row.id}:${row.updated_at}`, row, onChanged: load, onError: setError }))
-
-      return h('div', { className: 'qm egxp-page', dir: 'rtl', lang: 'ar' },
-        h('style', null, QM_CSS + CSS),
-        h(PanelHeader, { here: 'المحفظة', demo: Boolean(data && data.demo_data) }),
-        data ? h(Cards, { totals: data.totals }) : null,
-        h(AddForm, { universe, onAdded: load }),
-        h('section', { className: 'egxp-section' },
-          h('h2', { className: 'egxp-section-title' }, 'الأسهم'),
-          h('div', { className: 'egxp-table-wrap' },
-            h('table', { className: 'egxp-table' },
-              h('thead', null, h('tr', null, headers.map((label, i) =>
-                h('th', { key: i, className: numericHeader.has(i) ? 'egxp-num' : undefined }, label)))),
-              h('tbody', null, body))),
-          error ? h('div', { className: 'egxp-error', role: 'alert' }, error) : null),
-        h('p', { className: 'egxp-foot' },
-          'هذه الصفحة تعرض أرقامًا وتقييمات للفهم والمتابعة، وليست توصية بالشراء أو البيع. القرار قرارك. ',
-          'الأسعار من آخر تحديث للسوق (EODHD، إغلاقات يومية)، والتقييمات من آخر تقييم محفوظ لكل سهم.'))
     }
 
     // ── Analyses archive ─────────────────────────────────────────────────────
@@ -817,7 +576,7 @@ async function copyValuationPrompt(symbol, toast) {
           const header = cells(line); i += 2
           const rows = []
           while (i < lines.length && isTableRow(lines[i])) rows.push(cells(lines[i++]))
-          blocks.push(h('div', { key: key++, className: 'egxp-table-wrap' }, h('table', null,
+          blocks.push(h('div', { key: key++, className: 'q-scroll' }, h('table', null,
             h('thead', null, h('tr', null, header.map((c, j) => h('th', { key: j }, inline(c, `th${j}`))))),
             h('tbody', null, rows.map((r, ri) => h('tr', { key: ri }, r.map((c, j) => h('td', { key: j, dir: 'auto' }, inline(c, `td${ri}-${j}`)))))))))
           continue
@@ -935,7 +694,7 @@ async function copyValuationPrompt(symbol, toast) {
         box.append(container)
         return () => { box.replaceChildren() }
       }, [name, key])
-      return h('div', { ref, className: 'egxm-tv', style: { height } })
+      return h('div', { ref, style: { height, direction: 'ltr', colorScheme: 'normal' } })
     }
 
 
@@ -2384,6 +2143,274 @@ function MarketPage() {
           h('span', null, 'اضغط على أي صف لعرض تفاصيله أسفل الجدول'))),
       selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue }) : null,
       h(Disclaimer, { extra: 'الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه.' })),
+    toastNode)
+}
+
+    // ── inlined from src/portfolio.js ──
+// «قيمة / المحفظة»: today first and biggest, the add form above the holdings with a live total,
+// and the holdings grid tied to each stock's valuation (§7.4). Inlined into the factory scope.
+// Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
+
+const PORTFOLIO_CSS = "/* Portfolio screen («قيمة / المحفظة»). Harness tokens only. */\n\n.qm .p-summary { display: grid; grid-template-columns: minmax(200px, 1.2fr) repeat(4, minmax(150px, 1fr)); }\n.qm .p-summary > div { padding: 16px; border-inline-start: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .p-summary > div:first-child { border-inline-start: 0; background: var(--dsw-alias-bg-module-platform); }\n.qm .p-summary small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .p-big { font-size: 24px; font-weight: 600; }\n@media (max-width: 1000px) { .qm .p-summary { grid-template-columns: 1fr 1fr; } .qm .p-summary > div { border-inline-start: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); } }\n.qm .p-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n.qm .p-formhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; }\n.qm .p-form { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) auto minmax(110px, 0.8fr) minmax(130px, 1fr); gap: 12px; align-items: end;\n  padding: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }\n@media (max-width: 1000px) { .qm .p-form { grid-template-columns: 1fr 1fr; } }\n.qm .p-form .q-input { width: 100%; }\n.qm .p-form label small { color: var(--dsw-alias-label-tertiary); }\n.qm .p-form .q-label { white-space: normal; }\n.qm .p-formfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 0 16px 16px; }\n.qm .p-total { font-size: 14px; }\n\n.qm .p-g { --cols: minmax(170px, 1.5fr) 92px 88px 96px 100px 72px minmax(200px, 2fr) 76px; min-width: 900px; }\n.qm .p-g > * { padding-block: 10px; }\n.qm .p-row { border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .p-row:last-child { border-bottom: 0; }\n.qm .p-row.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .p-row .q-input { height: 32px; width: 92px; }\n.qm .p-actions { display: flex; gap: 2px; justify-content: flex-end; }\n.qm .p-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding: 12px 16px 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n"
+const HOLDING_SORTS = [['pnl', 'مساهمة الربح/الخسارة'], ['value', 'القيمة'], ['share', 'نسبة من المحفظة']]
+const todayCairo = () => cairoDay(new Date().toISOString())
+
+function SummaryCard({ portfolio, lastClose }) {
+  const t = portfolio.totals
+  const valued = portfolio.holdings.filter((r) => r.fair_value != null)
+  const under = t.below_protection.length
+  const unvalued = portfolio.holdings.length - valued.length
+  return h('section', { className: 'q-card', 'aria-label': 'ملخص المحفظة', style: { overflow: 'hidden' } },
+    h('div', { className: 'p-summary' },
+      h('div', null,
+        h('small', null, h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'اليوم'), t.today_as_of ? [' · حتى إغلاق ', N(fmtDayMonth(t.today_as_of))] : null),
+        t.today_has_fresh
+          ? [h('span', { key: 'v', className: `num q-hero ${toneOf(t.today_change)}` }, fmtSigned(t.today_change)),
+            h('span', { key: 'p', className: `num ${toneOf(t.today_change)}`, style: { fontWeight: 600 } }, fmtPct(t.today_change_pct, { digits: 2, signed: true }))]
+          : [h('span', { key: 'v', className: 'num q-hero q-ter' }, '—'), h('small', { key: 'n' }, 'لا يوجد سعر جديد اليوم لأسهمك')]),
+      h('div', null, h('small', null, 'القيمة الحالية'), N(fmtPrice(t.market_value), 'p-big'), h('small', null, 'ج.م')),
+      h('div', null, h('small', null, 'الربح / الخسارة الكلي'), N(fmtSigned(t.pnl), `p-big ${toneOf(t.pnl)}`),
+        t.pnl_pct == null ? null : h('small', null, N(fmtPct(t.pnl_pct, { signed: true })))),
+      h('div', null, h('small', null, 'التكلفة الإجمالية'), N(fmtPrice(t.cost), 'p-big'), h('small', null, 'ج.م')),
+      h('div', null, h('small', null, 'حالة التقييم'),
+        under ? h('span', { className: 'q-amber' }, 'تحت سعر الحماية: ', N(String(under))) : h('span', { className: 'q-sec' }, 'لا يوجد سهم تحت سعر الحماية'),
+        unvalued ? h('small', null, 'لم يُقيَّم بعد: ', N(String(unvalued))) : null,
+        t.unpriced_holdings.length ? h('small', null, 'بانتظار السعر: ', t.unpriced_holdings.join('، ')) : null)),
+    h('div', { className: 'p-strip' },
+      portfolio.demo_data ? h('span', { className: 'q-chip' }, 'بيانات تجريبية') : null,
+      h('span', null, portfolio.demo_data ? 'المراكز أمثلة توضيحية من بيانات التطوير. ' : '',
+        'الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية',
+        lastClose ? [' (آخر إغلاق ', N(fmtDate(lastClose)), ')'] : null)))
+}
+
+function AddForm({ universe, onAdded, startOpen }) {
+  const [open, setOpen] = useState(startOpen)
+  const [symbol, setSymbol] = useState('')
+  const [price, setPrice] = useState('')
+  const [mode, setMode] = useState('shares')
+  const [amount, setAmount] = useState('')
+  const [date, setDate] = useState('')
+  const [note, setNote] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  useEffect(() => { if (startOpen) setOpen(true) }, [startOpen])
+
+  const sym = symbol.trim().toUpperCase().split(/\s/)[0]
+  const known = universe.find((c) => c.symbol === sym)
+  const p = parseNumberInput(price)
+  const a = parseNumberInput(amount)
+  const valid = p > 0 && a > 0
+  const shares = valid ? (mode === 'shares' ? a : a / p) : null
+  const total = valid ? (mode === 'shares' ? a * p : a) : null
+
+  async function submit(e) {
+    e.preventDefault()
+    setError('')
+    const day = parseDayInput(date)
+    if (!known) return setError('اختر سهمًا من قائمة EGX30.')
+    if (!(p > 0)) return setError('أدخل سعر تنفيذ أكبر من صفر.')
+    if (!(a > 0)) return setError(mode === 'shares' ? 'أدخل عدد الأسهم.' : 'أدخل المبلغ بالجنيه.')
+    if (day === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو اتركه فارغًا لليوم.')
+    const body = { symbol: known.symbol, buy_price: p, buy_date: day || todayCairo(), note: note.trim() || null }
+    body[mode === 'shares' ? 'quantity' : 'invested_amount'] = a
+    setBusy(true)
+    try {
+      await api('POST', '/egx/api/holdings', body)
+      setSymbol(''); setPrice(''); setAmount(''); setDate(''); setNote('')
+      onAdded(known.symbol)
+    } catch (err) {
+      setError(err.message)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const plus = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }, h('path', { d: 'M8 3v10M3 8h10' }))
+  return h('section', { className: 'q-card', 'aria-label': 'إضافة سهم' },
+    h('div', { className: 'p-formhead' },
+      h('button', { type: 'button', className: 'q-btn', 'aria-expanded': open, 'aria-controls': 'p-add-form', onClick: () => setOpen(!open) }, plus, 'أضف سهمًا'),
+      h('span', { className: 'q-meta' }, 'إدخال يدوي بالسعر والتاريخ كما نُفّذ فعلًا.'),
+      h('span', { className: 'q-grow' }),
+      h('button', { type: 'button', className: 'q-btn', disabled: true, title: 'قريبًا: رفع ملف جداول فيه الرمز والكمية وسعر التنفيذ والتاريخ لإضافة كل المراكز مرة واحدة' },
+        'استيراد ملف جداول (CSV) · قريبًا')),
+    open ? h('form', { id: 'p-add-form', onSubmit: submit, noValidate: true },
+      h('div', { className: 'p-form' },
+        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'السهم'),
+          h('input', { className: 'q-input', list: 'p-universe', value: symbol, placeholder: 'ابحث بالرمز أو الاسم، مثل COMI أو التجاري', autoComplete: 'off',
+            onChange: (e) => setSymbol(e.target.value) }),
+          h('datalist', { id: 'p-universe' }, universe.map((c) => h('option', { key: c.symbol, value: c.symbol }, `${c.symbol} — ${c.name_ar || c.name}`))),
+          known ? h('small', { className: 'q-sec' }, known.name_ar) : null),
+        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'سعر التنفيذ (ج.م)'),
+          h('input', { className: 'q-input num', inputMode: 'decimal', value: price, placeholder: '80.00', onChange: (e) => setPrice(e.target.value) })),
+        h('div', { className: 'q-stack' }, h('span', { className: 'q-label', id: 'p-qty-l' }, mode === 'shares' ? 'الكمية' : 'المبلغ'),
+          h('div', { className: 'q-row', style: { flexWrap: 'nowrap', gap: 8 } },
+            h('div', { className: 'q-seg', role: 'group', 'aria-label': 'طريقة إدخال الكمية' },
+              h('button', { type: 'button', 'aria-pressed': mode === 'shares', onClick: () => setMode('shares') }, 'عدد الأسهم'),
+              h('button', { type: 'button', 'aria-pressed': mode === 'amount', onClick: () => setMode('amount') }, 'المبلغ بالجنيه')),
+            h('input', { className: 'q-input num', inputMode: 'decimal', value: amount, 'aria-labelledby': 'p-qty-l', style: { width: 110 },
+              placeholder: mode === 'shares' ? '100' : '8000', onChange: (e) => setAmount(e.target.value) }))),
+        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'تاريخ التنفيذ ', h('small', null, '(اختياري، الافتراضي اليوم)')),
+          h('input', { className: 'q-input', value: date, placeholder: 'يوم/شهر/سنة', inputMode: 'numeric', onChange: (e) => setDate(e.target.value) })),
+        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة ', h('small', null, '(اختياري)')),
+          h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) }))),
+      h('div', { className: 'p-formfoot' },
+        h('span', { className: 'p-total', 'aria-live': 'polite' }, h('span', { className: 'q-sec' }, 'الإجمالي: '),
+          valid ? (mode === 'shares'
+            ? [N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, 'q-strong'), ' ج.م']
+            : [N(fmtPrice(total), 'q-strong'), ' ج.م · الأسهم ', N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 10000) / 10000)}`, 'q-strong')])
+            : h('span', { className: 'q-ter' }, 'أدخل السعر والكمية')),
+        h('span', { className: 'q-grow' }),
+        error ? h('span', { className: 'q-error', role: 'alert' }, error) : null,
+        h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, plus, busy ? 'جارٍ الإضافة…' : 'أضف إلى المحفظة'))) : null)
+}
+
+const EDIT_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinejoin: 'round' },
+  h('path', { d: 'M10.5 2.5l3 3L6 13H3v-3z' }))
+const TRASH_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' },
+  h('path', { d: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5' }))
+
+function HoldingRow({ row, onChanged, onValue }) {
+  const [mode, setMode] = useState('view')
+  const [qty, setQty] = useState(String(row.quantity))
+  const [cost, setCost] = useState(String(row.buy_price))
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const run = async (action) => {
+    setBusy(true); setError('')
+    try { await action(); setMode('view'); onChanged() } catch (e) { setError(e.message) } finally { setBusy(false) }
+  }
+  const save = () => {
+    const q = parseNumberInput(qty), c = parseNumberInput(cost)
+    if (!(q > 0) || !(c > 0)) return setError('الكمية والسعر لازم يكونوا أكبر من صفر')
+    return run(() => api('PATCH', `/egx/api/holdings/${row.id}`, { quantity: q, buy_price: c }))
+  }
+  const remove = () => run(() => api('DELETE', `/egx/api/holdings/${row.id}`, {}))
+  const under = row.status === 'below_protection'
+  const editing = mode === 'edit'
+  const label = `${row.symbol} ${row.name_ar || ''}`.trim()
+  return h('div', { className: `q-grid p-g p-row${under ? ' q-warn' : ''}`, role: 'row' },
+    h('span', { className: 'q-cell', role: 'cell' },
+      h('b', { className: 'q-sym' }, row.symbol), h('span', null, row.name_ar || row.name),
+      editing
+        ? h('span', { className: 'q-row', style: { gap: 6 } },
+          h('input', { className: 'q-input num', value: qty, 'aria-label': `عدد أسهم ${label}`, onChange: (e) => setQty(e.target.value) }),
+          h('small', null, 'سهم @'),
+          h('input', { className: 'q-input num', value: cost, 'aria-label': `سعر التنفيذ لـ ${label}`, onChange: (e) => setCost(e.target.value) }))
+        : h('small', null, N(fmtQty(row.quantity)), ' سهم · متوسط التكلفة ', N(fmtPrice(row.buy_price)))),
+    h('span', { role: 'cell' }, h(PriceCell, { price: row.current_price, asOf: row.price_as_of, stale: row.price_stale, kind: row.price_as_of && row.price_as_of.length > 10 ? 'delayed' : 'close' })),
+    h('span', { className: 'q-cell', role: 'cell' },
+      row.today_change != null
+        ? [N(fmtSigned(row.today_change), toneOf(row.today_change)), h('small', { key: 'p' }, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct)))]
+        : row.price_stale ? [N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), 'q-ter'), h('small', { key: 's' }, 'جلسة ', N(fmtDayMonth(row.price_as_of)))]
+          : h('span', { className: 'q-ter' }, '—')),
+    h('span', { role: 'cell' }, N(fmtPrice(row.market_value))),
+    h('span', { className: 'q-cell', role: 'cell' }, N(fmtSigned(row.pnl), toneOf(row.pnl)),
+      row.pnl_pct == null ? null : h('small', null, N(fmtPct(row.pnl_pct, { signed: true }), toneOf(row.pnl_pct)))),
+    h('span', { role: 'cell' }, N(fmtPct(row.share_of_portfolio))),
+    h('span', { className: 'q-cell', role: 'cell', style: { alignItems: 'stretch' } },
+      row.fair_value != null
+        ? [h(Ruler, { key: 'r', fair: row.fair_value, bear: row.bear, bull: row.bull, price: row.current_price }),
+          row.current_price != null ? h(MarginText, { key: 'm', price: row.current_price, fair: row.fair_value }) : null,
+          under ? h('small', { key: 'u' }, 'وأقل من العادل بـ ', N(fmtPct(row.margin_to_fair)))
+            : row.current_price != null ? h('small', { key: 'u' }, row.status === 'above_fair_value' ? 'فوق العادل وفوق سعر الحماية' : 'فوق سعر الحماية') : null]
+        : [h('span', { key: 'n', className: 'q-status' }, h(StatusMark, { status: 'between' }), 'لم يُقيَّم بعد'),
+          h('button', { key: 'b', type: 'button', className: 'q-link', style: { padding: 0, minHeight: 28 }, onClick: () => onValue(row.symbol) }, 'اطلب التقييم من المحادثة')]),
+    h('span', { className: 'p-actions', role: 'cell' },
+      editing
+        ? [h('button', { key: 's', type: 'button', className: 'q-btn q-btn-sm q-btn-p', disabled: busy, onClick: save }, 'حفظ'),
+          h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => { setMode('view'); setQty(String(row.quantity)); setCost(String(row.buy_price)) } }, 'إلغاء')]
+        : mode === 'confirm'
+          ? [h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', disabled: busy, onClick: remove }, 'احذف'),
+            h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')]
+          : [h('button', { key: 'e', type: 'button', className: 'q-btn q-icon-btn q-btn-quiet', 'aria-label': `تعديل ${label}`, title: 'تعديل', onClick: () => setMode('edit') }, EDIT_ICON),
+            h('button', { key: 'r', type: 'button', className: 'q-btn q-icon-btn q-btn-quiet q-btn-danger', 'aria-label': `حذف ${label}`, title: 'حذف', onClick: () => setMode('confirm') }, TRASH_ICON)],
+      error ? h('span', { className: 'q-error', role: 'alert', style: { fontSize: 12 } }, error) : null))
+}
+
+function sortHoldings(rows, key) {
+  const value = { pnl: (r) => r.pnl, value: (r) => r.market_value, share: (r) => r.share_of_portfolio }[key]
+  return rows.slice().sort((a, b) => {
+    const x = value(a), y = value(b)
+    if (x == null && y == null) return 0
+    if (x == null) return 1
+    if (y == null) return -1
+    return y - x
+  })
+}
+
+function PortfolioPage() {
+  const portfolio = useQima()
+  const [universe, setUniverse] = useState([])
+  const [market, setMarket] = useState(null)
+  const [sort, setSort] = useState('pnl')
+  const [help, setHelp] = useState(false)
+  const [toastNode, toast] = useToast()
+  useEffect(() => {
+    qima.refresh()
+    api('GET', '/egx/api/universe').then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol)))).catch(() => {})
+    api('GET', '/egx/api/market').then(setMarket).catch(() => {})
+  }, [])
+  const refresh = () => qima.refresh()
+  const onValue = (symbol) => copyValuationPrompt(symbol, toast)
+  const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
+  const session = market ? sessionLine(market.as_of, market.session_open) : null
+  const run = market && market.last_sync
+  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+
+  const holdings = portfolio && portfolio.holdings ? sortHoldings(portfolio.holdings, sort) : []
+  const loading = portfolio === undefined
+  const failed = portfolio === null
+  const empty = portfolio && !portfolio.holdings.length
+
+  const headerMeta = market ? h('span', { className: 'q-meta', style: { marginInlineStart: 'auto' } },
+    lastClose ? ['إغلاق ', N(fmtDayMonth(lastClose))] : null,
+    run && run.finished_at ? [' · آخر مزامنة ', N(fmtTime(run.finished_at))] : null,
+    used != null ? [' · تحديثات الأسعار اليوم ', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit))] : null,
+    ' · المصدر EODHD (مزوّد الأسعار)',
+    session ? [' · ', session.text, session.time ? ' ' : null, session.time ? N(session.time) : null] : null) : null
+
+  let content
+  if (loading) content = h('div', { className: 'q-card q-pad', 'aria-busy': true }, h(Skeleton, { width: '30%' }), h('br'), h(Skeleton, { width: '80%' }), h('br'), h(Skeleton, { width: '60%' }))
+  else if (failed) content = h('div', { className: 'q-card q-empty', role: 'alert' }, h('span', { className: 'q-h2' }, 'تعذّر تحميل المحفظة'),
+    h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة أخرى'))
+  else if (empty) content = [
+    h('div', { key: 'e', className: 'q-card q-empty' },
+      h(QimaIcon, { state: 'neutral', size: 40 }),
+      h('span', { className: 'q-h2' }, 'محفظتك فاضية'),
+      h('span', null, 'تقدر تستخدم قيمة للتحليل بس، أو تضيف الأسهم اللي عندك عشان تشوف حركتها اليومية وموقعها من التقييم.'),
+      h('small', { className: 'q-ter' }, 'أيقونة قيمة تفضل محايدة لحد ما تضيف مراكز.')),
+    h(AddForm, { key: 'f', universe, onAdded: refresh, startOpen: true }),
+  ]
+  else content = [
+    h(SummaryCard, { key: 's', portfolio, lastClose }),
+    h(AddForm, { key: 'f', universe, onAdded: refresh, startOpen: false }),
+    h('section', { key: 'h', className: 'q-card', 'aria-label': 'المراكز', style: { overflow: 'hidden' } },
+      h('div', { className: 'p-formhead' },
+        h('h2', { className: 'q-h2' }, 'المراكز ', h('span', { className: 'q-sec', style: { fontSize: 13, fontWeight: 400 } }, '(', N(String(holdings.length)), ')')),
+        h('span', { className: 'q-grow' }),
+        h('span', { className: 'q-meta' }, 'ترتيب حسب'),
+        h('div', { className: 'q-seg', role: 'group', 'aria-label': 'ترتيب المراكز' },
+          HOLDING_SORTS.map(([key, label]) => h('button', { key, type: 'button', 'aria-pressed': sort === key, onClick: () => setSort(key) }, label)))),
+      h('div', { className: 'q-scroll', role: 'table', 'aria-label': 'المراكز' },
+        h('div', { className: 'q-grid p-g q-th', role: 'row' },
+          ['السهم', 'آخر سعر', 'اليوم', 'القيمة', 'الربح / الخسارة', 'نسبة من المحفظة', 'موضع السعر من التقييم', ''].map((t, i) => h('span', { key: i, role: 'columnheader' }, t))),
+        holdings.map((r) => h(HoldingRow, { key: `${r.id}:${r.updated_at}`, row: r, onChanged: refresh, onValue }))),
+      h('div', { className: 'p-legend' },
+        h('span', { className: 'm-key' }, h('span', { style: { width: 10, height: 10, borderRadius: '50%', background: 'var(--dsw-alias-label-primary)', display: 'inline-block' } }), 'آخر إغلاق'),
+        h('span', { className: 'm-key' }, h('span', { style: { width: 3, height: 14, background: 'var(--dsw-alias-state-warn-primary)', display: 'inline-block' } }), 'سعر الحماية',
+          h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
+        h('span', { className: 'm-key' }, h('span', { style: { width: 3, height: 14, background: 'var(--dsw-alias-state-business-primary)', display: 'inline-block' } }), 'السعر العادل'),
+        h('span', { className: 'm-key' }, h('span', { style: { width: 18, height: 6, borderRadius: 3, background: 'var(--dsw-alias-state-business-primary)', opacity: 0.35, display: 'inline-block' } }), 'النطاق (المتشائم – المتفائل)')),
+      h('div', { style: { padding: 16 } }, help ? h(ProtectionNote) : h('p', { className: 'q-meta', style: { margin: 0 } },
+        'سعر الحماية = ', N('80%'), ' من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع.'))),
+  ]
+
+  return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
+    h('style', null, QM_CSS + MARKET_CSS + PORTFOLIO_CSS),
+    h(PanelHeader, { here: 'المحفظة', demo: Boolean(portfolio && portfolio.demo_data) }, headerMeta),
+    h('div', { className: 'q-wrap', style: { paddingTop: 12 } },
+      content,
+      h(Disclaimer, { extra: 'الأسعار إغلاق يومي متأخر من EODHD (مزوّد بيانات الأسعار)، وكل سعر مؤرّخ بيوم إغلاقه. الربح والخسارة محسوبان على التكلفة المُدخلة يدويًا ولا يشملان رسوم الوساطة أو الضرائب. «نسبة من المحفظة» = قيمة المركز ÷ قيمة المحفظة، وهي غير وزن السهم في المؤشر.' })),
     toastNode)
 }
 

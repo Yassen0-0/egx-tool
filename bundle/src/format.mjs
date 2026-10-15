@@ -270,3 +270,31 @@ export function rangePosition(low, high, price) {
 
 export const RATING_LEVEL = { safe: 1, balanced: 2, high_risk: 3 }
 export const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
+
+/** Parses what the user types as a number: Arabic-Indic digits, «٫»/«,» decimals and spaces allowed. */
+export function parseNumberInput(text) {
+  if (text == null) return null
+  const latin = String(text).trim()
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+    .replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
+    .replace(/٫/g, '.').replace(/[٬\s]/g, '')
+  if (!latin) return null
+  const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(latin) ? latin.replace(/,/g, '') : latin.replace(',', '.')
+  const value = Number(normalized)
+  return Number.isFinite(value) ? value : NaN
+}
+
+/**
+ * The execution date typed as «يوم/شهر/سنة» (or ISO). Empty → null (the server keeps it empty and
+ * the UI reads that as today). Returns 'YYYY-MM-DD', null, or undefined when it is not a real date.
+ */
+export function parseDayInput(text) {
+  const raw = String(text || '').trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
+  if (!raw) return null
+  let y, m, d
+  let match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw)
+  if (match) { [, d, m, y] = match.map(Number) } else if ((match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw))) { [, y, m, d] = match.map(Number) } else return undefined
+  const date = new Date(Date.UTC(y, m - 1, d))
+  if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return undefined
+  return `${y}-${two(m)}-${two(d)}`
+}

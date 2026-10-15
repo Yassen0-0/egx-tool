@@ -157,3 +157,18 @@ test('stylesheets have balanced braces', () => {
     assert.equal(depth, 0, `${name}: unclosed rule`)
   }
 })
+
+test('form inputs: numbers and dates as people type them', async () => {
+  const { parseNumberInput, parseDayInput } = await import('../src/format.mjs')
+  assert.equal(parseNumberInput('80'), 80)
+  assert.equal(parseNumberInput('٨٠٫٥'), 80.5)
+  assert.equal(parseNumberInput('8,000'), 8000)
+  assert.equal(parseNumberInput('80,5'), 80.5)
+  assert.equal(parseNumberInput(''), null)
+  assert.ok(Number.isNaN(parseNumberInput('abc')))
+  assert.equal(parseDayInput('2/3/2026'), '2026-03-02')
+  assert.equal(parseDayInput('٠٢/٠٣/٢٠٢٦'), '2026-03-02')
+  assert.equal(parseDayInput('2026-03-02'), '2026-03-02')
+  assert.equal(parseDayInput(''), null)
+  assert.equal(parseDayInput('31/02/2026'), undefined)
+})

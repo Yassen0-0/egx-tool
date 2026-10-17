@@ -1,4 +1,4 @@
-// Formatting and valuation helpers shared by every «قيمة» screen. Pure functions only:
+// Formatting and valuation helpers shared by every «Monos» screen. Pure functions only:
 // the build inlines this file into client.js (dropping the `export` keywords) and
 // bundle/test/format.test.mjs imports it directly.
 //
@@ -207,7 +207,7 @@ export function fmtTime(iso) {
   return Number.isNaN(d.getTime()) ? DASH : cairoTime.format(d)
 }
 
-// ── Portfolio icon (§6) ──────────────────────────────────────────────────────
+// ── Portfolio today (tone of the sidebar % next to the label) ────────────────
 
 /**
  * 'up' | 'down' | 'neutral', in the order the spec fixes: no holdings → neutral; no fresh

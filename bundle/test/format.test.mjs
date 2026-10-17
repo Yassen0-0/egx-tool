@@ -103,10 +103,13 @@ test('dates are Cairo calendar days', () => {
   assert.equal(fmtDate(null), '—')
 })
 
-test('our CSS and UI source contain no hex colours (tokens only)', () => {
+test('our CSS and UI source contain no hex colours (tokens only, except the brand icon)', () => {
+  // The Monos app icon is a fixed brand asset (bundle/assets/monos/): #37B77A square,
+  // #FFFFFF glyph. Those two are the only hex values allowed outside the design tokens.
+  const brand = new Set(['#37B77A', '#FFFFFF'])
   for (const name of readdirSync(src)) {
     const text = readFileSync(join(src, name), 'utf8')
-    const hits = text.match(/#[0-9a-fA-F]{3,8}\b(?![\w-])/g) || []
+    const hits = (text.match(/#[0-9a-fA-F]{3,8}\b(?![\w-])/g) || []).filter((h) => !brand.has(h))
     assert.deepEqual(hits, [], `${name} has hex colours`)
   }
 })

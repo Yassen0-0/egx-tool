@@ -1,4 +1,4 @@
-/* Analyses list and Analysis detail («قيمة / التحليلات»). Harness tokens only. */
+/* Analyses list and Analysis detail («Monos / التحليلات»). Harness tokens only. */
 
 .qm .a-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 16px; padding-top: 8px; }
 .qm .a-filters { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }

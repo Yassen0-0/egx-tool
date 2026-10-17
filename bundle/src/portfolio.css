@@ -1,4 +1,4 @@
-/* Portfolio screen («قيمة / المحفظة»). Harness tokens only. */
+/* Portfolio screen («Monos / المحفظة»). Harness tokens only. */
 
 .qm .p-summary { display: grid; grid-template-columns: minmax(200px, 1.2fr) repeat(4, minmax(150px, 1fr)); }
 .qm .p-summary > div { padding: 16px; border-inline-start: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 4px; min-width: 0; }

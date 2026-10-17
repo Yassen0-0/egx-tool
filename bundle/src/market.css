@@ -1,4 +1,4 @@
-/* Market screen («قيمة / السوق»). Harness tokens only; builds on styles.css. */
+/* Market screen («Monos / السوق»). Harness tokens only; builds on styles.css. */
 
 /* Status strip */
 .qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }

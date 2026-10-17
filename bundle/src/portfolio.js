@@ -1,4 +1,4 @@
-// «قيمة / المحفظة»: today first and biggest, the add form above the holdings with a live total,
+// «Monos / المحفظة»: today first and biggest, the add form above the holdings with a live total,
 // and the holdings grid tied to each stock's valuation (§7.4). Inlined into the factory scope.
 // Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
 
@@ -190,18 +190,18 @@ function sortHoldings(rows, key) {
 }
 
 function PortfolioPage() {
-  const portfolio = useQima()
+  const portfolio = useMonos()
   const [universe, setUniverse] = useState([])
   const [market, setMarket] = useState(null)
   const [sort, setSort] = useState('pnl')
   const [help, setHelp] = useState(false)
   const [toastNode, toast] = useToast()
   useEffect(() => {
-    qima.refresh()
+    monos.refresh()
     api('GET', '/egx/api/universe').then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol)))).catch(() => {})
     api('GET', '/egx/api/market').then(setMarket).catch(() => {})
   }, [])
-  const refresh = () => qima.refresh()
+  const refresh = () => monos.refresh()
   const onValue = (symbol) => copyValuationPrompt(symbol, toast)
   const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
   const session = market ? sessionLine(market.as_of, market.session_open) : null
@@ -226,10 +226,9 @@ function PortfolioPage() {
     h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة أخرى'))
   else if (empty) content = [
     h('div', { key: 'e', className: 'q-card q-empty' },
-      h(QimaIcon, { state: 'neutral', size: 40 }),
+      h(MonosIcon, { size: 40 }),
       h('span', { className: 'q-h2' }, 'محفظتك فاضية'),
-      h('span', null, 'تقدر تستخدم قيمة للتحليل بس، أو تضيف الأسهم اللي عندك عشان تشوف حركتها اليومية وموقعها من التقييم.'),
-      h('small', { className: 'q-ter' }, 'أيقونة قيمة تفضل محايدة لحد ما تضيف مراكز.')),
+      h('span', null, 'تقدر تستخدم Monos للتحليل بس، أو تضيف الأسهم اللي عندك عشان تشوف حركتها اليومية وموقعها من التقييم.')),
     h(AddForm, { key: 'f', universe, onAdded: refresh, startOpen: true }),
   ]
   else content = [

@@ -1,4 +1,4 @@
-// «قيمة / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
+// «Monos / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
 // docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). Inlined into the factory
 // scope: h, React, api, N, nav, the format.mjs helpers, identity.js and components.js are in scope.
 
@@ -150,7 +150,7 @@ function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
     cards.push(card('f', 'status', '--dsw-alias-label-tertiary', [
       h('b', { key: 't' }, 'لا أسعار محدّثة بعد'),
       h('span', { key: 'x', className: 'q-sec' }, 'إغلاق جلسة ', N(fmtDayMonth(data.expected_last_bar)), ' لم يُجلب بعد، والمعروض هو إغلاق ',
-        N(fmtDayMonth(lastClose)), ' بوسم «سعر قديم» ولا يُحتسب كتغيّر لليوم. أيقونة قيمة محايدة حتى أول سعر محدّث.')]))
+        N(fmtDayMonth(lastClose)), ' بوسم «سعر قديم» ولا يُحتسب كتغيّر لليوم.')]))
   }
   return cards.length ? h(React.Fragment, null, cards) : null
 }
@@ -561,7 +561,7 @@ function SymbolDetail({ row, period, onValue }) {
 // ── Page ─────────────────────────────────────────────────────────────────────
 
 function MarketPage() {
-  const portfolio = useQima()
+  const portfolio = useMonos()
   const [data, setData] = useState(null)
   const [digest, setDigest] = useState(null)
   const [error, setError] = useState('')
@@ -585,7 +585,7 @@ function MarketPage() {
       setData(next); setError('')
       // A finished sync means new prices: refresh the shared portfolio (icon + strip) and the digest.
       const finished = next.last_sync && next.last_sync.finished_at
-      if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) qima.refresh()
+      if (lastSyncSeen.current !== undefined && finished !== lastSyncSeen.current) monos.refresh()
       lastSyncSeen.current = finished
       api('GET', '/egx/api/market/digest').then(setDigest).catch(() => setDigest(null))
     } catch (e) { setError(e.message) }
@@ -608,7 +608,7 @@ function MarketPage() {
         setSyncNote(parts.join(' · '))
       }
       await load()
-      qima.refresh()
+      monos.refresh()
     } catch (e) {
       setSyncFailure(e.message)
     } finally {

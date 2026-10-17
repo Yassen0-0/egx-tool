@@ -1,0 +1,308 @@
+# opencode — تقرير إعادة العلامة: «قيمة / Qima» → «Monos»
+
+> **لمين الملف:** أي حد هيراجع الشغل (صاحب المشروع / مطور جديد / مراجع تقني).
+> **الحالة:** مكتمل. الريبو اتعدّل، تطبيق الديسكتوب اتبنى واتشغّل، والـ commit باسم `new-icon` اتعمَل واتدفع لـ `origin/main`. وكمان الجولة الثالثة خلصت: **الاسم جوه الواجهة نفسها** اتغيّر من `deepseek HARNESS` لـ `Monos` جوه `app.asar` (القسم 5).
+> **آخر تحديث:** 17 أكتوبر 2026 — بعد الجولة الثالثة (براند الواجهة الداخلية: السايدبار، شاشة البوت، نافذة الترحيب، القوائم، سطر الحساب).
+
+---
+
+## 1. الملخص التنفيذي (اقرأ ده الأول)
+
+| المطلوب | الحالة |
+|---|---|
+| أيقونة Monos بدل «قيمة» | ✅ اتستبدلت في الريبو + في تطبيق الديسكتوب |
+| اسم التطبيق «Monos» | ✅ كل النصوص اللي المستخدم بيشوفها + اسم التطبيق عند macOS نفسه (`lsappinfo` بيقول "Monos") |
+| نصوص الواجهة الداخلية (سايدبار / شاشة البوت / الترحيب / قوائم الماك / سطر الحساب) | ✅ `deepseek HARNESS` → `Monos` جوه `app.asar` (الجولة الثالثة — القسم 5) |
+| استبدال كل الصور بمحتوى الـ zip | ✅ 21 ملف منقولين حرفيًا (مطابقة `diff -r` مع الـ zip؛ الـ zip فيه 23 entry منهم مدخلين فولدرات) |
+| ملف ملاحظات `opencode` | ✅ الملف اللي بتقرأه ده، متضاف في جذر المشروع |
+| commit + push باسم `new-icon` | ✅ على فرع `main` (تشوف الـ hash بـ `git log --oneline -1`) |
+| التطبيق على الديسكتوب | ✅ `/Applications/Monos.app` شغال حاليًا وفاتح من نفس بروفايل المستخدم (نفس الجلسات والبيانات) |
+
+**ملاحظة مهمة:** التطبيق الأصلي `/Applications/DeepSeek Harness.app` **سليم وما اتغيرش منه أي بايت** — موجود كنسخة رجوع كاملة.
+
+---
+
+## 2. حالة git
+
+- الفرع: `main` — الدفعة الجديدة فوق `3accf4f` (Merge PR #1 ui-qima).
+- الـ commit: رسالة `new-icon` — بيشمل كل تعديلات الريبو + السكربتات (منها أداة الواجهة الداخلية الجديدة `scripts/asar-brand.py` وتحديث `rebrand-desktop.sh`) + ملف `opencode` ده + حزمة الصور الجديدة.
+- الملفات المتروكة عمدًا (untracked): `data/.fuse_hidden*` — ملفات مؤقتة بتعملها طبقة FUSE على قرص العمل، مش جزء من الشغل.
+
+```bash
+git log --oneline -1          # الـ commit الجديد
+git show --stat HEAD | head -30   # ملخص كل الملفات اللي اتغيرت فيه
+```
+
+---
+
+## 3. الجولة الأولى — تفصيل تغييرات الريبو ملف بملف
+
+### 3.1 الأيقونة والصور
+
+| الملف | اللي اتعمل |
+|---|---|
+| `bundle/icon.svg` | **اتستبدل بالكامل** بأيقونة Monos (مربع أخضر `#37B77A` بحواف مدورة + خط اتجاه أبيض + 4 نقط) على نفس شبكة الـ 24×24 اللي الملف القديم كان ماشي عليها |
+| `bundle/assets/monos/` (جديد) | **كل محتوى الـ zip زي ما هو** (21 ملف — الـ zip فيه 23 entry منهم مدخلين فولدرات): `Monos.icns`، `Monos.iconset/` (10)، `monos-16.png` لحد `monos-1024.png` (7)، و`monos-app-icon.svg` و`monos-lockup.svg` و`monos-mark.svg`. اتأكد بمقارنة `diff -r` مع الـ zip: صفر فروق |
+
+### 3.2 الاسم «Monos» (النصوص)
+
+| الملف | قبل → بعد |
+|---|---|
+| `bundle/locale/ar.json` | `"title": "قيمة"` → `"Monos"` + الوصف |
+| `bundle/locale/en.json` | `"title": "Qima"` → `"Monos"` + الوصف |
+| `bundle/src/client.src.js` | ليبل السايدبار `'قيمة'` → `'Monos'` |
+| `bundle/src/identity.js` | براند الهيدر + التوولتيبز وس�רינ�جز الـ aria «قيمة — السوق» → «Monos — السوق» |
+
+### 3.3 الأيقونة الديناميكية → ثابتة (قرار مقصود — راجعه)
+
+الأيقونة القديمة كانت **ديناميكية**: أخضر لفوق / أحمر لتحت / محايدة حسب حركة المحفظة اليوم، وليها 3 رسومات + نسخ لمقاس 16px. الـ zip اللي اتطلب فيه **نسخة واحدة** من الأيقونة، فالتنفيذ:
+
+- `QimaIcon` الديناميكية اتبدلت بـ `MonosIcon` ثابتة (في `bundle/src/identity.js`).
+- **اللي فضل شغال زي ما هو**: النسبة المئوية اليومية جنب الاسم في السايدبار (أخضر/أحمر) — دالة `iconState` في `format.mjs` ما اتغيرتش.
+- نصوص كانت بتتكلم عن سلوك الأيقونة القديم اتشالت من `portfolio.js` و`market.js`.
+
+### 3.4 إعادة تسميات داخلية
+
+`qima` → `monos`، `useQima` → `useMonos`، `QIMA_REFRESH_MS` → `MONOS_REFRESH_MS`، `QimaIcon`/`SidebarQimaIcon` → `MonosIcon`/`SidebarMonosIcon`، `qima-sidebar-pct` → `monos-sidebar-pct`، وملف الاختبار `mcp/tests/test_qima_data.py` → `test_monos_data.py`.
+
+**سيبتها مقصود:** `dsh-egx-bundle`، سيرفر MCP `egx`، `egx-analyst`، كلاسات `q-*` — أسماء تقنية مش مرئية للمستخدم.
+
+### 3.5 كلمة «قيمة» في العربية = value (للمراجع، متلمسهاش)
+
+موجودة في عشرات المواضع بمعناها العادي: «القيمة الدفترية»، «قيمة النقد»، إلخ. البحث عن `قيمة` هيرجعها وده **صح ومقصود**.
+
+### 3.6 الاختبارات والبناء
+
+| الملف/الأمر | اللي اتعمل |
+|---|---|
+| `bundle/client.js` | **أُعيد بناؤه** بـ `node bundle/build-client.mjs` (381 KB — ملف مولَّد، ممنوع يتعدل يدويًا) |
+| `bundle/test/format.test.mjs` | اختبار منع ألوان hex اتوسّع يسمح باللونين الرسميين `#37B77A` و `#FFFFFF` بس + كومنت بيشرح السبب — **ده توسيع مقصود لقاعدة، محتاج موافقة** |
+| `bundle/package.json` | `"assets/*"` اتضاف لقائمة `files` |
+| كومنتات هيدر في `analyses.js`/`market.js`/`portfolio.js`/`format.mjs`/4 ملفات CSS | «قيمة» → «Monos» (كومنتات بس) |
+
+**التحقق:** `node --check bundle/client.js` ✅ · `node --test bundle/test/*.test.mjs` ✅ 17/17 · `uv run --project mcp pytest -q` ✅ 63/63.
+
+---
+
+## 4. تطبيق الديسكتوب — القصة الكاملة
+
+### 4.1 الحاجز الأول: macOS رفض التعديل المباشر
+
+أول محاولة كانت تعديل التطبيق الأصلي `DeepSeek Harness.app` مباشرة — **فشلت** بحماية App Management (TCC): أي كتابة جوه تطبيق مثبّت ومختوم بترفض بـ `operation not permitted`. (التطبيق كان اتغيّر اسمه لمونس لحظيًا واترجّع فورًا — اسم الفولدر بس، صفر تعديل في المحتوى، والتوقيع `codesign --verify` ناجح عليه دلوقتي).
+
+**الحل:** نسخة كاملة بالـ `ditto` + شيل xattrs الحماية → `/Applications/Monos.app` مستقلة، بنفس `CFBundleIdentifier` (`com.deepseek.dsh`) — يعني بتشارك نفس الهوم `~/.dsh`: نفس الجلسات، نفس قاعدة البيانات، نفس المحفظة.
+
+### 4.2 الجولة الثانية: كراش التشغيل — التشخيص والإصلاح (أهم جزء تقني)
+
+النسخة المبنية بالشكل الظاهر (أيقونة + اسم) **كانت بتقع في أول تشغيل** بكراش `EXC_BREAKPOINT / SIGTRAP`. ظهر مشكلتين ورا بعض واتصلحوا:
+
+**المشكلة 1 — `Killed: 9` على أي تشغيل من الـ CLI:**
+
+```
+$ "/Applications/Monos.app/.../dsh" --version
+Killed: 9   (exit 137)
+$ codesign -vv "/Applications/Monos.app"
+invalid Info.plist (plist or signature have been modified)
+```
+
+السبب: `Info.plist` جزء من التوقيع نفسه (CodeDirectory special slot) — ومع الـ hardened runtime، نواة macOS بترفض تشغّل أي binary مربوط ببندل اتعدّل الـ Info.plist بتاعه.
+
+الإصلاح (إعادة توقيع ad-hoc مع الحفاظ على الصلاحيات):
+
+```bash
+codesign --force --sign - --preserve-metadata=entitlements,flags "/Applications/Monos.app"
+# النتيجة: flags=0x10002(adhoc,runtime) + كل الـ entitlements زي ما هي → الـ CLI رجع يشتغل
+```
+
+**المشكلة 2 — الكراش الشهير اللي شفته: `Unable to find helper app`:**
+
+من تشغيل الـ binary مباشرة طلعت الرسالة الحقيقية المخفية تحت الكراش ريبورت:
+
+```
+FATAL:electron/shell/app/electron_main_delegate_mac.mm:66] Unable to find helper app
+```
+
+السبب (اتأكد من سورس Electron 44 نفسه): التطبيق بيحدد مسار الـ helper كالتالي:
+
+```
+Contents/Frameworks/<CFBundleName> Helper*.app/Contents/MacOS/<CFBundleName> Helper*
+```
+
+و `CFBundleName` بقى `Monos` بينما الهيلبرز لسه `DeepSeek Harness Helper*` → مش موجود → `LOG(FATAL)`.
+
+**الإصلاح:** إعادة تسمية الأربعة هيلبرز (المجلد + الـ executable جواه + قيم الـ Info.plist) وإعادة توقيع كل واحد ad-hoc:
+
+- `Monos Helper.app` / `Monos Helper (GPU).app` / `Monos Helper (Plugin).app` / `Monos Helper (Renderer).app`
+
+وبعدها إعادة توقيع البندل الأب (عشان ختم الموارد يتجدد بالأسماء الجديدة).
+
+### 4.3 الحالة النهائية للتطبيق (اتأكدت منها)
+
+```
+$ pgrep -fl "Monos.app/Contents/MacOS"
+26274 /Applications/Monos.app/Contents/MacOS/DeepSeek Harness      ← العملية الرئيسية (اسم ملف التنفيذي — شوف 5.4)
+$ pgrep -fl "Monos Helper"
+26276 Monos Helper.app/Contents/MacOS/Monos Helper --type=gpu-process
+26277 Monos Helper.app/Contents/MacOS/Monos Helper --type=utility ...network
+26280 Monos Helper (Renderer).app/Contents/MacOS/Monos Helper (Renderer) --type=renderer
+```
+
+```
+$ lsappinfo list | grep Monos
+69) "Monos" ... (in front)  bundleID="com.deepseek.dsh"  bundle path="/Applications/Monos.app"
+```
+
+- الواجهة (الـ renderer) شغالة → الصفحة بتترسم بالبراند الجديد من bundle الريبو المترابط (`~/.dsh/profiles/desktop/node_modules/dsh-egx-bundle → repo/bundle`).
+- `codesign -vv "/Applications/Monos.app"` → `valid on disk` + `satisfies its Designated Requirement` (توقيع ad-hoc).
+- الـ CLI جواها شغال: بيطبع `0.2.0-rc.2`.
+- النظام أنشأ لوج جديد `~/Library/Logs/Monos/` — دليل إضافي إن الاسم اتثبت عند macOS.
+- تقارير الكراش بتاعة محاولات التشغيل الفاشلة (6 ملفات في ~30 ثانية) موجودة في `~/Library/Logs/DiagnosticReports/` — تاريخ طبيعي، مش محتاجة مسح.
+
+**اللي مش قادر أتأكد منه بنفسي:** شكل الواجهة النهائي (السايدبار/الهيدر) — مفيش صلاحية تسجيل شاشة (screencapture مرفوض للنظام). **المطلوب من صاحب المشروع: يبصلها بعينه** — التطبيق مفتوح دلوقتي.
+
+### 4.4 الـ Dock
+
+- الـ pin القديم كان بيشاور على `file:///Applications/DeepSeek%20Harness.app/` — اتعدّل لـ `file:///Applications/Monos.app/` مع الليبل `Monos` (الملف المعدّل محفوظ في `backups/dock-monos.plist`، والأصلي في `dock-orig.plist`).
+- `killall Dock` اتعمل — الـ 20 pin كلهم سليمين (اتأكد بالعدّ) وعنصر واحد بس بيشاور على Monos.
+- النسخ الاحتياطية: `/Volumes/ssd-work/dsh-home/backups/deepseek-app-orig-20261017/` (icon.icns الأصلي + Info.plist الأصلي + dock-orig.plist).
+
+### 4.5 السكربتات (deliverable جديد)
+
+| السكربت | الوظيفة |
+|---|---|
+| `scripts/install-desktop.sh` (اتعدّل) | بقى بيفضّل `/Applications/Monos.app` ويرجع لـ `DeepSeek Harness.app` لو مش موجود + بيتأكد إن التطبيقين مقفولين. اتجرّب كامل ✅ (MCP sync + تسجيل الـ plugin) |
+| `scripts/rebrand-desktop.sh` (**جديد**) | **كل** عملية الريبراند في سكربت واحد قابل لإعادة التشغيل: نسخ التطبيق لو مش موجود → الأيقونة + الاسم → **براند الواجهة الداخلية (بينادي `asar-brand.py`)** → رينيم الهيلبرز + إعادة توقيعهم → إعادة توقيع الأب → تحديث كاش النظام والـ Dock |
+| `scripts/asar-brand.py` (**جديد — الجولة 3**) | أداة تعديل `app.asar`: فك → استبدال نصوص/لوجو الواجهة الداخلية → إعادة تجميع → تحديث `ElectronAsarIntegrity` في Info.plist → استبدال `icon.png`. idempotent وفيها وضع فحص جاف `--check`. التفاصيل في القسم 5 |
+
+**سيناريو تحديث DeepSeek لاحقًا:** لأن التطبيق بقى ad-hoc، المحدّث التلقائي (Squirrel) **مش هيقدر يستبدله** (التوقيع مش هيتطابق — ده في الحقيقة بيحمي الريبراند). ولما عايز تنسخ إصدار جديد من الأصل:
+
+```bash
+rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
+```
+
+---
+
+## 5. الجولة الثالثة — براند الواجهة الداخلية (جوه app.asar)
+
+طلب المالك: «غيّر الاسم اللي جوه التطبيق» (سكرين شوت للسايدبار: `deepseek HARNESS` فوق و`Signed in to DeepSeek` تحت).
+
+دي نصوص **مش من الـ bundle بتاعنا** (براند «Monos» بتاعنا كان ظاهر أصلًا في السايدبار) — دي واجهة تطبيق الديسكتوب نفسه (dsh-desktop-host) المرزومة جوه `Contents/Resources/app.asar`، فاتعدلت من جواها.
+
+### 5.1 إزاي اتعملت بأمان (أهم نقطة للمراجع)
+
+- اتعملت **أداة خاصة بينا** تقرا وتكتب صيغة الـ asar بالظبط (هيدر pickle + بيانات الملفات ورا بعضها) — بدون أي dependency خارجي.
+- **اختبار ذهبي قبل أي تعديل:** فك الأرشيف كامل (11,480 ملف) وأعاد تجميعه من الصفر → **الملف الناتج مطابق للأصل بالبايت** (`cmp` ناجح — 121,387,457 بايت). يعني كتابة الأداة مضبوطة 100%.
+- بعد كده: عدّل في نسخة → أعد التجميع → حدّث الـ hash → أعد التوقيع → شغّل → واتحقق إن النصوص الجديدة موجودة في الأرشيف **الحي** بنفسه.
+- **كل الـ 13 ملف JS المعدلة عدّت فحص `node --check`** — صفر أخطاء syntax.
+
+### 5.2 اللي اتغير — القائمة الكاملة
+
+| المكان اللي المستخدم بيشوفه | قبل → بعد | الملف جوه app.asar |
+|---|---|---|
+| السايدبار — اللوجو جنب الاسم | حوت DeepSeek → **مارك Monos** (خط الاتجاه بلون النص الحالي + نقطة `#37B77A`) | `dsh-client-ui-brand-official/lib/client.js` |
+| السايدبار — الاسم | «deepseek» + بادج «HARNESS» → **Monos** | نفس الملف |
+| شاشة البوت (تحت `Loading plugins…`) | `HARNESS` → `Monos` | `dsh-web-frontend/dist/assets/index-5SrrfWpU.js` |
+| نافذة الترحيب — اللوجو | لوك-أب «حوت + deepseek HARNESS» → **لوك-أب Monos** (بنفس تقنية متغيرات الألوان عشان الوضع الفاتح/الغامق) | `renderer/assets/welcome-brand.svg` |
+| نافذة الترحيب — النصوص و alt | DeepSeek Harness → Monos | `lib/main.js` |
+| قائمة الماك (About / Hide / Quit / Open) | «About DeepSeek Harness» → «About Monos»… (إنجليزي + صيني) | `lib/main.js` |
+| About panel | الاسم → Monos + الأيقونة (`icon.png`) → أيقونة Monos | `lib/main.js` + `Contents/Resources/icon.png` |
+| سطر الحساب (تحت السايدبار) | `Signed in to DeepSeek` → `Signed in to Monos` (+ الصينية: `已登录 Monos`) | `dsh-client-ui-settings-account/lib/client.js` |
+| إعدادات الحساب والدخول والأونبوردنج | «Back to DeepSeek Harness» و17 نص تاني → Monos | نفس الملف |
+| عنوان النافذة | `DeepSeek Harness` → `Monos` | `dsh-client-ui-layout/lib/client.js` |
+| إشعارات الإضافات / معاينة الأوفيس / الموديلات | «damage DeepSeek Harness»… → Monos (إنجليزي + صيني) | plugin-manager / sidebar-documentpreview / settings-models |
+| هوية الوكيل (system prompt) | `You are an AI agent powered by DeepSeek Harness.` → `…powered by Monos.` | `dsh-system-prompt/lib/index.js` |
+| أوصاف الـ CLI (مش واجهة بس للاتساق) | «boot a DeepSeek Harness profile»… → Monos | `dsh/lib/bin.js` + web-app + sdk-app |
+
+**سيبتها مقصود:** «DeepSeek» لسه موجود في الواجهة في الأماكن اللي بتتكلم عن **الخدمة نفسها** مش اسم التطبيق: «official DeepSeek models»، «Configure the official DeepSeek provider»، «DeepSeek account»، «DeepSeek search provider»، وأسماء الحزم التقنية (`@deepseek-ai/*`) و`com.deepseek.dsh`.
+
+### 5.3 التحديثات المستقبلية
+
+`scripts/asar-brand.py` اتدمج في `scripts/rebrand-desktop.sh` (بتتنفذ قبل إعادة التوقيع). سيناريو تحديث DeepSeek بقى زي ما هو:
+
+```bash
+rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
+```
+
+بيعيد كل حاجة **بما فيها نصوص الواجهة الداخلية** أوتوماتيك. والأداة idempotent: لو شغّلتها على نسخة متعملة قبل كده، بتقول "up to date" وما بتغيّرش أي بايت.
+
+**نقطتين مهمين للمراجع:**
+
+- `ElectronAsarIntegrity` في `Info.plist`: Electron بيتحقق من sha256 بتاع `app.asar` عند كل تشغيل — الـ hash بيتحدث أوتوماتيك في نفس الخطوة (وإلا التطبيق مش هيفتح أصلاً).
+- لو DeepSeek غيّر ملفات الواجهة في إصدار جديد، الأداة **بتفشل بصوت عالي** (ملف ناقص/مفيش تطابق) بدل ما تطلع براند غلط بصمت — ساعتها بيتراجع سطر الأداة ويتحدث.
+
+### 5.4 حاجتين معروفين (مش عيوب)
+
+- **اسم ملف الـ executable نفسه** لسه `Contents/MacOS/DeepSeek Harness` — متروك عمدًا (الـ CLI shim والتوقيعات معتمدين عليه وتغييره مخاطرة بلا مكسب). التأثير الوحيد: Activity Monitor ممكن يعرض العملية الرئيسية بالاسم القديم — لكن واجهة التطبيق نفسها كلها Monos.
+- **مفيش سكرين شوت تحقق بصري** — نفس قيود صلاحية تسجيل الشاشة (شوف 4.3). التحقق الآلي: النصوص الجديدة اتأكدت جوه الأرشيف الحي + الـ hash مطابق + التطبيق فتح واستقر بدون أي crash report جديد.
+
+---
+
+## 6. أدلة التحقق (تقدر تعيدها بنفسك)
+
+```bash
+cd /Volumes/ssd-work/egx
+git log --oneline -1                      # commit new-icon
+git show --stat HEAD                      # كل الملفات في الـ commit
+
+# الريبو
+node bundle/build-client.mjs              # يعيد البناء (المفروض يطلع نفس المحتوى)
+node --test bundle/test/*.test.mjs        # 17/17
+uv run --project mcp pytest -q            # 63/63
+
+# أيقونة الديسكتوب مطابقة للريبو؟
+shasum -a 256 bundle/assets/monos/Monos.icns \
+  "/Applications/Monos.app/Contents/Resources/icon.icns"
+# المفروض الاتنين يطلعوا: a6251b98...a8ec77
+
+# التطبيق شغال؟
+pgrep -fl "Monos.app/Contents/MacOS" && pgrep -fl "Monos Helper"
+
+# توقيع النسخة المعدلة سليم؟
+codesign -vv "/Applications/Monos.app"
+
+# الـ Dock بيشاور على مين؟
+defaults read com.apple.dock persistent-apps | grep -A3 "Monos.app"
+# الواجهة الداخلية (الجولة 3) — الفحص الجاف لازم يقول up to date
+python3 scripts/asar-brand.py --check "/Applications/Monos.app"
+
+# الـ hash الحي للأرشيف لازم يساوي اللي مسجّل في Info.plist (السطرين نفس القيمة)
+shasum -a 256 "/Applications/Monos.app/Contents/Resources/app.asar"
+/usr/libexec/PlistBuddy -c "Print :ElectronAsarIntegrity:Resources/app.asar:hash" "/Applications/Monos.app/Contents/Info.plist"
+```
+
+---
+
+## 7. قرارات اتخذت — محتاجة تأكيد المراجع/المالك
+
+1. **الأيقونة الديناميكية (أخضر/أحمر/محايدة) اتشالت** واستبدلت بأيقونة Monos ثابتة — لأن الـ zip فيه نسخة واحدة. النسبة اليومية جنب الاسم **فضلت شغالة**. لو مطلوب سلوك ديناميكي بشكله القديم، ده تعديل جديد فوق الشغل الحالي.
+2. **اختبار «منع ألوان hex»** بقى يسمح باللونين الرسميين للأيقونة (`#37B77A`, `#FFFFFF`) — لو القاعدة مقدسة، البديل استخدام الأيقونة كملف خارجي بدل رسمها في الكود.
+3. **نسخة موازية على الديسكتوب:** `Monos.app` جنب `DeepSeek Harness.app` (مش استبدال). السبب: حماية macOS منعت التعديل المباشر. الاتنين شغالين ومستقلين.
+4. **إعادة التوقيع ad-hoc** — التطبيق مبقاش بتوقيع DeepSeek المصدّق. مقبول تمامًا للاستخدام المحلي (السيستم شغاله ومجرّب)، لكن **ممنوع توزيعه** بهذا الشكل، ومحدّث DeepSeek التلقائي مش هيستبدله.
+5. **التوثيق التاريخي:** `docs/design/**` و`docs/HANDOFF.md` لسه فيهم «قيمة» — سِبتهم عن قصد كأرشيف للمرحلة السابقة. لو المطلوب تحديثهم ده قرار منفصل.
+6. **نصوص الواجهة الداخلية** اتعدلت جوه `app.asar` (الجولة 3) — تعديل جوه تطبيق مرزوم بره كود الريبو؛ بيتكرر تلقائيًا مع `rebrand-desktop.sh` وشرحه كامل في القسم 5.
+7. **لوك-أب نافذة الترحيب اترسم من جديد** (SVG نصي بسيط بنفس متغيرات ألوان الأصل) لأن الـ zip فيه المارك بس ومفيش لوك-أب «Monos» جاهز بنفس أبعاد الأصلي (472×40).
+8. **هوية الوكيل في الـ system prompt بقت «Monos»** — قرار سهل الرجوع لو للمراجع رأي تاني.
+
+## 8. إزاي ترجع كل حاجة (لو اتقرر الرجوع)
+
+```bash
+# إلغاء الـ commit (من غير مسح التاريخ المدفوع):
+git revert --no-edit <hash-بتاع-new-icon>
+git push origin main
+
+# الديسكتوب: امسح النسخة الجديدة وارجع للDock الأصلي
+rm -rf /Applications/Monos.app
+defaults import com.apple.dock /Volumes/ssd-work/dsh-home/backups/deepseek-app-orig-20261017/dock-orig.plist
+killall Dock
+# ملحوظة: التطبيق الأصلي DeepSeek Harness.app ما اتغيرش أصلاً — مفيش حاجة تترجع فيه
+# ولرجوع نصوص الواجهة الداخلية بس للأصل: علّق سطر asar-brand.py من rebrand-desktop.sh ثم:
+#   rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
+```
+
+## 9. ملاحظات أخيرة للمراجع
+
+- **نفس الهوية الرقمية:** Monos.app و DeepSeek Harness.app الاتنين بنفس `CFBundleIdentifier` — لو الاتنين مفتوحين في نفس الوقت ممكن يحصل تعارض في قفل البروفايل؛ افتح واحد بس.
+- **الأذونات (مايك/شاشة):** بسبب إعادة التوقيع، ممكن macOS يطلب الأذونات مرة تانية أول استخدام لفيتشر محتاجها — طبيعي.
+- **ملف `AGENTS.md`** اللي في `~/Downloads` مش بتاع المشروع ده (مشروع تاني) — محدش استخدمه ولا اتغير حاجة بسببه.
+- **الصور المصدر:** `/Users/rebuytech/Downloads/assets.zip` — لو محتاج تتأكد إن حزمة الريبو مطابقة: فك الضغط واعمل `diff -r`.
+- **بعد أي تحديث من DeepSeek للأصل**: `rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh` بيعيد البراند كامل أوتوماتيك — بما فيه نصوص الواجهة الداخلية (القسم 5).

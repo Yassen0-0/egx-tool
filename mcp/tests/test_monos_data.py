@@ -1,4 +1,4 @@
-"""Data behind the «قيمة» screens: margin to fair, stale-aware breadth, today's portfolio move,
+"""Data behind the «Monos» screens: margin to fair, stale-aware breadth, today's portfolio move,
 valuation steps by date, the per-holding fields and the since-last-close digest."""
 
 from datetime import date, datetime, timedelta

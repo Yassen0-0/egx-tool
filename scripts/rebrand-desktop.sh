@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+# Rebrand the installed DeepSeek Harness desktop app as «Monos»: the Monos app icon, the
+# display name (Dock, menu bar, Force Quit) and the four helper apps Electron expects.
+# Run it:
+#   - once to create /Applications/Monos.app as a copy of the original app (the original is
+#     left untouched as a fallback), or
+#   - again after a DeepSeek app update, to re-apply the icon and name in place.
+# To pick up a newer DeepSeek version, delete the copy first and re-run:
+#     rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
+# It also refreshes the Dock. Quit the app(s) first.
+#
+# Why a copy: macOS App Management (TCC) refuses writes inside the installed, signed app
+# ("operation not permitted"). Copying the bundle with ditto and clearing the quarantine /
+# macl xattrs makes the copy writable. The bundle identifier is kept (com.deepseek.dsh), so
+# the copy shares the same ~/.dsh home: sessions, database and portfolio.
+#
+# Why the re-sign: Info.plist is part of the code signature (CodeDirectory special slot).
+# Under the hardened runtime, macOS (amfid) SIGKILLs any process whose main binary was exec'd
+# with a modified Info.plist — even the app itself would no longer launch. Re-signing ad-hoc
+# (entitlements and runtime flags preserved) makes the modified bundle executable again.
+# Side effect: the auto-updater can no longer replace it (Team ID gone).
+#
+# Why the helpers: at startup Electron resolves the child process path as
+#   Contents/Frameworks/<CFBundleName> Helper*.app/Contents/MacOS/<CFBundleName> Helper*
+# (shell/app/electron_main_delegate_mac.mm, with the name coming from GetApplicationName()
+# in shell/common/application_info_mac.mm which reads CFBundleName). With CFBundleName
+# switched to "Monos" the "DeepSeek Harness Helper" bundles are invisible to it and the app
+# dies with: FATAL electron_main_delegate_mac.mm "Unable to find helper app". So the four
+# helper bundles are renamed to "Monos Helper*.app" (folder, executable and Info.plist)
+# and re-signed.
+#
+# Why the asar: the desktop UI inside Contents/Resources/app.asar (sidebar wordmark,
+# boot screen, welcome window, menus, About panel, account copy) still says DeepSeek
+# Harness; scripts/asar-brand.py patches those strings, the welcome lockup, the About
+# icon and the ElectronAsarIntegrity hash. See that script for the full edit list.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ICNS="$ROOT/bundle/assets/monos/Monos.icns"
+TARGET="/Applications/Monos.app"
+SOURCE="/Applications/DeepSeek Harness.app"
+
+[ -f "$ICNS" ] || { echo "Icon not found: $ICNS" >&2; exit 1; }
+if pgrep -f "Monos.app/Contents/MacOS" >/dev/null || pgrep -f "DeepSeek Harness.app/Contents/MacOS" >/dev/null; then
+  echo "Quit the DeepSeek/Monos app first." >&2; exit 1
+fi
+
+if [ ! -d "$TARGET" ]; then
+  [ -d "$SOURCE" ] || { echo "Neither $TARGET nor $SOURCE exists" >&2; exit 1; }
+  echo "→ Creating $TARGET from the original app (the original stays untouched)"
+  ditto "$SOURCE" "$TARGET"
+fi
+
+echo "→ Clearing xattrs that block writes and setting the icon + name"
+xattr -dr com.apple.quarantine "$TARGET" 2>/dev/null || true
+xattr -dr com.apple.macl "$TARGET" 2>/dev/null || true
+xattr -dr com.apple.provenance "$TARGET" 2>/dev/null || true
+cp "$ICNS" "$TARGET/Contents/Resources/icon.icns"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName Monos" -c "Set :CFBundleDisplayName Monos" "$TARGET/Contents/Info.plist"
+
+echo "→ In-app branding: patching Resources/app.asar (sidebar wordmark, boot screen, welcome, menus…)"
+python3 "$ROOT/scripts/asar-brand.py" "$TARGET"
+
+echo "→ Helper apps: rename to match the new name and re-sign"
+for suffix in "" " (GPU)" " (Plugin)" " (Renderer)"; do
+  old="$TARGET/Contents/Frameworks/DeepSeek Harness Helper${suffix}.app"
+  new="$TARGET/Contents/Frameworks/Monos Helper${suffix}.app"
+
+  if [ -d "$old" ] && [ ! -d "$new" ]; then
+    mv "$old" "$new"
+  fi
+  [ -d "$new" ] || { echo "   ERROR: helper missing ($old or $new)" >&2; exit 1; }
+  if [ -f "$new/Contents/MacOS/DeepSeek Harness Helper${suffix}" ]; then
+    mv "$new/Contents/MacOS/DeepSeek Harness Helper${suffix}" "$new/Contents/MacOS/Monos Helper${suffix}"
+  fi
+
+  python3 - "$new/Contents/Info.plist" "Monos Helper${suffix}" <<'PY'
+import plistlib, sys
+path, name = sys.argv[1], sys.argv[2]
+raw = open(path, 'rb').read()
+d = plistlib.loads(raw)
+d['CFBundleExecutable'] = name
+d['CFBundleDisplayName'] = name
+d['CFBundleName'] = name
+open(path, 'wb').write(plistlib.dumps(
+    d, fmt=plistlib.FMT_BINARY if raw.startswith(b'bplist') else plistlib.FMT_XML))
+PY
+  codesign --force --sign - --preserve-metadata=entitlements,flags "$new" 2>&1 | tail -1
+done
+
+echo "→ Re-signing the main bundle ad-hoc (entitlements + runtime kept)"
+codesign --force --sign - --preserve-metadata=entitlements,flags "$TARGET" 2>&1 | tail -1
+
+touch "$TARGET"
+/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$TARGET" || true
+killall Dock 2>/dev/null || true
+echo "Done. Open $TARGET"

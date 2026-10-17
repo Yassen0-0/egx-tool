@@ -1,4 +1,4 @@
-// «قيمة / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). Inlined into
+// «Monos / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). Inlined into
 // the factory scope: h, React, api, N, nav, Markdown, the format/labels helpers, identity.js and
 // components.js are in scope. Every number about price vs fair uses the same helpers as Market,
 // with the current price taken from the same /egx/api/market rows.

@@ -20,7 +20,8 @@
     "cordis.patch.yml",
     "presets/egx-analyst.patch.yml",
     "locale/*.json",
-    "icon.svg"
+    "icon.svg",
+    "assets/*"
   ],
   "dsh": {
     "bundle": {

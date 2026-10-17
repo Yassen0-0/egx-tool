@@ -1,8 +1,8 @@
 # opencode — تقرير إعادة العلامة: «قيمة / Qima» → «Monos»
 
 > **لمين الملف:** أي حد هيراجع الشغل (صاحب المشروع / مطور جديد / مراجع تقني).
-> **الحالة:** مكتمل. الريبو اتعدّل، تطبيق الديسكتوب اتبنى واتشغّل، والـ commit باسم `new-icon` اتعمَل واتدفع لـ `origin/main`. وكمان الجولة الثالثة خلصت: **الاسم جوه الواجهة نفسها** اتغيّر من `deepseek HARNESS` لـ `Monos` جوه `app.asar` (القسم 5).
-> **آخر تحديث:** 17 أكتوبر 2026 — بعد الجولة الثالثة (براند الواجهة الداخلية: السايدبار، شاشة البوت، نافذة الترحيب، القوائم، سطر الحساب).
+> **الحالة:** مكتمل. الريبو اتعدّل، تطبيق الديسكتوب اتبنى واتشغّل، والـ commit باسم `new-icon` اتعمَل واتدفع لـ `origin/main`. الجولة الثالثة خلصت: **الاسم جوه الواجهة نفسها** اتغيّر لـ `Monos` جوه `app.asar` (القسم 5). والجولة الرابعة خلصت كمان: **حساب DeepSeek اتشال من الواجهة كلها** عبر طبقة البروفايل (القسم 6).
+> **آخر تحديث:** 17 أكتوبر 2026 — بعد الجولة الرابعة (إزالة DeepSeek من الواجهة: الدخول، الموديلات، البحث، التحليلات والتليمتري).
 
 ---
 
@@ -17,6 +17,7 @@
 | ملف ملاحظات `opencode` | ✅ الملف اللي بتقرأه ده، متضاف في جذر المشروع |
 | commit + push باسم `new-icon` | ✅ على فرع `main` (تشوف الـ hash بـ `git log --oneline -1`) |
 | التطبيق على الديسكتوب | ✅ `/Applications/Monos.app` شغال حاليًا وفاتح من نفس بروفايل المستخدم (نفس الجلسات والبيانات) |
+| إزالة حساب DeepSeek من الواجهة | ✅ 11 plugin اتقفلوا في طبقة البروفايل + الموديل الافتراضي بقى Google/Gemini (الجولة الرابعة — القسم 6) |
 
 **ملاحظة مهمة:** التطبيق الأصلي `/Applications/DeepSeek Harness.app` **سليم وما اتغيرش منه أي بايت** — موجود كنسخة رجوع كاملة.
 
@@ -25,7 +26,8 @@
 ## 2. حالة git
 
 - الفرع: `main` — الدفعة الجديدة فوق `3accf4f` (Merge PR #1 ui-qima).
-- الـ commit: رسالة `new-icon` — بيشمل كل تعديلات الريبو + السكربتات (منها أداة الواجهة الداخلية الجديدة `scripts/asar-brand.py` وتحديث `rebrand-desktop.sh`) + ملف `opencode` ده + حزمة الصور الجديدة.
+- commits الجولات 1–3: رسالة `new-icon` — بيشمل كل تعديلات الريبو + السكربتات (منها أداة الواجهة الداخلية الجديدة `scripts/asar-brand.py` وتحديث `rebrand-desktop.sh`) + ملف `opencode` ده + حزمة الصور الجديدة.
+- commit الجولة 4: إزالة DeepSeek — `scripts/strip-deepseek-profile.py` (جديد) + سطر البروفايل في `rebrand-desktop.sh` + قسم 6 في الدوك (`git log --oneline -2` بيبيّن الاتنين).
 - الملفات المتروكة عمدًا (untracked): `data/.fuse_hidden*` — ملفات مؤقتة بتعملها طبقة FUSE على قرص العمل، مش جزء من الشغل.
 
 ```bash
@@ -237,12 +239,80 @@ rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
 
 ---
 
-## 6. أدلة التحقق (تقدر تعيدها بنفسك)
+## 6. الجولة الرابعة — إزالة حساب DeepSeek من الواجهة (طبقة البروفايل)
+
+طلب المالك: «شيل حوار إني أقدر أسجّل دخول بحساب DeepSeek خالص… أشيل أي حاجة ليها علاقة بديب سيك».
+
+### 6.1 ليه اتعملت من طبقة البروفايل مش من جوه التطبيق
+
+كل حاجات الحساب والموديلات والبحث والتحليلات دي **plugins** بتتجمّع من طبقات بروفايل `~/.dsh/profiles/desktop`:
+
+1. الـ bundles: `@deepseek-ai/dsh-base` → `@deepseek-ai/dsh-web-app` → `dsh-egx-bundle`
+2. بعدهم `cordis.patch.yml` — **طبقة المستخدم، وكل شغل الجولة دي فيها**
+3. بعدهم أي `--patch` إضافي
+
+أي صف في الطبقة دي بيتغلّب على اللي قبله، يعني الإزالة **من غير أي تعديل جوه التطبيق نفسه**: idempotent، بتستحمل تحديثات DeepSeek (الطبقة بره البندل)، وقابلة للرجوع صف-صف.
+
+### 6.2 اللي اتقفل — 11 صف
+
+| الصف (id) | الحزمة | اللي المستخدم كان بيشوفه |
+|---|---|---|
+| `ui-settings-account` | dsh-client-ui-settings-account | صفحة الحساب + شريحة «مسجّل الدخول» في السايدبار + كل تدفق الدخول/الخروج |
+| `llm-deepseek-account` | dsh-llm-deepseek-account | موديلات «DeepSeek Account» في منتقي الموديلات |
+| `llm-deepseek` | dsh-llm-deepseek-api-key | موديلات DeepSeek بمفتاح API |
+| `deepseek-llm-api-extensions` | dsh-deepseek-llm-api-extensions | إضافات الطلبات الخاصة بـ API ديب سيك |
+| `session-log-deepseek` | dsh-session-log-deepseek | تسجيل الجلسات باتجاه DeepSeek |
+| `plugin-package-inventory-deepseek` | dsh-plugin-package-inventory-deepseek | جرد الحزم عبر DeepSeek |
+| `web-search-deepseek` | dsh-web-search-deepseek | مزوّد البحث في الويب (كان المزوّد الوحيد) |
+| `ui-settings-web-search` | dsh-client-ui-settings-web-search | صفحة إعدادات البحث في الويب |
+| `desktop-product-telemetry` | dsh-host-product-telemetry-otel | تصدير أحداث المنتج عبر OTel لـ collector بتاع DeepSeek |
+| `product-analytics` | dsh-client-product-analytics | تجميع أحداث المنتج وإرسالها للـ host |
+| `session-telemetry-otel` | dsh-session-telemetry-otel | تليمتري الجلسات (كانت متوجهة لـ `dsh-otel-collector.deepseeksvc.com`) |
+
+وكمان صف `agent-default-model` اتضبط: من `deepseek-account / deepseek-flash / high` لـ **`google / gemini-2.5-flash` (reasoningEffort: low)** — الجلسات الجديدة بتبدأ على موديل Gemini بمفتاحك (`GOOGLE_API_KEY` اللي في `.credentials.yaml` — ما اتغيرش).
+
+### 6.3 اللي اتمسك مقصود — وليه (اقرأ دي قبل أي تعديل على الطبقة)
+
+`deepseek-account` (منصة الحساب) و`account-controller` (الـ API بتاعها) **مش مقفولين** — سايبينهم enabled عمدًا:
+
+- الـ Desktop Host وهو بيفتح أول نافذة بينادي `account/getState` على الـ runtime المحلي، ولو الـ endpoint مش موجود **الـ boot بيتوقف بشاشة استرجاع** (حصل فعلًا — التفاصيل في 6.5).
+- بعد قفل `ui-settings-account` مفيش أي واجهة بتوصلهم: مفيش صفحة، مفيش شريحة، مفيش تدفق دخول، ومفيش provider بيستعملهم. يعني من برّه: **صفر DeepSeek مرئي**، ومن جوّه: سباكة boot بس.
+
+### 6.4 التحقق
+
+- **التركيبة النهائية اتقرت من الـ loader نفسه**: `--dump-config` على نسخة مؤقتة من البروفايل طلع: الـ 11 صف `disabled: true`، والاتنين التانيين شغالين، و`agent-default-model: google / gemini-2.5-flash / low` (exit 0 + صفر تحذيرات غير الـ symlink النسبي بتاع النسخة المؤقتة).
+- **إعادة التشغيل بعد الإصلاح**: صفر crash logs جديدة (قبل الإصلاح كانت الشاشة بتقع خلال ثواني)، والـ renderer والـ runtime (`localhost:19387`) شغالين، ومفيش أي `desktop welcome: Web request failed` في لوج النظام.
+- **`scripts/strip-deepseek-profile.py --check`** بيعيد الفحص الجاف في أي وقت من غير تشغيل التطبيق (شوف 6.6).
+
+### 6.5 حكاية أول محاولة (التشخيص والإصلاح — الدرس المستفاد)
+
+المحاولة الأولى عطّلت **13** صف — منهم `deepseek-account` و`account-controller`. النتيجة: التطبيق بيقلع → الـ host بينادي `account/getState` → الصف مش موجود → `Web request failed` → **شاشة الاسترجاع** («The application could not start… desktop welcome: Web request failed»).
+
+- الـ endpoint بيتقدّم من `dsh-api-account-controller` (الـ Remote API اللي بيعرّض namespace الـ `account`)، ومنصته `dsh-deepseek-account-platform` بتغذّيه.
+- الإصلاح: الاتنين رجعوا enabled، وفضلوا مقفولين بس الصفوف **المرئية/المتعلقة ديب سيك** (11 صف).
+- **الدرس:** أي صف الـ Desktop Host نفسه بيستخدمه وقت الـ boot (زي `account`) ما ينفعش يتقفل من طبقة البروفايل — لازم يفضل كسباكة داخلية.
+
+### 6.6 السكربت والملفات
+
+`scripts/strip-deepseek-profile.py` (**جديد في الجولة دي**): بيفرض الحالة كاملة (11 تعطيل + الموديل + إبقاء الاتنين شغالين) على أي ملف `cordis.patch.yml`:
+
+```bash
+python3 scripts/strip-deepseek-profile.py --check        # فحص جاف: exit 1 لو في تغييرات، 0 لو سليم
+python3 scripts/strip-deepseek-profile.py --check --diff # يعرض الفرق المتوقع قبل أي كتابة
+python3 scripts/strip-deepseek-profile.py --apply        # كتابة + نسخة احتياطية بتوقيت قبلها
+```
+
+- idempotent: إعادة تشغيله على ملف سليم ما بتغيّرش أي بايت. واتدمج في `scripts/rebrand-desktop.sh` (بيعيد فرضه أوتوماتيك في نهاية أي إعادة براند).
+- **نسخ الرجوع:** `~/.dsh/profiles/desktop/cordis.patch.yml.bak-20261017-account` (حالة ما قبل الجولة) + نسخة تانية في `~/dsh-home/backups/` — طريقة الرجوع في القسم 9.
+
+---
+
+## 7. أدلة التحقق (تقدر تعيدها بنفسك)
 
 ```bash
 cd /Volumes/ssd-work/egx
-git log --oneline -1                      # commit new-icon
-git show --stat HEAD                      # كل الملفات في الـ commit
+git log --oneline -2                      # commit الجولة 4 + commit new-icon
+git show --stat HEAD                      # كل الملفات في آخر commit
 
 # الريبو
 node bundle/build-client.mjs              # يعيد البناء (المفروض يطلع نفس المحتوى)
@@ -268,11 +338,14 @@ python3 scripts/asar-brand.py --check "/Applications/Monos.app"
 # الـ hash الحي للأرشيف لازم يساوي اللي مسجّل في Info.plist (السطرين نفس القيمة)
 shasum -a 256 "/Applications/Monos.app/Contents/Resources/app.asar"
 /usr/libexec/PlistBuddy -c "Print :ElectronAsarIntegrity:Resources/app.asar:hash" "/Applications/Monos.app/Contents/Info.plist"
+
+# طبقة البروفايل (الجولة 4: إزالة DeepSeek) — لازم تقول up to date و exit 0
+python3 scripts/strip-deepseek-profile.py --check
 ```
 
 ---
 
-## 7. قرارات اتخذت — محتاجة تأكيد المراجع/المالك
+## 8. قرارات اتخذت — محتاجة تأكيد المراجع/المالك
 
 1. **الأيقونة الديناميكية (أخضر/أحمر/محايدة) اتشالت** واستبدلت بأيقونة Monos ثابتة — لأن الـ zip فيه نسخة واحدة. النسبة اليومية جنب الاسم **فضلت شغالة**. لو مطلوب سلوك ديناميكي بشكله القديم، ده تعديل جديد فوق الشغل الحالي.
 2. **اختبار «منع ألوان hex»** بقى يسمح باللونين الرسميين للأيقونة (`#37B77A`, `#FFFFFF`) — لو القاعدة مقدسة، البديل استخدام الأيقونة كملف خارجي بدل رسمها في الكود.
@@ -282,8 +355,10 @@ shasum -a 256 "/Applications/Monos.app/Contents/Resources/app.asar"
 6. **نصوص الواجهة الداخلية** اتعدلت جوه `app.asar` (الجولة 3) — تعديل جوه تطبيق مرزوم بره كود الريبو؛ بيتكرر تلقائيًا مع `rebrand-desktop.sh` وشرحه كامل في القسم 5.
 7. **لوك-أب نافذة الترحيب اترسم من جديد** (SVG نصي بسيط بنفس متغيرات ألوان الأصل) لأن الـ zip فيه المارك بس ومفيش لوك-أب «Monos» جاهز بنفس أبعاد الأصلي (472×40).
 8. **هوية الوكيل في الـ system prompt بقت «Monos»** — قرار سهل الرجوع لو للمراجع رأي تاني.
+9. **حساب DeepSeek اتشال من الواجهة، بس منصته وcontroller بتاعه لسه شغالين كسباكة boot** (من غير أي واجهة) — لأن الـ Desktop Host بيعتمد عليهم وهو بيفتح أول نافذة (شوف 6.3 و6.5). إزالة أعمق من كده معناها جراحة في كود الـ Host نفسه جوه `app.asar` — تعديل جديد فوق الشغل ده.
+10. **البحث في الويب متوقف تمامًا** — مزوّده الوحيد كان DeepSeek؛ أداة `web_search` دلوقتي من غير مزوّد. لو عايزها شغالة تاني، يتضاف مزوّد بديل في طبقة البروفايل (قرار منفصل).
 
-## 8. إزاي ترجع كل حاجة (لو اتقرر الرجوع)
+## 9. إزاي ترجع كل حاجة (لو اتقرر الرجوع)
 
 ```bash
 # إلغاء الـ commit (من غير مسح التاريخ المدفوع):
@@ -297,12 +372,20 @@ killall Dock
 # ملحوظة: التطبيق الأصلي DeepSeek Harness.app ما اتغيرش أصلاً — مفيش حاجة تترجع فيه
 # ولرجوع نصوص الواجهة الداخلية بس للأصل: علّق سطر asar-brand.py من rebrand-desktop.sh ثم:
 #   rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
+
+# الرجوع الكامل لتعديلات الجولة الرابعة (صفوف حساب DeepSeek والموديل الافتراضي يرجعوا زي ما كانوا):
+cd /Volumes/ssd-work/dsh-home/profiles/desktop
+cp cordis.patch.yml cordis.patch.yml.monos-backup   # احتفظ بالحالة الحالية قبل الرجوع
+cp cordis.patch.yml.bak-20261017-account cordis.patch.yml
+# وبعدها: اقفل Monos وافتحه من جديد
+# (للرجوع الجزئي: امسح/عدّل صف واحد بس جوه cordis.patch.yml — سطر `disabled: true` بتاعه — وبعدين أعد التشغيل)
 ```
 
-## 9. ملاحظات أخيرة للمراجع
+## 10. ملاحظات أخيرة للمراجع
 
 - **نفس الهوية الرقمية:** Monos.app و DeepSeek Harness.app الاتنين بنفس `CFBundleIdentifier` — لو الاتنين مفتوحين في نفس الوقت ممكن يحصل تعارض في قفل البروفايل؛ افتح واحد بس.
 - **الأذونات (مايك/شاشة):** بسبب إعادة التوقيع، ممكن macOS يطلب الأذونات مرة تانية أول استخدام لفيتشر محتاجها — طبيعي.
 - **ملف `AGENTS.md`** اللي في `~/Downloads` مش بتاع المشروع ده (مشروع تاني) — محدش استخدمه ولا اتغير حاجة بسببه.
 - **الصور المصدر:** `/Users/rebuytech/Downloads/assets.zip` — لو محتاج تتأكد إن حزمة الريبو مطابقة: فك الضغط واعمل `diff -r`.
-- **بعد أي تحديث من DeepSeek للأصل**: `rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh` بيعيد البراند كامل أوتوماتيك — بما فيه نصوص الواجهة الداخلية (القسم 5).
+- **توكنات حساب DeepSeek القديمة لسه متخزنة** في `~/.dsh/.credentials.yaml` — الواجهة كلها مقفولة بس القيم موجودة زي ما هي. الحذف قرار المالك (لو اتحذفت: يفضل سطر `client-connection/browser-session`).
+- **بعد أي تحديث من DeepSeek للأصل**: `rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh` بيعيد البراند كامل أوتوماتيك — بما فيه نصوص الواجهة الداخلية (القسم 5) وطبقة البروفايل بتاعة إزالة DeepSeek (القسم 6.6).

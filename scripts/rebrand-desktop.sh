@@ -33,6 +33,14 @@
 # boot screen, welcome window, menus, About panel, account copy) still says DeepSeek
 # Harness; scripts/asar-brand.py patches those strings, the welcome lockup, the About
 # icon and the ElectronAsarIntegrity hash. See that script for the full edit list.
+#
+# Why the profile layer: the DeepSeek account UI, the DeepSeek LLM providers, the
+# DeepSeek web-search provider and the DeepSeek analytics/telemetry sinks are plugins
+# composed from ~/.dsh/profiles/desktop (bundles -> cordis.patch.yml). They are
+# disabled in that patch layer, not in the app bundle, so a DeepSeek update cannot
+# bring them back — this script re-asserts the layer on every rebrand. What the layer
+# does, and why the account platform + controller stay enabled, is documented in
+# scripts/strip-deepseek-profile.py.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ICNS="$ROOT/bundle/assets/monos/Monos.icns"
@@ -93,4 +101,12 @@ codesign --force --sign - --preserve-metadata=entitlements,flags "$TARGET" 2>&1 
 touch "$TARGET"
 /System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchServices.framework/Support/lsregister -f "$TARGET" || true
 killall Dock 2>/dev/null || true
+
+echo "→ Profile layer: re-asserting the DeepSeek-free patch (account UI, DeepSeek models…)"
+if [ -f "$HOME/.dsh/profiles/desktop/cordis.patch.yml" ]; then
+  python3 "$ROOT/scripts/strip-deepseek-profile.py" --apply --quiet \
+    || echo "   WARN: could not re-assert the DeepSeek-strip profile patch — run scripts/strip-deepseek-profile.py --check" >&2
+else
+  echo "   (no ~/.dsh/profiles/desktop found — skipped)"
+fi
 echo "Done. Open $TARGET"

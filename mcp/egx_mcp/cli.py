@@ -15,6 +15,7 @@
     egx-cli market-digest
     egx-cli market-history '{"symbol": "COMI", "days": 365}'
     egx-cli market-sync '{"force_quotes": false}'
+    egx-cli validate-data
 
 Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.
 """
@@ -23,8 +24,9 @@ import json
 import sys
 from contextlib import closing
 
-from .config import db_path
+from .config import data_dir, db_path
 from .data import default_provider
+from .data.schema import validate_data
 from .errors import ValuationInputError
 from .market.eodhd import EodhdClient, MarketDataError, resolve_api_key
 from .market.summary import market_digest, market_summary, symbol_history
@@ -43,6 +45,8 @@ def run(command: str, raw: str | None) -> object:
         return load_universe()
     if command == "market-sync":
         return _market_sync(_args(raw))
+    if command == "validate-data":
+        return validate_data(data_dir() / "manual")
     with closing(connect(db_path())) as conn:
         if command == "portfolio-summary":
             return portfolio.portfolio_summary(conn, default_provider())

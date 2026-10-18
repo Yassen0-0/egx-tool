@@ -102,8 +102,23 @@ CREATE TABLE IF NOT EXISTS watchlist (
 
 JSON_COLUMNS = ("macro_snapshot", "methods", "assumptions", "sources", "risk_details", "sanity")
 
-# Columns added after the first release, applied to existing databases on connect.
-MIGRATIONS = (("valuations", "report", "TEXT"),)
+
+def _add_column(table: str, column: str, decl: str):
+    def apply(conn: sqlite3.Connection) -> None:
+        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
+        if column not in existing:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
+    return apply
+
+
+# Numbered schema changes. PRAGMA user_version records the last one applied, so each runs exactly
+# once per database and in order. SCHEMA above is the current shape for a new database (every step
+# must be a no-op there). To change the schema: add the change to SCHEMA *and* append a step here
+# with the next number; never edit or reorder a released step.
+MIGRATIONS: tuple[tuple[int, str, object], ...] = (
+    (1, "valuations.report (full Markdown report)", _add_column("valuations", "report", "TEXT")),
+)
+SCHEMA_VERSION = MIGRATIONS[-1][0]
 
 
 def now_iso() -> str:
@@ -112,17 +127,40 @@ def now_iso() -> str:
 
 def connect(path: Path) -> sqlite3.Connection:
     path.parent.mkdir(parents=True, exist_ok=True)
+    existed = path.exists() and path.stat().st_size > 0
     conn = sqlite3.connect(path)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA foreign_keys = ON")
     conn.execute("PRAGMA journal_mode = WAL")
-    conn.executescript(SCHEMA)
-    for table, column, decl in MIGRATIONS:
-        existing = {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}
-        if column not in existing:
-            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
-    conn.commit()
+    migrate(conn, path if existed else None)
     return conn
+
+
+def migrate(conn: sqlite3.Connection, backup_from: Path | None = None) -> list[int]:
+    """Bring the database to SCHEMA_VERSION; returns the steps applied. An existing database is
+    copied to data/backups/ first (the user's portfolio and valuations live in it)."""
+    version = conn.execute("PRAGMA user_version").fetchone()[0]
+    pending = [m for m in MIGRATIONS if m[0] > version]
+    if pending and backup_from is not None:
+        backup(conn, backup_from, f"before-v{pending[-1][0]}")
+    conn.executescript(SCHEMA)
+    for number, _description, apply in pending:
+        apply(conn)
+        conn.execute(f"PRAGMA user_version = {int(number)}")
+    conn.commit()
+    return [m[0] for m in pending]
+
+
+def backup(conn: sqlite3.Connection, path: Path, label: str) -> Path:
+    """Consistent copy (SQLite online backup) next to the data: data/backups/<name>-<stamp>-<label>."""
+    folder = path.parent / "backups"
+    folder.mkdir(parents=True, exist_ok=True)
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    target = folder / f"{path.stem}-{stamp}-{label}{path.suffix}"
+    with sqlite3.connect(target) as copy:
+        conn.backup(copy)
+    copy.close()
+    return target
 
 
 def row_to_dict(row: sqlite3.Row | None) -> dict | None:

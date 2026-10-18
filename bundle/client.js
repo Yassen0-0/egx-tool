@@ -32,7 +32,10 @@ window.__ModuleLoader__.load({
 
 const MINUS = '−'
 const DASH = '—'
+// Mirror of mcp/egx_mcp/pricing.py (protection = fair × (1 − PROTECTION_DISCOUNT)); the Python value
+// is the rule and mcp/tests/test_rules_in_sync.py fails when this copy, the skills or the preset differ.
 const PROTECTION_RATIO = 0.8
+const PROTECTION_PCT = `${Math.round(PROTECTION_RATIO * 100)}%`
 
 const formatters = new Map()
 function fixed(digits) {
@@ -721,7 +724,6 @@ const METHOD_LABEL = {
   multiples: ['مضاعفات السوق', 'مقارنة السعر بالأرباح أو القيمة الدفترية مع تاريخ الشركة وأمثالها'],
   nav: ['صافي قيمة الأصول (NAV)', 'قيمة الأصول والحصص ناقص الديون، لكل سهم'],
   bank_justified_pb: ['مضاعف القيمة الدفترية المبرَّر', 'كم يستحق جنيه حقوق الملكية حسب العائد عليه مقابل تكلفته'],
-  residual_income: ['نموذج العائد الزائد على حقوق الملكية', 'القيمة الدفترية زائد ما يكسبه البنك فوق تكلفة رأس ماله'],
 }
 
 // [label, how to show the value]: 'pct' for rates and ratios, 'num' for plain numbers, 'egp' for pounds.
@@ -1150,7 +1152,7 @@ function AnalysesList({ onOpen }) {
         h('span', null, h('span', { className: 'a-sw', style: { background: 'var(--dsw-alias-label-primary)', borderRadius: '50%' } }), 'السعر الحالي'),
         h('span', null, h('span', { className: 'a-sw', style: { background: 'var(--dsw-alias-state-business-primary)', opacity: 0.3 } }), 'النطاق (المتشائم – المتفائل)')),
       h('p', { className: 'q-meta', style: { margin: 0, lineHeight: 1.8 } },
-        'سعر الحماية = ', N('80%'), ' من السعر العادل: لو السعر نزل تحته يُراجَع التقييم تلقائيًا. مرجع الدخول = السعر العادل نفسه. الأحدث لكل سهم في الأعلى والأقدم أسفله بلون أهدأ.'),
+        'سعر الحماية = ', N(PROTECTION_PCT), ' من السعر العادل: لو السعر نزل تحته يُراجَع التقييم تلقائيًا. مرجع الدخول = السعر العادل نفسه. الأحدث لكل سهم في الأعلى والأقدم أسفله بلون أهدأ.'),
       h(Disclaimer)),
     toastNode)
 }
@@ -1306,7 +1308,7 @@ function MethodsSection({ item }) {
     }),
     h('p', { key: 'n', className: 'q-meta', style: { lineHeight: 1.7 } },
       'المتشائم ', N(fmtPrice(item.bear)), ' ناتج أسوأ سيناريو للطرق كلها، أما سعر الحماية ', N(fmtPrice(item.protection_price)),
-      ' فهو ', N('80%'), ' من العادل. هما رقمان مختلفان لغرضين مختلفين.'),
+      ' فهو ', N(PROTECTION_PCT), ' من العادل. هما رقمان مختلفان لغرضين مختلفين.'),
   ]
 }
 
@@ -1503,7 +1505,7 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
           h('div', null, h('small', null, 'السعر العادل'), N(fmtPrice(item.fair_value), 'q-blue q-hero'),
             h('small', null, 'النطاق (المتشائم – المتفائل) ', N(`${fmtPrice(item.bear)} – ${fmtPrice(item.bull)}`))),
           h('div', null, h('small', null, 'سعر الحماية ', h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
-            h('b', { className: 'num q-amber', style: { fontSize: 20 } }, fmtPrice(item.protection_price)), h('small', null, N('80%'), ' من السعر العادل')),
+            h('b', { className: 'num q-amber', style: { fontSize: 20 } }, fmtPrice(item.protection_price)), h('small', null, N(PROTECTION_PCT), ' من السعر العادل')),
           h('div', null, h('small', null, 'السعر الآن'),
             price != null ? [h('b', { key: 'p', className: 'num', style: { fontSize: 20, fontWeight: 600 } }, fmtPrice(price)),
               h('small', { key: 'd' }, 'إغلاق ', N(fmtDayMonth(current.as_of)), ' · متأخر وليس لحظيًا', current.stale ? [' ', h(StaleChip, { key: 's' })] : null)]
@@ -1518,7 +1520,7 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
               status !== 'under' ? h('small', { key: 'p' }, 'أعلى من سعر الحماية بـ ', N(fmtPct((price - item.protection_price) / item.protection_price))) : null]
               : h('small', null, '—'))),
         help ? h('div', { className: 'a-helpline', role: 'note' }, h('b', null, 'ما هو سعر الحماية؟'),
-          h('span', null, 'سعر الحماية = ', N('80%'), ' من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع. مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.')) : null,
+          h('span', null, 'سعر الحماية = ', N(PROTECTION_PCT), ' من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع. مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء.')) : null,
         price != null ? h('div', { className: 'a-ruler' }, h(BigRuler, { v: { ...item, protection_price: item.protection_price }, price })) : null),
 
       // History chart + change log

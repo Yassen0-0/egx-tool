@@ -8,7 +8,10 @@
 
 export const MINUS = '−'
 export const DASH = '—'
+// Mirror of mcp/egx_mcp/pricing.py (protection = fair × (1 − PROTECTION_DISCOUNT)); the Python value
+// is the rule and mcp/tests/test_rules_in_sync.py fails when this copy, the skills or the preset differ.
 export const PROTECTION_RATIO = 0.8
+export const PROTECTION_PCT = `${Math.round(PROTECTION_RATIO * 100)}%`
 
 const formatters = new Map()
 function fixed(digits) {

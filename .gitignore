@@ -14,3 +14,4 @@ data/*.sqlite-*
 egx-api*
 *.key
 .env
+data/backups/

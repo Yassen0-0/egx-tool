@@ -4,14 +4,19 @@
     macro.json              {"risk_free_rate_egp": {"value", "as_of", "source"}, ...}
     events.csv              symbol,date,type,description,source
     financials/<SYM>.json   {"currency", "unit", "periods": [{"period", "period_end", "source", "data": {...}}]}
+    holidays.csv            date,name,source                (exchange holidays, read by market/calendar.py)
+
+The allowed fields, their units and the checks are in schema.py (`egx-cli validate-data`).
 """
 
 import csv
 import json
 from pathlib import Path
 
+from ..errors import ValuationInputError
 from ..universe import normalize_symbol
 from .provider import Event, FinancialPeriod, Financials, Sourced
+from .schema import load_financials
 
 
 class ManualProvider:
@@ -42,15 +47,17 @@ class ManualProvider:
         path = self.root / "financials" / f"{symbol}.json"
         if not path.exists():
             return None
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        try:
+            parsed = load_financials(path)
+        except ValueError as exc:
+            # Named file + field, so the analyst can tell the user exactly what to fix.
+            raise ValuationInputError(f"data/manual/financials/{exc}") from exc
         periods = [
-            FinancialPeriod(
-                p["period"], p["period_end"], p["source"],
-                {k: float(v) for k, v in p["data"].items() if v is not None},
-            )
-            for p in raw.get("periods", [])
+            FinancialPeriod(p.period, p.period_end.isoformat(), p.source,
+                            {k: v for k, v in p.data.items() if v is not None})
+            for p in parsed.periods
         ]
-        return Financials(symbol, raw.get("currency", "EGP"), raw.get("unit", "EGP"), periods)
+        return Financials(symbol, parsed.currency, parsed.unit, periods)
 
     def get_macro(self) -> dict[str, Sourced]:
         path = self.root / "macro.json"

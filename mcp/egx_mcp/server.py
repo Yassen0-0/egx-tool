@@ -9,9 +9,10 @@ from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
 from . import pricing
-from .config import db_path
+from .config import data_dir, db_path
 from .data import default_provider
 from .data.metrics import derived_metrics
+from .data.schema import validate_data
 from .errors import ValuationInputError
 from .risk import rating as rating_mod
 from .risk.altman import altman_z2 as altman_z2_calc
@@ -88,6 +89,14 @@ class FinancialYear(BaseModel):
 def universe_list() -> dict:
     """List EGX30 constituents with weights and the suggested valuation model for each."""
     return load_universe()
+
+
+@tool
+def validate_manual_data() -> dict:
+    """Check every file under data/manual (financials, macro, prices, events, holidays) against its
+    schema and list each problem with the file and field. Run it before a valuation when inputs
+    were edited by hand; the allowed financial fields and their units are in data/schema.py."""
+    return validate_data(data_dir() / "manual")
 
 
 @tool

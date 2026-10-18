@@ -1,7 +1,7 @@
 // «Monos / المحفظة»: today first and biggest, the add form above the holdings with a live total,
 // and the holdings grid tied to each stock's valuation (§7.4). ES module.
 // Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
-import { N, QM_CSS, api, h, useEffect, useState } from './runtime.js'
+import { N, QM_CSS, api, frag, h, useEffect, useState } from './runtime.js'
 import { cairoDay, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtTime, parseDayInput, parseNumberInput, sessionLine, toneOf } from './format.mjs'
 import { Disclaimer, MonosIcon, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
 import { MarginText, PriceCell, ProtectionHelp, ProtectionNote, Ruler, Skeleton, StatusMark } from './components.js'
@@ -19,7 +19,7 @@ export function SummaryCard({ portfolio, lastClose }) {
   return h('section', { className: 'q-card', 'aria-label': 'ملخص المحفظة', style: { overflow: 'hidden' } },
     h('div', { className: 'p-summary' },
       h('div', null,
-        h('small', null, h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'اليوم'), t.today_as_of ? [' · حتى إغلاق ', N(fmtDayMonth(t.today_as_of))] : null),
+        h('small', null, h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'اليوم'), t.today_as_of ? frag(' · حتى إغلاق ', N(fmtDayMonth(t.today_as_of))) : null),
         t.today_has_fresh
           ? [h('span', { key: 'v', className: `num q-hero ${toneOf(t.today_change)}` }, fmtSigned(t.today_change)),
             h('span', { key: 'p', className: `num ${toneOf(t.today_change)}`, style: { fontWeight: 600 } }, fmtPct(t.today_change_pct, { digits: 2, signed: true }))]
@@ -35,7 +35,7 @@ export function SummaryCard({ portfolio, lastClose }) {
     h('div', { className: 'p-strip' },
       h('span', null,
         'الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية',
-        lastClose ? [' (آخر إغلاق ', N(fmtDate(lastClose)), ')'] : null)))
+        lastClose ? frag(' (آخر إغلاق ', N(fmtDate(lastClose)), ')') : null)))
 }
 
 export function AddForm({ universe, onAdded, startOpen }) {
@@ -111,8 +111,8 @@ export function AddForm({ universe, onAdded, startOpen }) {
       h('div', { className: 'p-formfoot' },
         h('span', { className: 'p-total', 'aria-live': 'polite' }, h('span', { className: 'q-sec' }, 'الإجمالي: '),
           valid ? (mode === 'shares'
-            ? [N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, 'q-strong'), ' ج.م']
-            : [N(fmtPrice(total), 'q-strong'), ' ج.م · الأسهم ', N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 10000) / 10000)}`, 'q-strong')])
+            ? frag(N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, 'q-strong'), ' ج.م')
+            : frag(N(fmtPrice(total), 'q-strong'), ' ج.م · الأسهم ', N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 10000) / 10000)}`, 'q-strong')))
             : h('span', { className: 'q-ter' }, 'أدخل السعر والكمية')),
         h('span', { className: 'q-grow' }),
         error ? h('span', { className: 'q-error', role: 'alert' }, error) : null,
@@ -155,8 +155,8 @@ export function HoldingRow({ row, onChanged, onValue }) {
     h('span', { role: 'cell' }, h(PriceCell, { price: row.current_price, asOf: row.price_as_of, stale: row.price_stale, kind: row.price_as_of && row.price_as_of.length > 10 ? 'delayed' : 'close' })),
     h('span', { className: 'q-cell', role: 'cell' },
       row.today_change != null
-        ? [N(fmtSigned(row.today_change), toneOf(row.today_change)), h('small', { key: 'p' }, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct)))]
-        : row.price_stale ? [N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), 'q-ter'), h('small', { key: 's' }, 'جلسة ', N(fmtDayMonth(row.price_as_of)))]
+        ? frag(N(fmtSigned(row.today_change), toneOf(row.today_change)), h('small', null, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct))))
+        : row.price_stale ? frag(N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), 'q-ter'), h('small', null, 'جلسة ', N(fmtDayMonth(row.price_as_of))))
           : h('span', { className: 'q-ter' }, '—')),
     h('span', { role: 'cell' }, N(fmtPrice(row.market_value))),
     h('span', { className: 'q-cell', role: 'cell' }, N(fmtSigned(row.pnl), toneOf(row.pnl)),
@@ -218,11 +218,11 @@ export function PortfolioPage() {
   const empty = portfolio && !portfolio.holdings.length
 
   const headerMeta = market ? h('span', { className: 'q-meta', style: { marginInlineStart: 'auto' } },
-    lastClose ? ['إغلاق ', N(fmtDayMonth(lastClose))] : null,
-    run && run.finished_at ? [' · آخر مزامنة ', N(fmtTime(run.finished_at))] : null,
-    used != null ? [' · تحديثات الأسعار اليوم ', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit))] : null,
+    lastClose ? frag('إغلاق ', N(fmtDayMonth(lastClose))) : null,
+    run && run.finished_at ? frag(' · آخر مزامنة ', N(fmtTime(run.finished_at))) : null,
+    used != null ? frag(' · تحديثات الأسعار اليوم ', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit))) : null,
     ' · المصدر EODHD (مزوّد الأسعار)',
-    session ? [' · ', session.text, session.time ? ' ' : null, session.time ? N(session.time) : null] : null) : null
+    session ? frag(' · ', session.text, session.time ? ' ' : null, session.time ? N(session.time) : null) : null) : null
 
   let content
   if (loading) content = h('div', { className: 'q-card q-pad', 'aria-busy': true }, h(Skeleton, { width: '30%' }), h('br'), h(Skeleton, { width: '80%' }), h('br'), h(Skeleton, { width: '60%' }))

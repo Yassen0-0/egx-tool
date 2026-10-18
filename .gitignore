@@ -9,6 +9,8 @@ data/*.sqlite
 data/*.sqlite-*
 
 # Local secrets (API keys) — never commit
+# The old browser dev folder (removed mode); it holds a credentials file. Safe to delete locally.
+.dsh-dev/
 egx-api*
 *.key
 .env

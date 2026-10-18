@@ -54,13 +54,19 @@ function MonosIcon({ size = 22 }) {
   dot(7.05, 15.75, 'a'), dot(10.36, 11.86, 'b'), dot(12.89, 13.95, 'c'), dot(17.11, 8.25, 'd'))
 }
 
+// Empty-conversation mark: fills the host's conversation.hero.brand.mark slot, so the host's
+// animated fallback (the DeepSeek whale) never shows. The host passes the size and its own class.
+function HeroMonosMark({ size = 34, className }) {
+  return h('span', { className, style: { display: 'inline-flex' } }, h(MonosIcon, { size }))
+}
+
 function todayOf(portfolio) {
   const totals = portfolio && portfolio.totals
   return { state: iconState(portfolio), change: totals && totals.today_change, pct: totals && totals.today_change_pct }
 }
 
 // ── Sidebar entry ──────────────────────────────────────────────────────────────
-// The Harness row renders our icon (16px wide, 18px in the collapsed rail) and the static label
+// The host row renders our icon (16px wide, 18px in the collapsed rail) and the static label
 // «Monos». When the portfolio moved today, the row also shows today's % beside the label, and
 // the row's tooltip and accessible name become «Monos — السوق».
 const SIDEBAR_PCT_CLASS = 'monos-sidebar-pct'
@@ -121,7 +127,7 @@ function Disclaimer({ extra }) {
 }
 
 // ── «قيّم سهم X» ──────────────────────────────────────────────────────────────
-// The Harness exposes the composer's draft only to components rendered inside the chat, and our
+// The host exposes the composer's draft only to components rendered inside the chat, and our
 // panels replace the chat while open, so the message is copied for the user to paste there.
 function useToast() {
   const [text, setText] = useState('')

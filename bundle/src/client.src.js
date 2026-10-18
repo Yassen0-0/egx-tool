@@ -1,4 +1,4 @@
-// Source of client.js (run `node build-client.mjs`). EGX panels for the Harness
+// Source of client.js (run `node build-client.mjs`). EGX panels for the Monos
 // Web/Desktop client: sidebar entries plus pages in the main area. Data comes from
 // the host half's /egx/api routes, which run the same Python logic as the
 // mcp__egx__* tools. LightweightCharts is inlined by the build at the marker below.
@@ -121,7 +121,7 @@ window.__ModuleLoader__.load({
       return h('div', { className: 'a-md', dir: 'rtl' }, blocks)
     }
 
-    // Canvas charts can't read CSS variables, so resolve the Harness tokens (set on body) to
+    // Canvas charts can't read CSS variables, so resolve the host tokens (set on body) to
     // rgba() strings through a probe element and a 1px canvas; any colour syntax comes out as sRGB.
     function tokenColor(name, alpha = 1) {
       const probe = document.createElement('span')
@@ -155,9 +155,9 @@ window.__ModuleLoader__.load({
     }
 
 
-    // ── Shared: Harness theme and TradingView embeds ────────────────────────────
+    // ── Shared: host theme and TradingView embeds ────────────────────────────
 
-    // The Harness theme can differ from the OS setting, so read it from the host's own
+    // The host theme can differ from the OS setting, so read it from the host's own
     // label token: light text means a dark surface. Re-evaluated when the root's
     // attributes change (theme switch) or the OS scheme changes.
     function hostTheme() {
@@ -228,6 +228,9 @@ window.__ModuleLoader__.load({
       apply(ctx) {
         nav.selectPanel = (id) => ctx.layout.selectPanel(id)
         ctx.effect(() => () => { nav.selectPanel = null })
+        ctx.slots.inject('conversation.hero.brand.mark', () => ctx.slots.register({
+          name: 'conversation.hero.brand.mark',
+        }, HeroMonosMark))
         ctx.slots.inject('sidebar.panellist', () => ctx.slots.register({
           name: 'sidebar.panellist', id: MARKET_ID, order: 8, label: 'Monos',
         }, SidebarMonosIcon))

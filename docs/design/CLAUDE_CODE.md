@@ -26,12 +26,12 @@ The designs also live on a private claude.ai design canvas ("قيمة — تصم
 
 ## 1. Meeting minutes (what happened, in order)
 
-1. **Brief read.** The product is a DeepSeek Harness plugin. Our panels are Market (السوق), Analyses (التحليلات) and Portfolio (المحفظة). The sidebar, chat and settings belong to DeepSeek and are not ours.
+1. **Brief read.** The product is a plugin of the Monos desktop app. Our panels are Market (السوق), Analyses (التحليلات) and Portfolio (المحفظة). The sidebar, chat and settings belong to DeepSeek and are not ours.
 2. **Round 0 (rejected).** Claude made 3 directions (Terminal / Ledger / Cockpit) with their own colour palettes and Google fonts. **Yassen rejected all three**: "they all look the same, only the colours changed; the tool looks ugly and impractical."
-   - **Decision 1:** use **DeepSeek Harness colours exactly** (`--dsw-alias-*`). Our identity = **name + icon only**.
+   - **Decision 1:** use **host-app colours exactly** (`--dsw-alias-*`). Our identity = **name + icon only**.
    - **Decision 2:** redesign from research on what investors and analysts actually love, not from taste.
 3. **Research.** 3 agents studied Simply Wall St, Morningstar, GuruFocus, Seeking Alpha, Koyfin, TIKR, Finviz, Stock Rover, TradingView, Yahoo and stockanalysis.com, plus investor voice (Reddit, Trustpilot, HN) and the Egyptian/Arab tools (Thndr, Mubasher, Argaam, EFG). Key findings are in §3.
-4. **Round 1 design.** 3 agents built Market, Analyses + Analysis, Portfolio + States + Identity on Harness tokens.
+4. **Round 1 design.** 3 agents built Market, Analyses + Analysis, Portfolio + States + Identity on host tokens.
    - **Name chosen: «قيمة».** It was recommended, and both test users later picked it independently.
 5. **Icon decision (Yassen).** The icon is a rounded square with an arrow:
    - **green up** when the user's portfolio is up today, **red down** when it is down;
@@ -77,7 +77,7 @@ The designs also live on a private claude.ai design canvas ("قيمة — تصم
    - The words شراء/بيع may appear ONLY in the disclaimer: «تقييم وليس توصية بالشراء أو البيع.» (footer of every screen).
    - In the Portfolio form, the factual field is **«سعر التنفيذ»**. Don't label it «سعر الشراء».
 2. **Prices are never live.** Every price shows its date: «14/10», or «إغلاق الأربعاء 14 أكتوبر». A price older than the expected last session gets the chip **«سعر قديم»** and its date, e.g. «جلسة 12/10». No pulsing dots and no "live" styling.
-3. **Colours = Harness tokens only** (§5). No custom hex in our CSS. Fonts: the Harness stack (`var(--dsw-font-family)`, `var(--ds-font-family-code)`). No webfonts.
+3. **Colours = host tokens only** (§5). No custom hex in our CSS. Fonts: the host font stack (`var(--dsw-font-family)`, `var(--ds-font-family-code)`). No webfonts.
 4. **Green/red only for price change and the portfolio icon.**
    - Blue (`state-business-primary`) = our valuation (fair value).
    - Amber (`state-warn-*`) = protection.
@@ -135,9 +135,9 @@ The designs also live on a private claude.ai design canvas ("قيمة — تصم
 
 ---
 
-## 5. Design tokens (Harness)
+## 5. Design tokens (host app)
 
-Use the real Harness CSS variables. They already exist on `body` and switch with `body[data-ds-dark-theme]`. Do not redefine them in our CSS. Source: `ui-theme/src/styles/design-platform.css` in the DeepSeek Harness repo.
+Use the real host CSS variables. They already exist on `body` and switch with `body[data-ds-dark-theme]`. Do not redefine them in our CSS. Source: `ui-theme/src/styles/design-platform.css` in the DeepSeek Harness repo.
 
 | Role | Token |
 |---|---|
@@ -164,7 +164,7 @@ Use the real Harness CSS variables. They already exist on `body` and switch with
 
 ## 6. Identity: name and icon
 
-- **Name:** «قيمة» (Latin: Qima). Update `bundle/locale/ar.json` `meta.title` → «قيمة», en → "Qima". Keep the description's "not investment advice" sentence. The name must never contain "DeepSeek Harness" (trademark; "DSH" is allowed).
+- **Name:** **Monos** (renamed from «قيمة»/Qima on 17/10; see `opencode`). `bundle/locale/*.json` `meta.title` = "Monos". Keep the description's "not investment advice" sentence. The name must never contain "DeepSeek" or "Harness", and no host-app name or logo may show anywhere in the UI.
 - **Icon states.** All are a 24×24 viewBox rounded square (`rx=6`) with the glyph stroked in `--dsw-alias-bg-base`:
 
 | State | When | Square fill | Glyph |
@@ -345,15 +345,15 @@ Work on a branch `ui-qima`. After each phase, run `uv run --project mcp pytest -
 | **P6 Portfolio** | §7.4 | today shown first; live total in the form; «سعر التنفيذ»; share-of-portfolio column; sorting |
 | **P7 States + polish** | §7.5, empty/error/loading everywhere; keyboard and focus; final RTL/bidi pass (zoom on every long text) | all 9 states reachable; no sentence ends on a number before punctuation |
 
-**Visual QA:** compare each screen with `docs/design/screenshots/<Screen>-{light,dark}.png`. Layout and copy should match closely. Exact pixel spacing can follow the existing Harness feel.
+**Visual QA:** compare each screen with `docs/design/screenshots/<Screen>-{light,dark}.png`. Layout and copy should match closely. Exact pixel spacing can follow the existing host-app feel.
 
 ---
 
 ## 10. Open items / known caveats
 
-- The amber-on-amber contrast (§5) is a Harness palette limit and is accepted.
+- The amber-on-amber contrast (§5) is a host palette limit and is accepted.
 - The static app logo can't be dynamic, so it uses the NEUTRAL glyph (§6).
 - The green/red icon may be read as buy/sell by some users (test finding). Yassen decided to keep it. Don't change it without asking him.
 - Dark mode: the amber "price above fair" shading in the Analysis history chart is faint. Raise its opacity a little if needed, staying within the token.
-- Check whether the Harness chat exposes an API to pre-fill the input for «قيّم سهم X». If it doesn't, use the clipboard + toast fallback (§7.1).
+- Check whether the host chat exposes an API to pre-fill the input for «قيّم سهم X». If it doesn't, use the clipboard + toast fallback (§7.1).
 - Product facts (EGX hours, limits, the EODHD plan) are as of October 2026.

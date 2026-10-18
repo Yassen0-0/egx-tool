@@ -1,6 +1,6 @@
 # Round 2 fixes — shared rules for all fix agents
 
-Read first: SPEC.md (same folder), the two usability reports usability-mostafa.md and usability-nour.md (same folder). Your files are in /tmp/claude-0/-home-claude/9f1a880d-96ec-5ca4-8918-b432dc6aa9de/scratchpad/egx-design/project/. Edit in place (Edit tool or a full rewrite with Write). Keep the Harness tokens / format rules from SPEC.md.
+Read first: SPEC.md (same folder), the two usability reports usability-mostafa.md and usability-nour.md (same folder). Your files are in /tmp/claude-0/-home-claude/9f1a880d-96ec-5ca4-8918-b432dc6aa9de/scratchpad/egx-design/project/. Edit in place (Edit tool or a full rewrite with Write). Keep the host tokens / format rules from SPEC.md.
 
 ## Verify visually (you MUST do this)
 Render your files and look at the PNGs:
@@ -36,4 +36,4 @@ Tool name «قيمة». Icon = rounded square with an arrow, colored by today's 
 COMI 50 @ 100.00, close 122.00 (14/10), day +1.00 → day +50.00. EAST 200 @ 31.00, close 27.77, day +0.18 → +36.00. ETEL 20 @ 120.00, close 145.00, day −1.80 → −36.00. Totals: cost 13,600.00; value 14,554.00; P/L +954.00 (+7.0%); TODAY +50.00 (+0.34%).
 
 ## Quality bar
-Calm, native DeepSeek Harness look. Fewer things per row, bigger click targets (≥36px rows, ≥32px controls), consistent 8px rhythm, same header pattern on every screen (icon 22px + «قيمة» + "/" + screen name + demo chip on the right; actions on the left). Text ≥12px; secondary text uses label-secondary (not tertiary) when it carries information. Dark mode: make sure bars, rulers and borders stay visible (use border-l3/l4 for tracks).
+Calm, native host-app look. Fewer things per row, bigger click targets (≥36px rows, ≥32px controls), consistent 8px rhythm, same header pattern on every screen (icon 22px + «قيمة» + "/" + screen name + demo chip on the right; actions on the left). Text ≥12px; secondary text uses label-secondary (not tertiary) when it carries information. Dark mode: make sure bars, rulers and borders stay visible (use border-l3/l4 for tracks).

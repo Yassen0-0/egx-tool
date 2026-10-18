@@ -41,6 +41,9 @@
 # which is shown verbatim in the microphone permission prompt. The re-sign below covers all
 # of it.
 #
+# Why no auto-update: Resources/app-update.yml (DeepSeek's update feed) is removed, so the
+# updater stays off; see the step below.
+#
 # Why the asar: the desktop UI inside Contents/Resources/app.asar (sidebar wordmark,
 # boot screen, welcome window, menus, About panel, account copy) still says DeepSeek
 # Harness; scripts/asar-brand.py patches those strings, the welcome lockup, the About
@@ -56,11 +59,11 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 ICNS="$ROOT/bundle/assets/monos/Monos.icns"
-TARGET="/Applications/Monos.app"
+TARGET="${MONOS_APP:-/Applications/Monos.app}"   # override to rebrand a copy elsewhere
 SOURCE="/Applications/DeepSeek Harness.app"
 
 [ -f "$ICNS" ] || { echo "Icon not found: $ICNS" >&2; exit 1; }
-if pgrep -f "Monos.app/Contents/MacOS" >/dev/null || pgrep -f "DeepSeek Harness.app/Contents/MacOS" >/dev/null; then
+if pgrep -f "$(basename "$TARGET")/Contents/MacOS" >/dev/null || pgrep -f "DeepSeek Harness.app/Contents/MacOS" >/dev/null; then
   echo "Quit the DeepSeek/Monos app first." >&2; exit 1
 fi
 
@@ -89,6 +92,12 @@ xattr -dr com.apple.macl "$TARGET" 2>/dev/null || true
 xattr -dr com.apple.provenance "$TARGET" 2>/dev/null || true
 cp "$ICNS" "$TARGET/Contents/Resources/icon.icns"
 /usr/libexec/PlistBuddy -c "Set :CFBundleName Monos" -c "Set :CFBundleDisplayName Monos" "$TARGET/Contents/Info.plist"
+
+echo "→ Auto-update off: Resources/app-update.yml points at download.deepseek.com"
+# electron-updater only runs when this file exists. With it, the app polls DeepSeek's nightly
+# feed and shows "Monos Update" windows for builds it cannot install (the ad-hoc signature
+# below has no Team ID). New DeepSeek builds go through the rm -rf + re-run path above instead.
+rm -f "$TARGET/Contents/Resources/app-update.yml"
 
 echo "→ In-app branding: patching Resources/app.asar (sidebar wordmark, boot screen, welcome, menus…)"
 python3 "$ROOT/scripts/asar-brand.py" "$TARGET"

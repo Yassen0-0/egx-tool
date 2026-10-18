@@ -31,6 +31,7 @@ import hashlib
 import json
 import os
 import plistlib
+import re
 import shutil
 import struct
 import subprocess
@@ -92,6 +93,23 @@ def extract(archive: Path, dest: Path):
     return tree, len(entries)
 
 
+def file_integrity(buf: bytes, block_size: int) -> dict:
+    """Per-file integrity entry as @electron/asar writes it: sha256 of the whole file plus one
+    sha256 per block. Electron checks these when it reads a file, once asar integrity is on."""
+    blocks = [hashlib.sha256(buf[i:i + block_size]).hexdigest() for i in range(0, len(buf), block_size)] \
+        or [hashlib.sha256(b'').hexdigest()]
+    return {'algorithm': 'SHA256', 'hash': hashlib.sha256(buf).hexdigest(),
+            'blockSize': block_size, 'blocks': blocks}
+
+
+def header_hash(archive_bytes: bytes) -> str:
+    """ElectronAsarIntegrity hashes the header JSON string only, not the whole archive (the
+    original app's Info.plist records exactly this value)."""
+    _, hlen = struct.unpack('<II', archive_bytes[:8])
+    _, slen = struct.unpack('<II', archive_bytes[8:16])
+    return hashlib.sha256(archive_bytes[16:16 + slen]).hexdigest()
+
+
 def pack(tree, srcdir: Path, out: Path):
     entries = sorted(
         ((int(e['offset']), p, e) for p, e in walk_files(tree) if not e.get('unpacked')),
@@ -102,6 +120,8 @@ def pack(tree, srcdir: Path, out: Path):
         buf = (srcdir / path).read_bytes()
         ent['size'] = len(buf)
         ent['offset'] = str(off)
+        if 'integrity' in ent:
+            ent['integrity'] = file_integrity(buf, ent['integrity'].get('blockSize', 4 * 1024 * 1024))
         datas.append(buf)
         off += len(buf)
     jstr = json.dumps(tree, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
@@ -125,6 +145,8 @@ def pack(tree, srcdir: Path, out: Path):
 #    name (menus, welcome window, sidebar/account copy, notices, agent identity).
 TOKEN_FILES = [
     'lib/main.js',                                                              # menus, welcome window, About panel, update labels
+    'lib/preload-app.cjs',                                                      # in-window menu bar, startup-failure and update copy
+    'lib/preload-welcome.cjs',                                                  # the same locale table, for the welcome window
     'dsh/node_modules/@deepseek-ai/dsh-client-ui-layout/lib/client.js',         # window title
     'dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-account/lib/client.js',   # account area + onboarding
     'dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',    # models welcome copy
@@ -168,11 +190,48 @@ EXACT = [
     ('@boot-wordmark',
      'yn(xn.wordmark,"HARNESS")',
      'yn(xn.wordmark,"Monos")'),
-    # welcome window key hint (says "start using Harness" — the product name
-    # "DeepSeek models" part is the actual model service, so it stays).
+    # welcome window key hint: point at Settings instead of the DeepSeek service.  `old` may be a
+    # tuple of alternatives: main.js also accepts the wording an earlier version of this
+    # script wrote, so an already-patched app upgrades in place.
     ('lib/main.js',
+     ('"Configure official DeepSeek models to start using Harness"',
+      '"Configure official DeepSeek models to start using Monos"'),
+     '"Configure a model provider in Settings to start using Monos"'),
+    ('lib/preload-app.cjs',
      '"Configure official DeepSeek models to start using Harness"',
-     '"Configure official DeepSeek models to start using Monos"'),
+     '"Configure a model provider in Settings to start using Monos"'),
+    ('lib/preload-welcome.cjs',
+     '"Configure official DeepSeek models to start using Harness"',
+     '"Configure a model provider in Settings to start using Monos"'),
+    ('lib/main.js', '"配置 DeepSeek 官方模型，即可开始使用"', '"在设置中配置模型提供方，即可开始使用"'),
+    ('lib/preload-app.cjs', '"配置 DeepSeek 官方模型，即可开始使用"', '"在设置中配置模型提供方，即可开始使用"'),
+    ('lib/preload-welcome.cjs', '"配置 DeepSeek 官方模型，即可开始使用"', '"在设置中配置模型提供方，即可开始使用"'),
+    # the welcome window only offers a DeepSeek sign-in (platform.deepseek.com) or a DeepSeek
+    # API key, and it opens on every launch once those are gone.  Monos uses the providers set
+    # in Settings, so the gate is switched off and the app always opens the workspace.
+    ('lib/main.js',
+     'function needsWelcome(authentication) {\n\treturn !authentication.loggedIn && !authentication.hasApiKey;\n}',
+     'function needsWelcome(authentication) {\n\treturn false; // Monos: no DeepSeek sign-in gate\n}'),
+    # empty conversation: the headline under the hero mark (the mark itself is filled by the
+    # bundle through the conversation.hero.brand.mark slot, see bundle/src/identity.js).
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+     '"hero.headline": "Into the Unknown"', '"hero.headline": "Monos"'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+     '"hero.headline": "探索未至之境"', '"hero.headline": "Monos"'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+     '"hero.preview": "Preview"', '"hero.preview": "EGX30"'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
+     '"hero.preview": "预览版"', '"hero.preview": "EGX30"'),
+    # copy that only reads well rewritten as a whole, applied before the STRING_RULES below.
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
+     '"Configure the official DeepSeek provider to start building."',
+     '"Configure a model provider to start building."'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-models/lib/client.js',
+     '"配置 DeepSeek 官方模型，即可开始使用。"', '"配置模型提供方，即可开始使用。"'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-session-log/lib/client.js',
+     '"Help improve DeepSeek models and products."', '"Help improve Monos."'),
+    ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-session-log/lib/client.js',
+     '"帮助改进 DeepSeek 模型与产品"', '"帮助改进 Monos"'),
     # account area: the signed-in line names the app account.
     ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-account/lib/client.js',
      '"Signed in to DeepSeek"', '"Signed in to Monos"'),
@@ -185,6 +244,31 @@ EXACT = [
      '"name": "DeepSeek Harness"', '"name": "Monos"'),
     ('dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/manifest.webmanifest',
      '"short_name": "DSH"', '"short_name": "Monos"'),
+]
+
+# 3) a brand word inside the user-visible copy of a host package.  Applied only inside
+#    double-quoted string literals and only as a whole word, so identifiers such as
+#    DSH_HOME, __DSH_LOCALE__, isDSHRemoteError or validateDeepSeekModels are never touched.
+#    Already-branded files simply have nothing left to replace.
+STRING_LITERAL = re.compile(r'"(?:[^"\\\n]|\\.)*"')
+_UI = 'dsh/node_modules/@deepseek-ai/dsh-client-ui-{}/lib/client.js'.format
+_WORD = lambda w: re.compile(r'(?<![A-Za-z0-9_$])' + w + r'(?![A-Za-z0-9_$])')
+STRING_RULES = [
+    ('lib/main.js', _WORD('DSH'), BRAND),               # "Another DSH instance …" startup error
+    ('lib/preload-app.cjs', _WORD('DSH'), BRAND),
+    ('lib/preload-welcome.cjs', _WORD('DSH'), BRAND),
+    (_UI('agent-preset'), _WORD('DSH'), BRAND),         # "extend DSH with Create mode"
+    (_UI('plugin-manager'), _WORD('DSH'), BRAND),       # plugin compatibility notices
+    (_UI('sidebar-browser'), _WORD('DSH'), BRAND),      # "cannot open the DSH application itself"
+    (_UI('conversation'), _WORD('DSH'), BRAND),         # "session already in use by another DSH instance"
+    (_UI('model-selection'), _WORD('DSH'), BRAND),
+    (_UI('shortcuts'), _WORD('Harness'), BRAND),        # "Upgrade Harness", "restart Harness"
+    (_UI('chat'), _WORD('DeepSeek'), BRAND),            # "signed out of DeepSeek"
+    (_UI('model-selection'), _WORD('DeepSeek'), BRAND),  # "DeepSeek Account"
+    (_UI('settings-account'), _WORD('DeepSeek'), BRAND),
+    (_UI('settings-models'), _WORD('DeepSeek'), BRAND),
+    (_UI('settings-session-log'), _WORD('DeepSeek'), BRAND),
+    (_UI('settings-web-search'), _WORD('DeepSeek'), BRAND),
 ]
 
 BOOT_GLOB = 'dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/assets/index-*.js'
@@ -239,10 +323,13 @@ def apply_edits(src: Path, log):
         if not p.is_file():
             raise SystemExit(f'brand patch: missing file in archive: {rel}')
         text = p.read_text(encoding='utf-8')
-        n = text.count(old)
+        n = 0
+        for alt in (old if isinstance(old, tuple) else (old,)):
+            n += text.count(alt)
+            text = text.replace(alt, new)
         if n:
-            p.write_text(text.replace(old, new), encoding='utf-8')
-            log.append(f'  {rel}: "{old[:40]}" x{n}')
+            p.write_text(text, encoding='utf-8')
+            log.append(f'  {rel}: "{(old if isinstance(old, str) else old[0])[:40]}" x{n}')
             changed.append(rel)
         elif new in text:
             log.append(f'  {rel}: already branded')
@@ -267,6 +354,26 @@ def apply_edits(src: Path, log):
         if rel == '@boot-wordmark':
             continue
         replace_all(rel, old, new)
+
+    for rel, pattern, new in STRING_RULES:
+        p = src / rel
+        if not p.is_file():
+            raise SystemExit(f'brand patch: missing file in archive: {rel}')
+        text = p.read_text(encoding='utf-8')
+        n = 0
+
+        def in_literal(m):
+            nonlocal n
+            replaced, k = pattern.subn(new, m.group(0))
+            n += k
+            return replaced
+        text = STRING_LITERAL.sub(in_literal, text)
+        if n:
+            p.write_text(text, encoding='utf-8')
+            log.append(f'  {rel}: {pattern.pattern} -> {new} x{n} (in string literals)')
+            changed.append(rel)
+        else:
+            log.append(f'  {rel}: {pattern.pattern}: already branded')
 
     svg = src / WELCOME_SVG_PATH
     if not svg.is_file():
@@ -298,17 +405,20 @@ def syntax_check(src: Path, changed, log):
     if not node or not changed:
         return
     for rel in sorted(set(changed)):
-        if not rel.endswith('.js'):
+        if not rel.endswith(('.js', '.cjs')):
             continue
         p = src / rel
-        tmp = p.with_suffix('.check.mjs')
+        tmp = p.with_suffix('.check.cjs' if rel.endswith('.cjs') else '.check.mjs')
         tmp.write_bytes(p.read_bytes())
         r = subprocess.run([node, '--check', str(tmp)], capture_output=True, text=True)
         tmp.unlink()
         if r.returncode == 0:
             log.append(f'  syntax OK: {rel}')
         else:
-            log.append(f'  WARNING syntax check failed for {rel}: {r.stderr.strip().splitlines()[-1] if r.stderr.strip() else "?"}')
+            # a broken patch must never reach the app: stop before anything is written.
+            print('\n'.join(log))
+            raise SystemExit(f'brand patch: syntax check failed for {rel}: '
+                             f'{r.stderr.strip().splitlines()[-1] if r.stderr.strip() else "?"}')
 
 
 # ---------------------------------------------------------------------------
@@ -347,7 +457,7 @@ def main():
 
     old_bytes = asar.read_bytes()
     asar_changed = new_bytes != old_bytes
-    new_hash = hashlib.sha256(new_bytes).hexdigest()
+    new_hash = header_hash(new_bytes)
 
     pdata = plistlib.loads(plist.read_bytes())
     try:

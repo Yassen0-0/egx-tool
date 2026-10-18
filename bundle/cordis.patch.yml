@@ -1,7 +1,7 @@
 # EGX bundle: host-plane rows, applied after the web-app bundle.
 #
-# EGX_HOME must point at the egx checkout (set by scripts/install.sh in the
-# Harness-home .env). The MCP server is a host row so one instance serves every
+# EGX_HOME must point at the egx checkout (set by scripts/install-desktop.sh in
+# ~/.dsh/.env). The MCP server is a host row so one instance serves every
 # session: mcp-client server names must be unique across live instances, which a
 # per-session preset row would violate.
 

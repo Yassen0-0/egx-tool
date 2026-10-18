@@ -1,5 +1,5 @@
-/* «Monos» shared styles. Harness tokens only (--dsw-alias-*, --dsw-radius-*, the Harness font
-   stacks): they live on body and switch with the Harness theme, so nothing here is redefined
+/* «Monos» shared styles. host tokens only (--dsw-alias-*, --dsw-radius-*, the host font
+   stacks): they live on body and switch with the host theme, so nothing here is redefined
    per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */
 
 .qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);
@@ -91,7 +91,7 @@
   background: var(--dsw-alias-markdown-tag); color: var(--dsw-alias-label-secondary); font-size: 12px; font-weight: 400; white-space: nowrap; flex: none; }
 .qm .q-chip-line { background: transparent; border: 1px solid var(--dsw-alias-border-l4); }
 .qm .q-chip-biz { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }
-/* Amber on amber is ~2.7:1 in light mode (accepted Harness limit): weight + border + ◆ carry it. */
+/* Amber on amber is ~2.7:1 in light mode (accepted host limit): weight + border + ◆ carry it. */
 .qm .q-chip-warn { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); font-weight: 600;
   border: 1px solid var(--dsw-alias-state-warn-primary); }
 .qm .q-fchip { appearance: none; height: 32px; padding: 0 10px; border-radius: 16px; border: 1px solid var(--dsw-alias-border-l3); background: transparent;

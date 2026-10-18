@@ -4,12 +4,12 @@ Read this whole file first. Also skim the three research files beside it (01-too
 
 ## 0. What went wrong last round (do not repeat)
 The owner rejected three earlier directions: "they all look the same, you only changed colors, and the tool feels ugly / not practical". So:
-- **Colors are NOT ours to choose.** Use ONLY the DeepSeek Harness tokens below, by their real `--dsw-alias-*` names, so the panels are indistinguishable in style from the host app. No custom hex anywhere except inside the token blocks. No webfonts — the harness font stack only.
+- **Colors are NOT ours to choose.** Use ONLY the host-app tokens below, by their real `--dsw-alias-*` names, so the panels are indistinguishable in style from the host app. No custom hex anywhere except inside the token blocks. No webfonts — the harness font stack only.
 - Our identity = tool NAME + ICON only.
 - "Practical" = every element answers a real investor question fast (research §2). Remove decoration, invented widgets, filler. Calm, native-feeling, dense where it matters, generous where reading happens. Think macOS-native utility inside a chat app, not a trading terminal and not a marketing page.
 
 ## 1. Product truths
-- Solo Egyptian retail investor, Arabic UI, RTL, Latin digits, English tickers. Desktop panel inside DeepSeek Harness (the harness sidebar + chat are NOT ours; we design the panel content area only, ~1180px wide at 1280 window; must still work down to ~900px).
+- Solo Egyptian retail investor, Arabic UI, RTL, Latin digits, English tickers. Desktop panel inside the Monos app (the host sidebar + chat are NOT ours; we design the panel content area only, ~1180px wide at 1280 window; must still work down to ~900px).
 - AI analyst produces per stock: السعر العادل التقديري (bear/base/bull range), التصنيف (آمن / متوازن / مرتفع المخاطر), سعر الدخول المرجعي (= fair), سعر الحماية (= fair × 0.80, a rule, not a forecast). Most important state: **تحت سعر الحماية — يحتاج مراجعة** (critic auto-reviews; two possibilities shown: the valuation missed something, or the market is more pessimistic than warranted).
 - Prices: EODHD end-of-day, delayed, never live. Free plan = 20 requests/day, so some stocks have older closes than others. Every price shows its date; a stale price gets a visible "قديم" chip.
 - HARD RULE: valuation and analysis only, never buy/sell. Banned words: شراء/بيع as advice, فرصة، رخيص، هدف سعري، صعود متوقع، upside, target, bargain, stop-loss (وقف خسارة). Use: الفجوة للعادل، هامش الأمان، مرجع، النطاق، حتى تاريخ.
@@ -40,9 +40,9 @@ body{margin:0}
 Role mapping (use exactly):
 - page bg `bg-base`; cards/panels `bg-layer-1` + `border-l2`; sunken areas, table header, chips `bg-module-platform` / `markdown-tag`; hover `interactive-bg-hover`; selected `interactive-bg-active` or `button-ghost-active-fill`.
 - text: `label-primary`, secondary `label-secondary`, meta `label-tertiary`. (`label-caption` only for decoration, it fails contrast.)
-- primary button: `button-primary-fill` bg + `label-primary-foreground` text (black in light, near-white in dark — this is the harness look). Secondary buttons: transparent + `border-l3`. Links `link`.
+- primary button: `button-primary-fill` bg + `label-primary-foreground` text (black in light, near-white in dark — this is the host look). Secondary buttons: transparent + `border-l3`. Links `link`.
 - price up text: `file-diff-added-marker`; price down text: `file-diff-deleted-marker` (readable greens/reds); bars/candles may use `state-success-primary` / `state-error-primary`. Always with +/− sign.
-- fair value / our valuation: `state-business-primary` (DeepSeek blue), soft bg `state-business-tertiary`.
+- fair value / our valuation: `state-business-primary` (the host blue), soft bg `state-business-tertiary`.
 - protection / under-protection: `state-warn-label` text + `state-warn-primary` marks, bg `state-warn-tertiary`.
 - radii: chips `radius-xs`, inputs/buttons/cards `radius-sm`…`radius-md`. No shadows except subtle `0 1px 2px rgba(0,0,0,.04)`.
 - Type scale (px): 12 meta, 13 table, 14 body, 16 section title, 20 page title, 28–32 one hero number only. Weights 400/500/600. No letter-spacing on Arabic.

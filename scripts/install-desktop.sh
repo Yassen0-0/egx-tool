@@ -6,7 +6,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
-APP="/Applications/Monos.app"
+APP="${MONOS_APP:-/Applications/Monos.app}"
 DSH="$APP/Contents/Resources/runtime/cli/bin/dsh"
 UV="$(command -v uv || true)"
 
@@ -20,14 +20,16 @@ fi
 echo "→ Python MCP server"
 "$UV" sync --project "$ROOT/mcp"
 
-echo "→ Harness-home environment ($DSH_HOME/.env)"
+echo "→ App environment ($DSH_HOME/.env)"
 ENV_FILE="$DSH_HOME/.env"
 touch "$ENV_FILE"
+# The file can hold EODHD_API_KEY: keep it private to this user, and rewrite it in place
+# (cat >, not mv) so its inode and permissions survive.
+chmod 600 "$ENV_FILE"
 for pair in "EGX_HOME=$ROOT" "EGX_DATA_DIR=$ROOT/data" "EGX_UV=$UV"; do
   key="${pair%%=*}"
-  grep -v "^$key=" "$ENV_FILE" > "$ENV_FILE.tmp" || true
-  mv "$ENV_FILE.tmp" "$ENV_FILE"
-  echo "$pair" >> "$ENV_FILE"
+  kept="$(grep -v "^$key=" "$ENV_FILE" || true)"
+  { [ -n "$kept" ] && printf '%s\n' "$kept"; echo "$pair"; } > "$ENV_FILE"
 done
 
 echo "→ EGX bundle into the desktop profile"

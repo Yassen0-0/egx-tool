@@ -1,7 +1,7 @@
 {
   "name": "dsh-egx-bundle",
   "version": "0.2.0",
-  "description": "EGX30 analyst for DeepSeek Harness: valuation MCP server, methodology skills, a restricted analyst preset and a portfolio panel",
+  "description": "EGX30 analyst for the Monos desktop app: valuation MCP server, methodology skills, a restricted analyst preset and a portfolio panel",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",

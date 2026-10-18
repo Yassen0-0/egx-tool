@@ -82,6 +82,10 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('portfolio-summary')
     return sendJson(res, status, body)
   }
+  if (method === 'GET' && path === '/egx/api/watchlist') {
+    const { status, body } = await runCli('watchlist-list')
+    return sendJson(res, status, body)
+  }
   if (method === 'GET' && path === '/egx/api/universe') {
     const { status, body } = await runCli('universe')
     return sendJson(res, status, body)
@@ -135,6 +139,15 @@ async function handleApi(req, res, path, query) {
   }
   if (method === 'POST' && path === '/egx/api/market/sync') {
     return sendJson(res, 200, await syncMarket(Boolean(payload.force_quotes)))
+  }
+  // «متابعتي»: POST {symbol} follows a stock, DELETE /watchlist/{SYMBOL} unfollows it.
+  const watch = /^\/egx\/api\/watchlist(?:\/([A-Za-z0-9.]{2,12}))?$/.exec(path)
+  if (watch) {
+    let result
+    if (method === 'POST' && watch[1] === undefined) result = await runCli('watchlist-add', { symbol: String(payload.symbol ?? '') })
+    else if (method === 'DELETE' && watch[1] !== undefined) result = await runCli('watchlist-remove', { symbol: watch[1] })
+    else return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, result.status, result.body)
   }
   const match = /^\/egx\/api\/holdings(?:\/(\d+))?$/.exec(path)
   if (!match) return sendJson(res, 404, { error: 'not found' })

@@ -6,7 +6,7 @@ from egx_mcp.data.manual import ManualProvider
 from egx_mcp.data.metrics import derived_metrics
 from egx_mcp.errors import ValuationInputError
 from egx_mcp.risk.from_financials import quality_scores
-from egx_mcp.store import portfolio, valuations, weekly
+from egx_mcp.store import portfolio, valuations, watchlist, weekly
 from egx_mcp.store.db import connect
 
 PASSING_SANITY = {"overall": "pass", "checks": []}
@@ -125,6 +125,27 @@ def test_portfolio_rejects_unknown_symbol_and_ambiguous_input(conn):
         portfolio.add_holding(conn, "XXXX", buy_price=1, quantity=1)
     with pytest.raises(ValuationInputError):
         portfolio.add_holding(conn, "EAST", buy_price=1, quantity=1, invested_amount=1)
+
+
+def test_watchlist_add_list_remove(conn):
+    assert watchlist.list_watchlist(conn) == []
+    items = watchlist.add_to_watchlist(conn, " fwry.ca ")
+    assert [i["symbol"] for i in items] == ["FWRY"]
+    first_added = items[0]["added_at"]
+    # Following again keeps one row and its original date.
+    items = watchlist.add_to_watchlist(conn, "FWRY")
+    assert len(items) == 1 and items[0]["added_at"] == first_added
+    watchlist.add_to_watchlist(conn, "COMI")
+    assert watchlist.watched_symbols(conn) == {"FWRY", "COMI"}
+    assert [i["symbol"] for i in watchlist.remove_from_watchlist(conn, "fwry")] == ["COMI"]
+    # Removing a stock that is not followed is a no-op.
+    assert [i["symbol"] for i in watchlist.remove_from_watchlist(conn, "FWRY")] == ["COMI"]
+
+
+def test_watchlist_rejects_symbols_outside_egx30(conn):
+    with pytest.raises(ValuationInputError):
+        watchlist.add_to_watchlist(conn, "AAPL")
+    assert watchlist.list_watchlist(conn) == []
 
 
 def test_portfolio_unpriced_holding(conn, provider):

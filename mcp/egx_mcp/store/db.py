@@ -93,6 +93,11 @@ CREATE TABLE IF NOT EXISTS holdings (
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS watchlist (
+    symbol TEXT PRIMARY KEY,
+    added_at TEXT NOT NULL
+);
 """
 
 JSON_COLUMNS = ("macro_snapshot", "methods", "assumptions", "sources", "risk_details", "sanity")

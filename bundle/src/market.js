@@ -58,6 +58,41 @@ function openAnalysis(id, section = null) {
   nav.selectPanel(ANALYSES_ID)
 }
 
+// ── «متابعتي»: followed stocks get the daily price refresh right after holdings ─
+
+const STAR_PATH = 'M8 1.6l1.95 3.95 4.35.63-3.15 3.07.74 4.33L8 11.53l-3.89 2.05.74-4.33L1.7 6.18l4.35-.63Z'
+const StarGlyph = ({ on, size = 16 }) => h('svg', { width: size, height: size, viewBox: '0 0 16 16', 'aria-hidden': true },
+  h('path', { d: STAR_PATH, fill: on ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinejoin: 'round' }))
+
+/** Star toggle in a table row (icon only) or the detail header (with text). */
+function WatchToggle({ row, onWatch, withText = false }) {
+  const on = Boolean(row.watched)
+  const label = on ? `إزالة ${row.symbol} من متابعتي` : `أضف ${row.symbol} إلى متابعتي`
+  const toggle = (e) => { e.stopPropagation(); onWatch(row.symbol, !on) }
+  const keep = (e) => { if (e.key === 'Enter' || e.key === ' ') e.stopPropagation() }
+  if (withText) {
+    return h('button', { type: 'button', className: `q-btn q-btn-sm m-watch${on ? ' on' : ''}`, 'aria-pressed': on, title: label, onClick: toggle },
+      h(StarGlyph, { on, size: 14 }), on ? 'في متابعتي' : 'أضف إلى متابعتي')
+  }
+  return h('button', { type: 'button', className: `m-star${on ? ' on' : ''}`, 'aria-pressed': on, 'aria-label': label, title: label,
+    onClick: toggle, onKeyDown: keep }, h(StarGlyph, { on }))
+}
+
+/** «سهم واحد» · «سهمان» · «5 أسهم» · «18 سهمًا» (Arabic counted-noun agreement). */
+const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : [N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'])
+
+/** Holdings + «متابعتي» counted live from the rows, against the plan's daily budget. */
+function refreshCoverage(data) {
+  const plan = data.refresh_plan || {}
+  const priority = data.rows.filter((r) => r.held || r.watched).length
+  const budget = plan.daily_budget == null ? null : plan.daily_budget
+  return {
+    priority, budget, allDaily: Boolean(plan.all_daily),
+    watched: data.rows.filter((r) => r.watched).length,
+    overflow: budget == null || plan.all_daily ? 0 : Math.max(0, priority - budget),
+  }
+}
+
 function SortArrow({ desc }) {
   return h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
     h('path', { d: desc ? 'M6 2v8M3 7l3 3 3-3' : 'M6 10V2M3 5l3-3 3 3' }))
@@ -66,6 +101,7 @@ function SortArrow({ desc }) {
 // ── Status strip ─────────────────────────────────────────────────────────────
 
 function StatusStrip({ data, portfolio }) {
+  const cover = refreshCoverage(data)
   const session = sessionLine(data.as_of, data.session_open)
   const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
   const run = data.last_sync
@@ -104,7 +140,26 @@ function StatusStrip({ data, portfolio }) {
       h('small', null, 'محفظتي اليوم'),
       totals.today_has_fresh
         ? h('b', null, N(fmtChange(totals.today_change, totals.today_change_pct), toneOf(totals.today_change)))
-        : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null)
+        : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null,
+    cover.allDaily ? null : h('p', { className: 'm-plan' }, h(StarGlyph, { on: cover.priority > 0, size: 12 }),
+      cover.overflow ? 'الأسهم في متابعتي ومحفظتك لها الأولوية في التحديث، والباقي بالتناوب'
+        : cover.priority ? 'الأسهم في متابعتي ومحفظتك تتحدّث يوميًا، والباقي بالتناوب'
+        : 'ميّز الأسهم التي تهمك بالنجمة لتتحدّث يوميًا، والباقي بالتناوب'))
+}
+
+/** Holdings + «متابعتي» larger than the daily budget: say how many fall back to every other day. */
+function WatchBudgetNote({ data }) {
+  const cover = refreshCoverage(data)
+  if (!cover.overflow) return null
+  const title = cover.watched ? 'متابعتي ومحفظتك أكبر من رصيد التحديث اليومي' : 'محفظتك أكبر من رصيد التحديث اليومي'
+  return h('section', { className: 'q-card q-pad', role: 'status',
+    style: { borderInlineStart: '3px solid var(--dsw-alias-label-tertiary)', display: 'flex', flexDirection: 'column', gap: 4 } },
+  h('b', null, title),
+  h('span', { className: 'q-sec', style: { lineHeight: 1.7 } },
+    cover.watched ? 'فيهما ' : 'فيها ', stockCount(cover.priority), '، والرصيد اليومي يكفي ', stockCount(cover.budget),
+    ' فقط، لذلك سيتحدّث ', stockCount(cover.overflow), ' منها يومًا بعد يوم بالتناوب،',
+    ' ولن يبقى رصيد لباقي أسهم المؤشر إلا في عطلة نهاية الأسبوع.',
+    cover.watched ? ' لتتحدّث كلها يوميًا أزل النجمة عن بعض أسهم متابعتي.' : null))
 }
 
 // ── Sync alerts: failed refresh, daily limit, no fresh prices yet ───────────
@@ -142,7 +197,7 @@ function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
         h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: true }, 'إعادة المحاولة'),
         h('button', { type: 'button', className: 'q-link', 'aria-expanded': why, onClick: () => setWhy(!why) }, 'لماذا هناك حد؟')),
       why ? h('span', { key: 'w', className: 'q-meta', style: { lineHeight: 1.7 } },
-        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فتُستكمل أسهم المؤشر على يومين. الأولوية لأسهم محفظتك ثم الأكبر وزنًا في المؤشر.') : null]))
+        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فلا يكفي الرصيد اليومي كل أسهم المؤشر. الأولوية لأسهم محفظتك ثم أسهم متابعتي، والباقي بالتناوب.') : null]))
   }
   const b = data.breadth
   const priced = data.rows.some((r) => r.price != null)
@@ -199,7 +254,7 @@ const COLUMNS = [
   ['symbol', 'السهم'], ['price', 'آخر سعر'], ['day', 'اليوم'], ['period', null], ['margin', 'التقييم'], ['rating', 'التصنيف'], ['r52', 'نطاق 52 أسبوعًا'],
 ]
 
-function MarketRow({ row, period, selected, onSelect, onValue }) {
+function MarketRow({ row, period, selected, onSelect, onValue, onWatch }) {
   const v = row.valuation
   const per = (row.returns || {})[period]
   const select = () => onSelect(row.symbol)
@@ -208,10 +263,12 @@ function MarketRow({ row, period, selected, onSelect, onValue }) {
     className: cls, role: 'row', tabIndex: 0, 'aria-selected': selected, onClick: select,
     onKeyDown: (e) => { if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); select() } },
   },
-  h('span', { className: 'q-cell m-sym', role: 'cell' },
-    h('span', { className: 'l1' }, h('b', { className: 'q-sym' }, row.symbol), h('span', { className: 'nm' }, row.name_ar || row.name),
-      row.held ? h(MineChip) : null),
-    h('small', null, row.sector_ar || row.sector, ' · ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر')),
+  h('span', { className: 'm-symw', role: 'cell' },
+    h(WatchToggle, { row, onWatch }),
+    h('span', { className: 'q-cell m-sym' },
+      h('span', { className: 'l1' }, h('b', { className: 'q-sym' }, row.symbol), h('span', { className: 'nm' }, row.name_ar || row.name),
+        row.held ? h(MineChip) : null),
+      h('small', null, row.sector_ar || row.sector, ' · ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر'))),
   h('span', { role: 'cell' }, h(PriceCell, { price: row.price, asOf: row.as_of, stale: row.stale, kind: row.price_kind })),
   h('span', { className: 'q-cell', role: 'cell' },
     row.change == null ? h('span', { className: 'q-ter' }, '—')
@@ -257,7 +314,9 @@ function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
       h('span', { className: 'q-link', style: { minHeight: 0 } }, open ? 'إخفاء' : 'عرض الأسماء')),
     open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('button', {
       key: r.symbol, type: 'button', className: selected === r.symbol ? 'q-sel' : '', onClick: () => onSelect(r.symbol),
-    }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name)))) : null)
+    }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name),
+      r.watched ? h('span', { title: 'في متابعتي', style: { alignSelf: 'center', display: 'inline-flex' } }, h(StarGlyph, { on: true, size: 12 }),
+        h('span', { className: 'q-sr' }, 'في متابعتي')) : null))) : null)
 }
 
 function RulerLegend() {
@@ -461,7 +520,7 @@ function TvFrame({ title, symbol, children }) {
 
 const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
 
-function SymbolDetail({ row, period, onValue }) {
+function SymbolDetail({ row, period, onValue, onWatch }) {
   const [tab, setTab] = useState('ours')
   const theme = useHostTheme()
   const [history, setHistory] = useState(null)
@@ -533,7 +592,8 @@ function SymbolDetail({ row, period, onValue }) {
       h('div', { style: { display: 'flex', flexDirection: 'column', gap: 2 } },
         h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
           h('b', { className: 'q-sym', style: { fontSize: 20 } }, row.symbol), h('span', { style: { fontSize: 16, fontWeight: 500 } }, row.name_ar || row.name),
-          v ? h(RatingChip, { rating: v.risk_rating }) : null, row.held ? h(MineChip, { long: true }) : null),
+          v ? h(RatingChip, { rating: v.risk_rating }) : null, row.held ? h(MineChip, { long: true }) : null,
+          h(WatchToggle, { row, onWatch, withText: true })),
         h('span', { className: 'q-meta' }, row.sector_ar || row.sector, ' · حصته ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر')),
       row.price != null ? [
         h('div', { key: 'p', className: 'q-kv' },
@@ -570,7 +630,8 @@ function MarketPage() {
   const [syncFailure, setSyncFailure] = useState('')
   const [query, setQuery] = useState('')
   const [filter, setFilter] = useState('all')
-  const [mine, setMine] = useState(false)
+  // Scope chips «محفظتي» / «متابعتي»: at most one on, on top of the status filter.
+  const [scope, setScope] = useState(null)
   const [period, setPeriod] = useState('1m')
   const [sort, setSort] = useState('weight')
   const [desc, setDesc] = useState(true)
@@ -619,11 +680,12 @@ function MarketPage() {
   const all = data ? data.rows : []
   const counts = React.useMemo(() => Object.fromEntries(FILTERS.map(([k]) => [k, all.filter(FILTER_TEST[k]).length])), [all])
   const heldCount = all.filter((r) => r.held).length
+  const watchedCount = all.filter((r) => r.watched).length
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase()
-    return all.filter((r) => FILTER_TEST[filter](r) && (!mine || r.held)
+    return all.filter((r) => FILTER_TEST[filter](r) && (scope !== 'mine' || r.held) && (scope !== 'watch' || r.watched)
       && (!q || r.symbol.toLowerCase().includes(q) || (r.name_ar || '').includes(query.trim()) || r.name.toLowerCase().includes(q)))
-  }, [all, query, filter, mine])
+  }, [all, query, filter, scope])
   const priced = React.useMemo(() => sortRows(filtered.filter((r) => r.price != null), sort, desc, period), [filtered, sort, desc, period])
   const waiting = filtered.filter((r) => r.price == null)
   const groupExpanded = groupOpen || filter === 'noprice'
@@ -635,6 +697,30 @@ function MarketPage() {
     else { setSort(key); setDesc(key !== 'symbol') }
   }
   const onValue = (symbol) => copyValuationPrompt(symbol, toast)
+  const markWatched = (symbols, plan) => setData((d) => d && {
+    ...d, refresh_plan: plan || d.refresh_plan,
+    rows: d.rows.map((r) => (symbols.has(r.symbol) === Boolean(r.watched) ? r : { ...r, watched: symbols.has(r.symbol) })),
+  })
+  // Optimistic: the star flips at once, then follows the server's list (or flips back on failure).
+  const onWatch = async (symbol, on) => {
+    const before = new Set(all.filter((r) => r.watched).map((r) => r.symbol))
+    const next = new Set(before)
+    if (on) next.add(symbol); else next.delete(symbol)
+    markWatched(next)
+    try {
+      const res = on ? await api('POST', '/egx/api/watchlist', { symbol })
+        : await api('DELETE', `/egx/api/watchlist/${encodeURIComponent(symbol)}`, {})
+      markWatched(new Set(res.watchlist.map((w) => w.symbol)), res.refresh_plan)
+      const plan = res.refresh_plan || {}
+      if (on) {
+        toast(plan.overflow > 0 ? `أُضيف ${symbol} إلى متابعتي. متابعتي ومحفظتك تجاوزتا رصيد التحديث اليومي، فبعضها سيتحدّث يومًا بعد يوم`
+          : plan.all_daily ? `أُضيف ${symbol} إلى متابعتي` : `أُضيف ${symbol} إلى متابعتي، وسعره سيتحدّث يوميًا`)
+      }
+    } catch (e) {
+      markWatched(before)
+      toast(`تعذّر تعديل متابعتي: ${e.message}`)
+    }
+  }
   const selectSymbol = (symbol) => setSelected(symbol)
 
   const noKey = data && !data.last_sync && data.breadth.no_data === all.length
@@ -644,7 +730,7 @@ function MarketPage() {
   else if (!data) tableBody = h('div', { className: 'q-empty', role: 'alert' }, h('span', { className: 'q-h2' }, 'تعذّر تحميل السوق'), h('span', null, error))
   else if (!priced.length && !waiting.length) tableBody = h('div', { className: 'q-empty' }, 'لا توجد أسهم مطابقة. جرّب إزالة البحث أو تغيير التصفية.')
   else tableBody = [
-    ...priced.map((r) => h(MarketRow, { key: r.symbol, row: r, period, selected: selectedRow && selectedRow.symbol === r.symbol, onSelect: selectSymbol, onValue })),
+    ...priced.map((r) => h(MarketRow, { key: r.symbol, row: r, period, selected: selectedRow && selectedRow.symbol === r.symbol, onSelect: selectSymbol, onValue, onWatch })),
     h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol }),
   ]
 
@@ -660,6 +746,7 @@ function MarketPage() {
     h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
       data ? h(StatusStrip, { data, portfolio }) : null,
       data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data) }) : null,
+      data ? h(WatchBudgetNote, { data }) : null,
       noKey ? h('section', { className: 'q-card q-pad q-sec', role: 'note' },
         h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
         'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
@@ -676,7 +763,9 @@ function MarketPage() {
           FILTERS.map(([key, label]) => h('button', {
             key, type: 'button', className: `q-fchip${key === 'under' ? ' warn' : ''}`, 'aria-pressed': filter === key, onClick: () => setFilter(key),
           }, label, ' ', N(fmtCount(counts[key] || 0)))),
-          h('button', { type: 'button', className: 'q-fchip', 'aria-pressed': mine, onClick: () => setMine(!mine) }, 'محفظتي ', N(fmtCount(heldCount)))),
+          h('button', { type: 'button', className: 'q-fchip', 'aria-pressed': scope === 'mine', onClick: () => setScope(scope === 'mine' ? null : 'mine') }, 'محفظتي ', N(fmtCount(heldCount))),
+          h('button', { type: 'button', className: 'q-fchip', 'aria-pressed': scope === 'watch', title: 'الأسهم التي ميّزتها بالنجمة', onClick: () => setScope(scope === 'watch' ? null : 'watch') },
+            h(StarGlyph, { on: scope === 'watch' || watchedCount > 0, size: 12 }), 'متابعتي ', N(fmtCount(watchedCount)))),
         h('span', { className: 'q-grow' }),
         h('div', { className: 'q-seg', role: 'group', 'aria-label': 'فترة الأداء' },
           PERIOD_OPTIONS.map(([key, label]) => h('button', { key, type: 'button', 'aria-pressed': period === key, onClick: () => setPeriod(key) }, label))),
@@ -697,7 +786,7 @@ function MarketPage() {
           h(RulerLegend),
           h('span', { className: 'q-grow' }),
           h('span', null, 'اضغط على أي صف لعرض تفاصيله أسفل الجدول'))),
-      selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue }) : null,
+      selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue, onWatch }) : null,
       h(Disclaimer, { extra: 'الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه.' })),
     toastNode)
 }

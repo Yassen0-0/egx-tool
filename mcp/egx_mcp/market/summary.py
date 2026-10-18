@@ -8,9 +8,11 @@ from datetime import date, datetime, timedelta, timezone
 from ..pricing import pricing_levels, status_of
 from ..store.db import is_demo_db
 from ..store.valuations import latest_valuation
+from ..store.watchlist import watched_symbols
 from ..universe import constituent, load_universe, normalize_symbol
 from . import store
 from .calendar import CAIRO, CLOSE, expected_last_bar, now_cairo, previous_trading_day, session_open
+from .sync import refresh_plan
 
 PERIODS = {"1w": 7, "1m": 30, "3m": 91, "1y": 365}
 DIGEST_LIMIT = 3
@@ -114,7 +116,8 @@ def valuation_block(valuation: dict, price: float | None) -> dict:
     }
 
 
-def symbol_row(conn: sqlite3.Connection, entry: dict, held: set[str], at: datetime) -> dict:
+def symbol_row(conn: sqlite3.Connection, entry: dict, held: set[str], at: datetime,
+               watched: frozenset[str] | set[str] = frozenset()) -> dict:
     symbol = entry["symbol"]
     today = at.date()
     rows = store.bars(conn, symbol, (today - timedelta(days=400)).isoformat())
@@ -123,6 +126,7 @@ def symbol_row(conn: sqlite3.Connection, entry: dict, held: set[str], at: dateti
     row = {
         "symbol": symbol, "name": entry["name"], "name_ar": entry.get("name_ar"), "sector": entry["sector"],
         "sector_ar": entry.get("sector_ar"), "weight_pct": entry["weight_pct"], "held": symbol in held,
+        "watched": symbol in watched,
         **state, "returns": {}, "high_52w": None, "low_52w": None, "bars_count": len(rows),
     }
     if row["price"] is not None:
@@ -164,7 +168,8 @@ def portfolio_today(positions: list[tuple[float, dict]]) -> dict:
 def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict:
     at = at or now_cairo()
     quantities = holding_quantities(conn)
-    rows = [symbol_row(conn, c, set(quantities), at) for c in load_universe()["constituents"]]
+    watched = watched_symbols(conn)
+    rows = [symbol_row(conn, c, set(quantities), at, watched) for c in load_universe()["constituents"]]
     fresh = [r for r in rows if r["price"] is not None and not r["stale"] and r["change_pct"] is not None]
     last_run = store.last_sync_run(conn)
     if last_run and last_run.get("summary"):
@@ -184,6 +189,8 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
         "portfolio_today": portfolio_today([(quantities[r["symbol"]], r) for r in rows if r["symbol"] in quantities]),
         "rows": rows,
         "last_sync": last_run,
+        # Holdings + «متابعتي» against the daily price budget (the UI warns on overflow).
+        "refresh_plan": refresh_plan(conn),
         "universe_as_of": load_universe()["as_of"],
         "demo_data": is_demo_db(conn),
     }

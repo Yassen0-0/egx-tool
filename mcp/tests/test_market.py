@@ -6,8 +6,9 @@ from egx_mcp.market import store
 from egx_mcp.market.calendar import CAIRO, expected_last_bar, session_open
 from egx_mcp.market.eodhd import MarketDataError, _key_from_file
 from egx_mcp.market.summary import market_summary, symbol_history
-from egx_mcp.market.sync import priority_symbols, sync_market
-from egx_mcp.store import portfolio
+from egx_mcp.market.calendar import is_trading_day
+from egx_mcp.market.sync import RESERVE_CALLS, priority_symbols, refresh_plan, sync_market
+from egx_mcp.store import portfolio, watchlist
 from egx_mcp.store.db import connect
 
 # Thursday 2026-10-15, before the session; Wednesday's bar is the latest expected.
@@ -42,12 +43,14 @@ class FakeClient:
     def account(self):
         return {"plan": "free" if self.limit <= 20 else "paid", "used_today": self.used, "daily_limit": self.limit}
 
+    last_day = date(2026, 10, 14)
+
     def daily_bars(self, symbol, date_from=None):
         self.calls_made += 1
         self.bar_requests.append((symbol, date_from))
         if symbol in self._fail:
             raise MarketDataError(f"EODHD eod/{symbol}.EGX returned HTTP 404")
-        return _bars(date(2026, 10, 14), 300)
+        return _bars(self.last_day, 300)
 
     def quotes(self, symbols):
         self.calls_made += len(symbols)
@@ -73,6 +76,96 @@ def test_priority_puts_holdings_first_then_weight(conn):
     assert order[0] == "EAST"
     assert order[1] == "COMI"  # largest index weight
     assert len(order) == 31
+
+
+def test_priority_puts_watchlist_after_holdings_before_weight(conn):
+    portfolio.add_holding(conn, "EAST", buy_price=10, quantity=1)
+    watchlist.add_to_watchlist(conn, "FWRY")
+    watchlist.add_to_watchlist(conn, "EAST")  # held and followed: still a holding
+    order = priority_symbols(conn)
+    assert order[:3] == ["EAST", "FWRY", "COMI"]
+    assert len(order) == 31
+
+
+def _free_days(conn, first: date, days: int):
+    """Run the morning sync on each trading day from `first` on the free plan (fresh budget daily);
+    yields (day, expected last bar, client)."""
+    day = first
+    while days:
+        if is_trading_day(day):
+            at = datetime(day.year, day.month, day.day, 8, 0, tzinfo=CAIRO)
+            due = expected_last_bar(at)
+            client = FakeClient(limit=20)
+            client.last_day = due
+            sync_market(conn, client, at=at)
+            yield day, due, client
+            days -= 1
+        day += timedelta(days=1)
+
+
+def _seed_all_bars(conn):
+    # Every symbol has bars up to 14/10, written directly so no sync run records a plan limit.
+    for symbol in priority_symbols(conn):
+        store.upsert_bars(conn, symbol, _bars(date(2026, 10, 14), 300), "test")
+    conn.commit()
+
+
+def test_free_budget_refreshes_holdings_and_watchlist_every_day(conn):
+    budget = 20 - RESERVE_CALLS
+    assert budget == 18
+    _seed_all_bars(conn)
+    universe = priority_symbols(conn)
+    held = ["EAST", "ETEL", "COMI"]
+    for symbol in held:
+        portfolio.add_holding(conn, symbol, buy_price=10, quantity=1)
+    # The smallest index weights, so the watchlist never rides on the weight order.
+    followed = [s for s in reversed(universe) if s not in held][: budget - len(held)]
+    for symbol in followed:
+        watchlist.add_to_watchlist(conn, symbol)
+    plan = refresh_plan(conn)
+    assert plan["daily_budget"] == 18 and plan["priority"] == 18 and plan["overflow"] == 0
+    for day, due, client in _free_days(conn, date(2026, 10, 18), 5):
+        assert client.calls_made == budget
+        for symbol in held + followed:
+            assert store.last_bar_date(conn, symbol) == due.isoformat(), (day, symbol)
+
+
+def test_rest_of_the_index_takes_turns(conn):
+    _seed_all_bars(conn)
+    portfolio.add_holding(conn, "EAST", buy_price=10, quantity=1)
+    watchlist.add_to_watchlist(conn, "FWRY")
+    days = list(_free_days(conn, date(2026, 10, 18), 2))
+    first_due = days[0][1]
+    # 16 calls a day for the other 29 stocks: within two trading days every one is refreshed.
+    for symbol in priority_symbols(conn):
+        assert store.last_bar_date(conn, symbol) >= first_due.isoformat(), symbol
+
+
+def test_watchlist_over_budget_falls_back_to_every_other_day(conn):
+    _seed_all_bars(conn)
+    universe = priority_symbols(conn)
+    for symbol in universe[:20]:
+        watchlist.add_to_watchlist(conn, symbol)
+    plan = refresh_plan(conn)
+    assert plan["priority"] == 20 and plan["overflow"] == 2
+    seen = {}
+    for day, due, _ in _free_days(conn, date(2026, 10, 18), 4):
+        for symbol in universe[:20]:
+            if store.last_bar_date(conn, symbol) == due.isoformat():
+                seen.setdefault(symbol, []).append(day)
+    # Each followed stock is refreshed at least every other trading day.
+    assert all(len(seen.get(s, [])) >= 2 for s in universe[:20])
+
+
+def test_market_summary_marks_watched_rows_and_plan(conn):
+    watchlist.add_to_watchlist(conn, "FWRY")
+    summary = market_summary(conn, at=MORNING)
+    assert next(r for r in summary["rows"] if r["symbol"] == "FWRY")["watched"] is True
+    assert next(r for r in summary["rows"] if r["symbol"] == "COMI")["watched"] is False
+    assert summary["refresh_plan"]["daily_limit"] == 20  # free plan until a sync reads the limit
+    assert summary["refresh_plan"]["watchlist"] == 1
+    sync_market(conn, FakeClient(limit=100_000), at=MORNING)
+    assert market_summary(conn, at=MORNING)["refresh_plan"]["all_daily"] is True
 
 
 def test_sync_respects_free_budget_and_skips_quotes(conn):

@@ -28,9 +28,10 @@
 
 /* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */
 .qm .m-table { overflow: hidden; container-type: inline-size; }
-.qm .m-g { --cols: minmax(176px, 1.5fr) 88px 136px 68px minmax(216px, 2.5fr) 104px 112px; min-width: 930px; }
+/* The first column carries the «متابعتي» star (32px), taken from the valuation column's minimum. */
+.qm .m-g { --cols: minmax(204px, 1.5fr) 88px 136px 68px minmax(188px, 2.5fr) 104px 112px; min-width: 930px; }
 @container (max-width: 930px) {
-  .qm .m-g { --cols: minmax(150px, 1.4fr) 84px 128px 64px minmax(200px, 2.4fr) 96px; min-width: 760px; }
+  .qm .m-g { --cols: minmax(178px, 1.4fr) 84px 128px 64px minmax(172px, 2.4fr) 96px; min-width: 760px; }
   .qm .m-g > .m-c52 { display: none; }
 }
 .qm .m-row { min-height: 64px; cursor: pointer; position: relative; }
@@ -81,3 +82,14 @@
   font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }
 .qm .m-tvh a { color: inherit; }
 .qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }
+
+/* «متابعتي»: star toggle per row and in the detail header; one-line refresh note in the strip. */
+.qm .m-symw { display: flex; align-items: center; gap: 2px; min-width: 0; margin-inline-start: -6px; }
+.qm .m-symw > .m-sym { min-width: 0; flex: 1; }
+.qm .m-star { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; flex: none; display: grid; place-items: center;
+  border-radius: var(--dsw-radius-sm); cursor: pointer; color: var(--dsw-alias-label-tertiary); }
+.qm .m-star:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }
+.qm .m-star.on { color: var(--dsw-alias-label-primary); }
+.qm .m-watch { gap: 6px; }
+.qm .m-watch.on { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); }
+.qm .m-plan { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); }

@@ -5,6 +5,9 @@
     egx-cli portfolio-add '{"symbol": "COMI", "buy_price": 80, "invested_amount": 5000}'
     egx-cli portfolio-update '{"holding_id": 3, "quantity": 120}'
     egx-cli portfolio-remove '{"holding_id": 3}'
+    egx-cli watchlist-list
+    egx-cli watchlist-add '{"symbol": "FWRY"}'
+    egx-cli watchlist-remove '{"symbol": "FWRY"}'
     egx-cli valuations-list '{"symbol": "COMI", "risk_rating": "safe", "limit": 50}'
     egx-cli valuation-get '{"valuation_id": 7}'
     egx-cli valuation-series '{"symbol": "COMI"}'
@@ -25,8 +28,8 @@ from .data import default_provider
 from .errors import ValuationInputError
 from .market.eodhd import EodhdClient, MarketDataError, resolve_api_key
 from .market.summary import market_digest, market_summary, symbol_history
-from .market.sync import sync_market
-from .store import portfolio, valuations
+from .market.sync import refresh_plan, sync_market
+from .store import portfolio, valuations, watchlist
 from .store.db import connect
 from .universe import load_universe
 
@@ -60,6 +63,12 @@ def run(command: str, raw: str | None) -> object:
             )
         if command == "portfolio-remove":
             return portfolio.remove_holding(conn, int(args["holding_id"]))
+        if command == "watchlist-list":
+            return _watchlist(watchlist.list_watchlist(conn), conn)
+        if command == "watchlist-add":
+            return _watchlist(watchlist.add_to_watchlist(conn, args["symbol"]), conn)
+        if command == "watchlist-remove":
+            return _watchlist(watchlist.remove_from_watchlist(conn, args["symbol"]), conn)
         if command == "valuations-list":
             return valuations.list_valuations(
                 conn, args.get("symbol") or None, args.get("risk_rating") or None,
@@ -86,6 +95,10 @@ def _market_sync(args: dict) -> dict:
                 "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
     with closing(connect(db_path())) as conn:
         return sync_market(conn, EodhdClient(key), force_quotes=bool(args.get("force_quotes")))
+
+
+def _watchlist(items: list[dict], conn) -> dict:
+    return {"watchlist": items, "refresh_plan": refresh_plan(conn)}
 
 
 def _optional_float(value) -> float | None:

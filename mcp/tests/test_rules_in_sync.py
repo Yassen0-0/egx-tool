@@ -32,7 +32,7 @@ def test_every_valuation_model_has_its_skill():
     guide = (REPO_ROOT / "skills/egx-valuation/SKILL.md").read_text(encoding="utf-8")
     for model, skill in VALUATION_MODEL_SKILLS.items():
         assert (REPO_ROOT / "skills" / skill / "SKILL.md").exists(), skill
-        line = next((l for l in guide.splitlines() if f"`{model}`" in l and "→" in l), "")
+        line = next((row for row in guide.splitlines() if f"`{model}`" in row and "→" in row), "")
         assert f"`{skill}`" in line, f"skills/egx-valuation/SKILL.md does not map {model} to {skill}"
 
 

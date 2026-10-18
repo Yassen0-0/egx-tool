@@ -1,7 +1,7 @@
 [project]
 name = "egx-mcp"
 version = "0.1.0"
-description = "EGX30 valuation, risk and portfolio tools exposed over MCP for the DeepSeek Harness EGX bundle"
+description = "EGX30 valuation, risk and portfolio tools exposed over MCP for the Monos desktop app"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.9",
@@ -13,7 +13,7 @@ egx-mcp = "egx_mcp.server:main"
 egx-cli = "egx_mcp.cli:main"
 
 [dependency-groups]
-dev = ["pytest>=8"]
+dev = ["pytest>=8", "ruff>=0.8"]
 
 [build-system]
 requires = ["hatchling"]
@@ -24,3 +24,15 @@ packages = ["egx_mcp"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py311"
+
+[tool.ruff.lint]
+# pyflakes + pycodestyle errors + import order + a few bug-prone patterns.
+select = ["E", "F", "W", "I", "B"]
+ignore = ["E501", "B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["egx_mcp"]

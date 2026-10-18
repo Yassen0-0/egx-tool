@@ -7,6 +7,13 @@ __pycache__/
 .pytest_cache/
 data/*.sqlite
 data/*.sqlite-*
+data/backups/
+# FUSE leftovers from the external drive
+.fuse_hidden*
+.ruff_cache/
+dist/
+coverage/
+*.egg-info/
 
 # Local secrets (API keys) — never commit
 # The old browser dev folder (removed mode); it holds a credentials file. Safe to delete locally.
@@ -14,4 +21,6 @@ data/*.sqlite-*
 egx-api*
 *.key
 .env
-data/backups/
+# Word files at the root are where keys and notes get dropped (egx-api.docx holds the EODHD key):
+# keep them out of git; project documents live in docs/.
+/*.docx

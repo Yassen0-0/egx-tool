@@ -37,7 +37,7 @@ def bars(conn, symbol, closes, last_day=date(2026, 10, 14)):
             days.append(day)
         day -= timedelta(days=1)
     rows = [{"date": d.isoformat(), "open": c, "high": c, "low": c, "close": c, "adjusted_close": c,
-             "volume": 1000.0} for d, c in zip(reversed(days), closes)]
+             "volume": 1000.0} for d, c in zip(reversed(days), closes, strict=False)]
     store.upsert_bars(conn, symbol, rows, "EODHD")
 
 

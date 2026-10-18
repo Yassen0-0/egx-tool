@@ -4,9 +4,10 @@ import functools
 from contextlib import closing
 from typing import Literal
 
+from pydantic import BaseModel, Field
+
 from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
-from pydantic import BaseModel, Field
 
 from . import commands, pricing
 from .config import db_path

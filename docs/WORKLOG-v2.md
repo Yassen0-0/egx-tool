@@ -152,3 +152,37 @@
 - `host-routes.test.mjs`: اختبار لكل مسار `/egx/api`.
 
 **الاختبارات:** Python ‏103 ناجح، وJS ‏24 ناجح، وeslint نضيف.
+
+## المرحلة 6: الأدوات وترتيب المستودع
+- ruff اتظبط في `mcp/pyproject.toml` (E/F/W/I/B)، ورتّب الـ imports. وeslint في `eslint.config.js`. وكمان `.editorconfig`.
+- `npm run check` بيشغّل كل حاجة: build:check، وlint لـ JS، واختبارات JS، واختبارات Python، وruff.
+- `.github/workflows/ci.yml`: نفس الفحص على GitHub مع كل push وكل PR.
+- ترتيب الملفات:
+  - `opencode` اتنقل لـ `docs/REBRAND-MONOS.md`.
+  - `exg-tool.docx` اتنقل لـ `docs/`.
+  - كل الإشارات للملفات دي اتحدثت.
+- `.gitignore`:
+  - `/*.docx` في الجذر، عشان أي ملف مفاتيح ما يترفعش بالغلط.
+  - `data/backups/`
+  - `.fuse_hidden*`
+  - `.ruff_cache`
+  - `dist`
+- `CLAUDE.md` وREADME اتحدثوا بالأوامر الجديدة.
+
+---
+
+## الحالة النهائية
+- **كل بنود الجرد:** اتصلحت (✅)، ما عدا:
+  - **R1** (عزل TradingView): لازم يتجرب جوه التطبيق.
+  - **N1** (تحذيرات `key` في React): تنظيف من غير أي أثر ظاهر.
+  - **T7** (تكرار صغير في الواجهة): اتعمل جزء منه.
+- **الاختبارات:**
+  - Python: من 68 بقى 103، كلهم ناجحين.
+  - JS: من 21 بقى 24، ومنهم اختبار عرض لكل الشاشات.
+  - lint نضيف.
+- **كل حاجة على `main`،** واتعمل لها push، ونسخة `/Volumes/ssd-work/egx` محدّثة.
+- **محتاج منك:**
+  1. تشغّل `./scripts/rebrand-desktop.sh` بعد ما تقفل Monos (الخطوات في أول الملف ده).
+  2. تفتح Monos وتبص على الشاشات. الواجهة الجديدة مطابقة للقديمة في الاختبار، بس دي أول مرة هتتعرض جوه التطبيق.
+  3. تملا `data/manual/holidays.csv` بإجازات البورصة لما تتعلن.
+  4. `npm install` مرة واحدة في `/Volumes/ssd-work/egx`، عشان أي تعديل جاي في الشاشات.

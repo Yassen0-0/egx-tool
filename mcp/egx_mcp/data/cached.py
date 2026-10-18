@@ -5,6 +5,7 @@ prices only.
 """
 
 from contextlib import closing
+
 from ..config import db_path
 from ..market import store
 from ..market.calendar import now_cairo

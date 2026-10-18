@@ -12,7 +12,7 @@ TRADING_DAYS = 252
 def annual_volatility(prices: list[float]) -> float | None:
     if len(prices) < MIN_PRICES_FOR_VOLATILITY:
         return None
-    returns = [math.log(b / a) for a, b in zip(prices, prices[1:]) if a > 0 and b > 0]
+    returns = [math.log(b / a) for a, b in zip(prices, prices[1:], strict=False) if a > 0 and b > 0]
     if len(returns) < 2:
         return None
     return statistics.stdev(returns) * math.sqrt(TRADING_DAYS)

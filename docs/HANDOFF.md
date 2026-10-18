@@ -44,7 +44,7 @@ egx/
 │   └── vendor/               Lightweight Charts 5.2.1 (Apache-2.0)
 ├── data/manual/          قوالب القوائم المالية والاقتصاد الكلي (فارغة)
 ├── data/egx.sqlite       قاعدة البيانات الحقيقية (مستبعدة من git)
-├── scripts/              install-desktop.sh وسكربتات إعادة التسمية (شرحها في `opencode`)
+├── scripts/              install-desktop.sh وسكربتات إعادة التسمية (شرحها في `docs/REBRAND-MONOS.md`)
 └── docs/                 هذا الملف، وموجز التصميم
 ```
 
@@ -93,7 +93,7 @@ egx/
 | 64d4db0 → (19/10) | v2: جرد المراجعة (`docs/AUDIT-2026-10.md`) وإصلاحاته، وإزالة آثار DeepSeek الظاهرة، وإعادة الهيكلة. السجل الكامل في `docs/WORKLOG-v2.md` |
 | (18/10) | إزالة وضع التطوير في المتصفح، و`CLAUDE.md` بقواعد العمل على التطبيق مباشرة |
 | 81d9397 (PR #2) | قائمة «متابعتي» بأولوية تحديث يومية |
-| 2114bef–50023ae | إعادة التسمية إلى Monos (تفاصيلها في `opencode`) |
+| 2114bef–50023ae | إعادة التسمية إلى Monos (تفاصيلها في `docs/REBRAND-MONOS.md`) |
 | 3accf4f (PR #1) | واجهة «قيمة» حسب `docs/design/CLAUDE_CODE.md` (المراحل P1–P7) |
 | ea71f28 | دمج TradingView في لوحة السوق |
 | b042fae | لوحة السوق وأسعار EODHD |

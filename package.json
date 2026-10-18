@@ -8,7 +8,10 @@
     "build:check": "node bundle/build-client.mjs --check",
     "lint": "eslint bundle",
     "test": "node --test bundle/test/*.test.mjs",
-    "test:py": "uv run --project mcp pytest -q"
+    "test:py": "uv run --project mcp pytest -q",
+    "lint:py": "uvx ruff@0.8.4 check --config mcp/pyproject.toml mcp",
+    "fixtures": "uv run --project mcp python scripts/make-ui-fixtures.py",
+    "check": "npm run build:check && npm run lint && npm test && npm run test:py && npm run lint:py"
   },
   "devDependencies": {
     "esbuild": "0.24.2",

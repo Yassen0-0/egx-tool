@@ -6,10 +6,10 @@ file and the field named, and FIELD_UNITS says what unit each financial field is
 statements, the risk scores (risk/from_financials.py) and the skills read the same contract.
 """
 
-from datetime import date
-from pathlib import Path
 import csv
 import json
+from datetime import date
+from pathlib import Path
 
 from pydantic import BaseModel, ConfigDict, Field, ValidationError, field_validator
 

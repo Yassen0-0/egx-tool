@@ -1,0 +1,31 @@
+# Checks every push and pull request: Python tests and lint, the screens' build is in sync with
+# src/, JS lint, and the JS tests (formatting helpers, host routes, every screen rendered in jsdom).
+name: ci
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - run: uv run --project mcp pytest -q
+      - run: uvx ruff@0.8.4 check --config mcp/pyproject.toml mcp
+
+  bundle:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+      - run: npm ci
+      - run: npm run build:check
+      - run: npm run lint
+      - run: npm test

@@ -164,7 +164,7 @@ Use the real host CSS variables. They already exist on `body` and switch with `b
 
 ## 6. Identity: name and icon
 
-- **Name:** **Monos** (renamed from «قيمة»/Qima on 17/10; see `opencode`). `bundle/locale/*.json` `meta.title` = "Monos". Keep the description's "not investment advice" sentence. The name must never contain "DeepSeek" or "Harness", and no host-app name or logo may show anywhere in the UI.
+- **Name:** **Monos** (renamed from «قيمة»/Qima on 17/10; see `docs/REBRAND-MONOS.md`). `bundle/locale/*.json` `meta.title` = "Monos". Keep the description's "not investment advice" sentence. The name must never contain "DeepSeek" or "Harness", and no host-app name or logo may show anywhere in the UI.
 - **Icon states.** All are a 24×24 viewBox rounded square (`rx=6`) with the glyph stroked in `--dsw-alias-bg-base`:
 
 | State | When | Square fill | Glyph |

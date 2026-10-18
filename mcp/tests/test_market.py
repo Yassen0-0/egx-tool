@@ -3,10 +3,9 @@ from datetime import date, datetime, timedelta
 import pytest
 
 from egx_mcp.market import store
-from egx_mcp.market.calendar import CAIRO, expected_last_bar, session_open
+from egx_mcp.market.calendar import CAIRO, expected_last_bar, is_trading_day, session_open
 from egx_mcp.market.eodhd import MarketDataError, _key_from_file
 from egx_mcp.market.summary import market_summary, symbol_history
-from egx_mcp.market.calendar import is_trading_day
 from egx_mcp.market.sync import RESERVE_CALLS, priority_symbols, refresh_plan, sync_market
 from egx_mcp.store import portfolio, watchlist
 from egx_mcp.store.db import connect

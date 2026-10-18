@@ -191,26 +191,25 @@ export function useHostTheme() {
   return theme
 }
 
-// A TradingView embed widget (iframe from tradingview-widget.com). Its data stays inside the
-// widget: it is for display only and never feeds valuations. Attribution stays visible.
+// The iframe URL TradingView's embed script would build itself (_iframeSrcBase + _setHashString):
+// locale goes in the query string, every other setting in the hash as URI-encoded JSON.
+export function tvWidgetSrc(name, config) {
+  const { locale = 'en', ...settings } = config
+  return `https://www.tradingview-widget.com/embed-widget/${name}/?locale=${encodeURIComponent(locale)}#${encodeURIComponent(JSON.stringify(settings))}`
+}
+
+// A TradingView embed widget. It is a cross-origin iframe on tradingview-widget.com, not
+// TradingView's embed script, so no third-party code runs in our page or can reach /egx/api.
+// Its data stays inside the widget: display only, never feeds valuations. Attribution stays
+// visible (TvFrame). colorScheme 'normal' keeps the transparent iframe from painting an
+// opaque canvas when the host and OS color schemes differ.
 export function TvWidget({ name, config, height }) {
-  const ref = React.useRef(null)
-  const key = JSON.stringify(config)
-  useEffect(() => {
-    const box = ref.current
-    const container = document.createElement('div')
-    container.className = 'tradingview-widget-container'
-    container.style.height = '100%'
-    const target = document.createElement('div')
-    target.className = 'tradingview-widget-container__widget'
-    target.style.height = '100%'
-    const script = document.createElement('script')
-    script.async = true
-    script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${name}.js`
-    script.textContent = key
-    container.append(target, script)
-    box.append(container)
-    return () => { box.replaceChildren() }
-  }, [name, key])
-  return h('div', { ref, style: { height, direction: 'ltr', colorScheme: 'normal' } })
+  return h('div', { style: { height, direction: 'ltr', colorScheme: 'normal' } },
+    h('iframe', {
+      key: `${name}:${JSON.stringify(config)}`,
+      src: tvWidgetSrc(name, config),
+      title: `${name.replace('-', ' ')} TradingView widget`,
+      scrolling: 'no', allowtransparency: 'true', frameBorder: '0',
+      style: { display: 'block', width: '100%', height: '100%', border: 0, boxSizing: 'border-box', userSelect: 'none' },
+    }))
 }

@@ -259,28 +259,24 @@ var __egx = (() => {
     }, []);
     return theme;
   }
+  function tvWidgetSrc(name, config) {
+    const { locale = "en", ...settings } = config;
+    return `https://www.tradingview-widget.com/embed-widget/${name}/?locale=${encodeURIComponent(locale)}#${encodeURIComponent(JSON.stringify(settings))}`;
+  }
   function TvWidget({ name, config, height }) {
-    const ref = import_react.default.useRef(null);
-    const key = JSON.stringify(config);
-    useEffect(() => {
-      const box = ref.current;
-      const container = document.createElement("div");
-      container.className = "tradingview-widget-container";
-      container.style.height = "100%";
-      const target = document.createElement("div");
-      target.className = "tradingview-widget-container__widget";
-      target.style.height = "100%";
-      const script = document.createElement("script");
-      script.async = true;
-      script.src = `https://s3.tradingview.com/external-embedding/embed-widget-${name}.js`;
-      script.textContent = key;
-      container.append(target, script);
-      box.append(container);
-      return () => {
-        box.replaceChildren();
-      };
-    }, [name, key]);
-    return h("div", { ref, style: { height, direction: "ltr", colorScheme: "normal" } });
+    return h(
+      "div",
+      { style: { height, direction: "ltr", colorScheme: "normal" } },
+      h("iframe", {
+        key: `${name}:${JSON.stringify(config)}`,
+        src: tvWidgetSrc(name, config),
+        title: `${name.replace("-", " ")} TradingView widget`,
+        scrolling: "no",
+        allowtransparency: "true",
+        frameBorder: "0",
+        style: { display: "block", width: "100%", height: "100%", border: 0, boxSizing: "border-box", userSelect: "none" }
+      })
+    );
   }
 
   // bundle/src/format.mjs

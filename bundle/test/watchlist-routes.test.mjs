@@ -1,4 +1,4 @@
-// Run: node --test bundle/test/
+// Run: node --test bundle/test/*.test.mjs
 // The /egx/api/watchlist routes, against a stand-in egx-cli that echoes the command it was given.
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
@@ -71,4 +71,13 @@ test('wrong method or shape is refused', async () => {
   assert.equal((await call('DELETE', '/egx/api/watchlist', { body: {}, headers: SAME_ORIGIN })).status, 405)
   assert.equal((await call('POST', '/egx/api/watchlist/FWRY', { body: {}, headers: SAME_ORIGIN })).status, 405)
   assert.equal((await call('PATCH', '/egx/api/watchlist', { body: {}, headers: SAME_ORIGIN })).status, 405)
+})
+
+test('a body that is not a JSON object is a 400, never a hung request', async () => {
+  for (const body of [null, 5, ['FWRY']]) {
+    const r = await call('POST', '/egx/api/watchlist', { body, headers: SAME_ORIGIN })
+    assert.equal(r.status, 400)
+  }
+  const sync = await call('POST', '/egx/api/market/sync', { body: null, headers: SAME_ORIGIN })
+  assert.equal(sync.status, 400)
 })

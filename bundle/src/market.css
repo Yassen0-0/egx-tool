@@ -51,10 +51,11 @@
 .qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }
 .qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;
   background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }
-.qm .m-tkgrid button { appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;
+.qm .m-tkcell { display: flex; align-items: center; gap: 2px; min-width: 0; }
+.qm .m-tkgrid .m-tkpick { flex: 1; min-width: 0; appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;
   border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }
-.qm .m-tkgrid button:hover { background: var(--dsw-alias-interactive-bg-hover); }
-.qm .m-tkgrid button.q-sel { background: var(--dsw-alias-interactive-bg-active); }
+.qm .m-tkgrid .m-tkpick:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.qm .m-tkgrid .m-tkpick.q-sel { background: var(--dsw-alias-interactive-bg-active); }
 .qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);
   font-size: 12px; color: var(--dsw-alias-label-secondary); }
 .qm .m-key { display: inline-flex; align-items: center; gap: 6px; }

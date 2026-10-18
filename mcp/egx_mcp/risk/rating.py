@@ -78,7 +78,7 @@ def risk_rating(
                 red_flags.append("beneish_possible_manipulation")
 
     if auditor_qualified_opinion is None:
-        missing.append("auditor_opinion")
+        missing.append("auditor_qualified_opinion")
     elif auditor_qualified_opinion:
         add("auditor_qualified_opinion", True, 2)
         red_flags.append("auditor_qualified_opinion")

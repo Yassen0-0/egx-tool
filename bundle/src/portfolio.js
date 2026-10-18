@@ -203,7 +203,7 @@ function PortfolioPage() {
   const refresh = () => monos.refresh()
   const onValue = (symbol) => copyValuationPrompt(symbol, toast)
   const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
-  const session = market ? sessionLine(market.as_of, market.session_open) : null
+  const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null
   const run = market && market.last_sync
   const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
 

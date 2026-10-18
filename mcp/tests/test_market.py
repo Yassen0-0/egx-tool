@@ -29,7 +29,7 @@ def _bars(last_day: date, n: int, start_price: float = 100.0) -> list[dict]:
         if day.weekday() in {6, 0, 1, 2, 3}:
             rows.append({"date": day.isoformat(), "open": price, "high": price + 1, "low": price - 1,
                          "close": price, "adjusted_close": price, "volume": 1000.0})
-            price -= 0.5
+            price -= 0.25  # stays positive over 300 bars (0 or negative closes are filtered)
         day -= timedelta(days=1)
     return list(reversed(rows))
 
@@ -211,7 +211,7 @@ def test_market_summary_prices_returns_and_staleness(conn):
     assert comi["price_kind"] == "close"
     assert comi["as_of"] == "2026-10-14"
     assert comi["stale"] is False
-    assert comi["change"] == pytest.approx(0.5)
+    assert comi["change"] == pytest.approx(0.25)
     assert comi["returns"]["1w"] is not None and comi["returns"]["1w"] > 0
     assert comi["high_52w"] >= comi["price"] >= comi["low_52w"]
     assert summary["breadth"]["up"] == 31

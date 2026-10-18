@@ -102,7 +102,7 @@ function SortArrow({ desc }) {
 
 function StatusStrip({ data, portfolio }) {
   const cover = refreshCoverage(data)
-  const session = sessionLine(data.as_of, data.session_open)
+  const session = sessionLine(data.as_of, data.session_open, data.next_session)
   const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
   const run = data.last_sync
   const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
@@ -300,7 +300,7 @@ function TableHead({ sort, desc, period, onSort }) {
     }))
 }
 
-function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
+function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch }) {
   if (!rows.length) return null
   const preview = rows.slice(0, 8).map((r) => r.symbol).join(' · ') + (rows.length > 8 ? ' …' : '')
   return h(React.Fragment, null,
@@ -312,11 +312,13 @@ function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
       open ? null : h('span', { className: 'q-ter num', style: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, preview),
       h('span', { className: 'q-grow' }),
       h('span', { className: 'q-link', style: { minHeight: 0 } }, open ? 'إخفاء' : 'عرض الأسماء')),
-    open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('button', {
-      key: r.symbol, type: 'button', className: selected === r.symbol ? 'q-sel' : '', onClick: () => onSelect(r.symbol),
-    }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name),
-      r.watched ? h('span', { title: 'في متابعتي', style: { alignSelf: 'center', display: 'inline-flex' } }, h(StarGlyph, { on: true, size: 12 }),
-        h('span', { className: 'q-sr' }, 'في متابعتي')) : null))) : null)
+    // Each waiting stock can be starred right here: these are the ones a free-plan user most wants
+    // to move up the refresh order.
+    open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('div', { key: r.symbol, className: 'm-tkcell' },
+      h('button', {
+        type: 'button', className: `m-tkpick${selected === r.symbol ? ' q-sel' : ''}`, onClick: () => onSelect(r.symbol),
+      }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name)),
+      h(WatchToggle, { row: r, onWatch })))) : null)
 }
 
 function RulerLegend() {
@@ -661,17 +663,15 @@ function MarketPage() {
     setSyncing(true); setSyncNote(''); setSyncFailure('')
     try {
       const r = await api('POST', '/egx/api/market/sync', {})
-      if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD')
-      else if (r.ok === false) setSyncFailure(r.error || 'خطأ غير معروف')
-      else {
-        const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
-        if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
-        setSyncNote(parts.join(' · '))
-      }
+      const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
+      if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
+      setSyncNote(parts.join(' · '))
       await load()
       monos.refresh()
     } catch (e) {
-      setSyncFailure(e.message)
+      // api() throws on any {error} body, so the missing key arrives here as its code.
+      if (e.message === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD: أضِفه في ~/.dsh/.env أو في ملف egx-api.docx')
+      else setSyncFailure(e.message)
     } finally {
       setSyncing(false)
     }
@@ -701,23 +701,27 @@ function MarketPage() {
     ...d, refresh_plan: plan || d.refresh_plan,
     rows: d.rows.map((r) => (symbols.has(r.symbol) === Boolean(r.watched) ? r : { ...r, watched: symbols.has(r.symbol) })),
   })
-  // Optimistic: the star flips at once, then follows the server's list (or flips back on failure).
+  const flipWatched = (symbol, on) => setData((d) => d && {
+    ...d, rows: d.rows.map((r) => (r.symbol === symbol ? { ...r, watched: on } : r)),
+  })
+  // Optimistic: only the clicked star flips at once. The server's full list is applied only from
+  // the newest answer, so two quick clicks can never undo each other; a failure flips back just
+  // the star that failed.
+  const watchSeq = React.useRef(0)
   const onWatch = async (symbol, on) => {
-    const before = new Set(all.filter((r) => r.watched).map((r) => r.symbol))
-    const next = new Set(before)
-    if (on) next.add(symbol); else next.delete(symbol)
-    markWatched(next)
+    const seq = ++watchSeq.current
+    flipWatched(symbol, on)
     try {
       const res = on ? await api('POST', '/egx/api/watchlist', { symbol })
         : await api('DELETE', `/egx/api/watchlist/${encodeURIComponent(symbol)}`, {})
-      markWatched(new Set(res.watchlist.map((w) => w.symbol)), res.refresh_plan)
+      if (seq === watchSeq.current) markWatched(new Set(res.watchlist.map((w) => w.symbol)), res.refresh_plan)
       const plan = res.refresh_plan || {}
       if (on) {
         toast(plan.overflow > 0 ? `أُضيف ${symbol} إلى متابعتي. متابعتي ومحفظتك تجاوزتا رصيد التحديث اليومي، فبعضها سيتحدّث يومًا بعد يوم`
           : plan.all_daily ? `أُضيف ${symbol} إلى متابعتي` : `أُضيف ${symbol} إلى متابعتي، وسعره سيتحدّث يوميًا`)
       }
     } catch (e) {
-      markWatched(before)
+      flipWatched(symbol, !on)
       toast(`تعذّر تعديل متابعتي: ${e.message}`)
     }
   }
@@ -731,7 +735,7 @@ function MarketPage() {
   else if (!priced.length && !waiting.length) tableBody = h('div', { className: 'q-empty' }, 'لا توجد أسهم مطابقة. جرّب إزالة البحث أو تغيير التصفية.')
   else tableBody = [
     ...priced.map((r) => h(MarketRow, { key: r.symbol, row: r, period, selected: selectedRow && selectedRow.symbol === r.symbol, onSelect: selectSymbol, onValue, onWatch })),
-    h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol }),
+    h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol, onWatch }),
   ]
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },

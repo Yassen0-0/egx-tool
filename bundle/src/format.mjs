@@ -241,17 +241,25 @@ export function fmtCompact(v) {
 
 // ── EGX session (Sun–Thu, 10:00–14:30 Cairo) ─────────────────────────────────
 
+// Fallback only: the market API sends next_session from the holiday-aware Python calendar.
 const TRADING = new Set([0, 1, 2, 3, 4]) // Sunday..Thursday (getUTCDay)
 
 /**
  * The session line for the status strip, from the server's Cairo timestamp ("2026-10-15T09:02+03:00"):
  * { text, time } → «الجلسة مغلقة · تفتح اليوم» + «10:00», or «الجلسة مفتوحة · تغلق» + «14:30».
  */
-export function sessionLine(asOf, open) {
+export function sessionLine(asOf, open, nextSession) {
   if (open) return { text: 'الجلسة مفتوحة · تغلق', time: '14:30' }
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || '')
   if (!m) return { text: 'الجلسة مغلقة', time: null }
   const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextSession || '')
+  if (n) {
+    const next = new Date(Date.UTC(+n[1], +n[2] - 1, +n[3]))
+    const ahead = Math.round((next - day) / 86_400_000)
+    const when = ahead <= 0 ? 'اليوم' : ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
+    return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
+  }
   const minutes = +m[4] * 60 + +m[5]
   if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' }
   let ahead = 1

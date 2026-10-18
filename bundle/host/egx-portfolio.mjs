@@ -73,7 +73,10 @@ async function readJson(req) {
     if (size > MAX_BODY_BYTES) throw new Error('request body too large')
     chunks.push(chunk)
   }
-  return chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
+  const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
+  // Every route reads named fields: null, a number or an array is a bad request, not a crash.
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new Error('request body must be a JSON object')
+  return body
 }
 
 async function handleApi(req, res, path, query) {
@@ -189,8 +192,13 @@ export function apply(ctx) {
       const url = new URL(req.url ?? '/', 'http://local')
       const path = url.pathname.replace(/\/+$/, '')
       if (!hostAllowed(req)) return sendJson(res, 403, { error: 'forbidden host or origin' })
-      if (path.startsWith('/egx/api/')) return handleApi(req, res, path, url.searchParams)
-      return sendJson(res, 404, { error: 'not found' })
+      if (!path.startsWith('/egx/api/')) return sendJson(res, 404, { error: 'not found' })
+      try {
+        return await handleApi(req, res, path, url.searchParams)
+      } catch (error) {
+        // An unexpected failure still answers, so the screen shows an error instead of waiting forever.
+        if (!res.headersSent) sendJson(res, 500, { error: error instanceof Error ? error.message : 'internal error' })
+      }
     },
   }))
 }

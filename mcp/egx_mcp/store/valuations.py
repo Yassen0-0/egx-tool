@@ -1,11 +1,20 @@
 import sqlite3
+from datetime import date, datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from ..errors import ValuationInputError
 from ..pricing import pricing_levels
 from ..universe import normalize_symbol
 from .db import dumps, now_iso, row_to_dict
 
-MATERIAL_CHANGE = 0.0  # every fair-value change is logged; the reason explains it
+CAIRO = ZoneInfo("Africa/Cairo")
+
+
+def _cairo_day_start_utc(day: str) -> str:
+    """Start of a Cairo calendar day as the stored UTC ISO form: the screens show Cairo dates, so
+    a valuation saved at 01:00 Cairo belongs to that Cairo day, not to the UTC day before."""
+    start = datetime.combine(date.fromisoformat(day), time(0), CAIRO)
+    return start.astimezone(timezone.utc).isoformat(timespec="seconds")
 
 
 def latest_valuation(conn: sqlite3.Connection, symbol: str, kind: str | None = None) -> dict | None:
@@ -82,11 +91,11 @@ def list_valuations(
         where.append("kind = ?")
         params.append(kind)
     if date_from:
-        where.append("substr(created_at, 1, 10) >= ?")
-        params.append(date_from)
+        where.append("created_at >= ?")
+        params.append(_cairo_day_start_utc(date_from))
     if date_to:
-        where.append("substr(created_at, 1, 10) <= ?")
-        params.append(date_to)
+        where.append("created_at < ?")
+        params.append(_cairo_day_start_utc((date.fromisoformat(date_to) + timedelta(days=1)).isoformat()))
     clause = f" WHERE {' AND '.join(where)}" if where else ""
     limit = max(1, min(int(limit), 200))
     total = conn.execute(f"SELECT COUNT(*) FROM valuations{clause}", params).fetchone()[0]
@@ -199,7 +208,7 @@ def save_full_valuation(
     )
     valuation_id = cursor.lastrowid
     change = None
-    if previous and abs(fair_value - previous["fair_value"]) > MATERIAL_CHANGE:
+    if previous and fair_value != previous["fair_value"]:  # every change is logged; the reason explains it
         change_pct = fair_value / previous["fair_value"] - 1
         conn.execute(
             "INSERT INTO change_log (symbol, created_at, valuation_id, previous_fair_value, new_fair_value,"

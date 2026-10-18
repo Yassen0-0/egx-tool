@@ -12,15 +12,27 @@ const STATUS_CHIP = { above: 'أعلى من العادل', between: 'بين ال
 const fiscalPeriod = (p) => String(p).replace(/^FY\s?(\d{4})$/i, 'السنة المالية $1').replace(/^Q([1-4])\s?(\d{4})$/i, 'الربع $1 من $2')
 const EXPLAIN_KINDS = 'التقييم الكامل يعيد بناء النموذج من الأرقام الأساسية، والتحديث الخفيف مراجعة أسبوعية للسعر والأخبار بنفس العادل.'
 
+const PAGE = 200 // the API's page cap
+
+/** Every saved valuation, page by page: version numbers and counts need the whole archive. */
+async function allValuations() {
+  const items = []
+  for (let offset = 0; ; offset += PAGE) {
+    const page = await api('GET', `/egx/api/valuations?kind=&limit=${PAGE}&offset=${offset}`)
+    items.push(...page.items)
+    if (!page.items.length || items.length >= page.total) return items
+  }
+}
+
 /** Loads the archive (all kinds, newest first) and the market rows for today's prices. */
 function useArchive() {
   const [state, setState] = useState({ items: null, market: null, error: '' })
   useEffect(() => {
     let alive = true
     Promise.all([
-      api('GET', '/egx/api/valuations?kind=&limit=200'),
+      allValuations(),
       api('GET', '/egx/api/market').catch(() => null),
-    ]).then(([list, market]) => alive && setState({ items: list.items, market, error: '' }))
+    ]).then(([items, market]) => alive && setState({ items, market, error: '' }))
       .catch((e) => alive && setState({ items: null, market: null, error: e.message }))
     return () => { alive = false }
   }, [])
@@ -43,7 +55,7 @@ function versionsBySymbol(items) {
   return { bySymbol, info }
 }
 
-function FairDelta({ v, previous }) {
+function FairDelta({ v }) {
   if (v.kind === 'light') return h('small', { className: 'q-sec' }, 'بلا تغيير عن التقييم الكامل')
   const prevFull = v.previous_fair_value
   if (prevFull == null) return h('small', { className: 'q-ter' }, 'أول تقييم')
@@ -65,7 +77,7 @@ function ListRow({ v, info, current, onOpen }) {
   h('span', { className: 'q-cell', role: 'cell' }, N(fmtDate(v.created_at), 'q-strong'),
     h('small', null, 'النسخة ', N(String(info.version)), latest ? ' · الأحدث' : '')),
   h('span', { role: 'cell' }, h('span', { className: `a-kind${v.kind === 'light' ? ' light' : ''}` }, KIND_LABEL[v.kind])),
-  h('span', { className: 'q-cell', role: 'cell' }, N(fmtPrice(v.fair_value), 'q-blue a-fair'), h(FairDelta, { v, previous: info.previous })),
+  h('span', { className: 'q-cell', role: 'cell' }, N(fmtPrice(v.fair_value), 'q-blue a-fair'), h(FairDelta, { v })),
   h('span', { role: 'cell' }, h(RatingChip, { rating: v.risk_rating })),
   h('span', { className: 'q-cell', role: 'cell' },
     latest
@@ -509,7 +521,8 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
         'تحديث خفيف: نفس العادل ', N(fmtPrice(item.fair_value)), ' بدون إعادة تقييم. الطرق والافتراضات والمخاطر من التقييم الكامل بتاريخ ', N(fmtDate(lastFull.created_at)), ' ',
         h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(lastFull.id) }, 'افتح التقييم الكامل ←')) : null,
 
-      status === 'under' ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
+      // «يحتاج مراجعة» is about the current valuation: an older version under today's price is history.
+      status === 'under' && (isLatest || !series) ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
 
       // Summary strip + large ruler
       h('section', { className: 'q-card', 'aria-label': 'ملخص التقييم', style: { overflow: 'hidden' } },

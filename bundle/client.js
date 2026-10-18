@@ -265,17 +265,25 @@ function fmtCompact(v) {
 
 // ── EGX session (Sun–Thu, 10:00–14:30 Cairo) ─────────────────────────────────
 
+// Fallback only: the market API sends next_session from the holiday-aware Python calendar.
 const TRADING = new Set([0, 1, 2, 3, 4]) // Sunday..Thursday (getUTCDay)
 
 /**
  * The session line for the status strip, from the server's Cairo timestamp ("2026-10-15T09:02+03:00"):
  * { text, time } → «الجلسة مغلقة · تفتح اليوم» + «10:00», or «الجلسة مفتوحة · تغلق» + «14:30».
  */
-function sessionLine(asOf, open) {
+function sessionLine(asOf, open, nextSession) {
   if (open) return { text: 'الجلسة مفتوحة · تغلق', time: '14:30' }
   const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || '')
   if (!m) return { text: 'الجلسة مغلقة', time: null }
   const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
+  const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextSession || '')
+  if (n) {
+    const next = new Date(Date.UTC(+n[1], +n[2] - 1, +n[3]))
+    const ahead = Math.round((next - day) / 86_400_000)
+    const when = ahead <= 0 ? 'اليوم' : ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
+    return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
+  }
   const minutes = +m[4] * 60 + +m[5]
   if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' }
   let ahead = 1
@@ -769,6 +777,8 @@ const RISK_LABEL = {
   loans_to_deposits: ['القروض إلى الودائع', 'كم من الودائع أقرضه البنك.', 'أقل من 70% متحفظ · فوق 90% مرتفع', 'pct'],
   fx_open_position_to_capital: ['مركز العملة المفتوح إلى رأس المال', 'تعرّض البنك لتغيّر سعر الصرف.', 'أقل من 5% منخفض · فوق 10% مرتفع', 'pct'],
   auditor_qualified_opinion: ['رأي مراقب الحسابات', 'هل للمراجع تحفّظ على القوائم المالية؟', 'التحفّظ إشارة تحذير', 'auditor'],
+  // valuations saved before 19/10 list the missing auditor input under this older key
+  auditor_opinion: ['رأي مراقب الحسابات', 'هل للمراجع تحفّظ على القوائم المالية؟', 'التحفّظ إشارة تحذير', 'auditor'],
   debt_to_equity: ['الدين إلى حقوق الملكية', 'كم تقترض الشركة مقابل كل جنيه من أموال المساهمين.', 'أقل من 0.5 منخفض · فوق 1.5 مرتفع', 'num'],
   interest_coverage: ['تغطية الفوائد', 'كم مرة يغطي الربح التشغيلي مصروف الفوائد.', 'أعلى من 5 مريح · أقل من 2 ضعيف', 'times'],
   earnings_cv: ['تذبذب الأرباح', 'مدى تقلّب صافي الربح من سنة لأخرى.', 'أقل من 0.25 مستقر · فوق 0.6 متقلب', 'num'],
@@ -975,15 +985,27 @@ const STATUS_CHIP = { above: 'أعلى من العادل', between: 'بين ال
 const fiscalPeriod = (p) => String(p).replace(/^FY\s?(\d{4})$/i, 'السنة المالية $1').replace(/^Q([1-4])\s?(\d{4})$/i, 'الربع $1 من $2')
 const EXPLAIN_KINDS = 'التقييم الكامل يعيد بناء النموذج من الأرقام الأساسية، والتحديث الخفيف مراجعة أسبوعية للسعر والأخبار بنفس العادل.'
 
+const PAGE = 200 // the API's page cap
+
+/** Every saved valuation, page by page: version numbers and counts need the whole archive. */
+async function allValuations() {
+  const items = []
+  for (let offset = 0; ; offset += PAGE) {
+    const page = await api('GET', `/egx/api/valuations?kind=&limit=${PAGE}&offset=${offset}`)
+    items.push(...page.items)
+    if (!page.items.length || items.length >= page.total) return items
+  }
+}
+
 /** Loads the archive (all kinds, newest first) and the market rows for today's prices. */
 function useArchive() {
   const [state, setState] = useState({ items: null, market: null, error: '' })
   useEffect(() => {
     let alive = true
     Promise.all([
-      api('GET', '/egx/api/valuations?kind=&limit=200'),
+      allValuations(),
       api('GET', '/egx/api/market').catch(() => null),
-    ]).then(([list, market]) => alive && setState({ items: list.items, market, error: '' }))
+    ]).then(([items, market]) => alive && setState({ items, market, error: '' }))
       .catch((e) => alive && setState({ items: null, market: null, error: e.message }))
     return () => { alive = false }
   }, [])
@@ -1006,7 +1028,7 @@ function versionsBySymbol(items) {
   return { bySymbol, info }
 }
 
-function FairDelta({ v, previous }) {
+function FairDelta({ v }) {
   if (v.kind === 'light') return h('small', { className: 'q-sec' }, 'بلا تغيير عن التقييم الكامل')
   const prevFull = v.previous_fair_value
   if (prevFull == null) return h('small', { className: 'q-ter' }, 'أول تقييم')
@@ -1028,7 +1050,7 @@ function ListRow({ v, info, current, onOpen }) {
   h('span', { className: 'q-cell', role: 'cell' }, N(fmtDate(v.created_at), 'q-strong'),
     h('small', null, 'النسخة ', N(String(info.version)), latest ? ' · الأحدث' : '')),
   h('span', { role: 'cell' }, h('span', { className: `a-kind${v.kind === 'light' ? ' light' : ''}` }, KIND_LABEL[v.kind])),
-  h('span', { className: 'q-cell', role: 'cell' }, N(fmtPrice(v.fair_value), 'q-blue a-fair'), h(FairDelta, { v, previous: info.previous })),
+  h('span', { className: 'q-cell', role: 'cell' }, N(fmtPrice(v.fair_value), 'q-blue a-fair'), h(FairDelta, { v })),
   h('span', { role: 'cell' }, h(RatingChip, { rating: v.risk_rating })),
   h('span', { className: 'q-cell', role: 'cell' },
     latest
@@ -1472,7 +1494,8 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
         'تحديث خفيف: نفس العادل ', N(fmtPrice(item.fair_value)), ' بدون إعادة تقييم. الطرق والافتراضات والمخاطر من التقييم الكامل بتاريخ ', N(fmtDate(lastFull.created_at)), ' ',
         h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(lastFull.id) }, 'افتح التقييم الكامل ←')) : null,
 
-      status === 'under' ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
+      // «يحتاج مراجعة» is about the current valuation: an older version under today's price is history.
+      status === 'under' && (isLatest || !series) ? h(UnderProtectionCard, { price, fair: item.fair_value, protection: item.protection_price, asOf: current.as_of, onCritic: () => go('critic') }) : null,
 
       // Summary strip + large ruler
       h('section', { className: 'q-card', 'aria-label': 'ملخص التقييم', style: { overflow: 'hidden' } },
@@ -1557,7 +1580,7 @@ function AnalysesPage() {
 // docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). Inlined into the factory
 // scope: h, React, api, N, nav, the format.mjs helpers, identity.js and components.js are in scope.
 
-const MARKET_CSS = "/* Market screen («Monos / السوق»). host tokens only; builds on styles.css. */\n\n/* Status strip */\n.qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }\n.qm .m-ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }\n.qm .m-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-kv b { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n.qm .m-stack { display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none; }\n.qm .m-stack > span { display: block; }\n\n/* Digest */\n.qm .m-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px; }\n.qm .m-digest-t { font-size: 14px; font-weight: 600; margin-inline-end: 8px; }\n.qm .m-di { appearance: none; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; font-size: 13px; white-space: nowrap; text-align: start; }\n.qm .m-di:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-ic { width: 18px; height: 18px; border-radius: var(--dsw-radius-xs); display: grid; place-items: center; background: var(--dsw-alias-markdown-tag);\n  color: var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-ic.w { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); }\n.qm .m-ic.b { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n\n/* Toolbar */\n.qm .m-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .m-toolbar .q-field input[type='search'] { width: 140px; }\n.qm .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .q-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */\n.qm .m-table { overflow: hidden; container-type: inline-size; }\n/* The first column carries the «متابعتي» star (32px), taken from the valuation column's minimum. */\n.qm .m-g { --cols: minmax(204px, 1.5fr) 88px 136px 68px minmax(188px, 2.5fr) 104px 112px; min-width: 930px; }\n@container (max-width: 930px) {\n  .qm .m-g { --cols: minmax(178px, 1.4fr) 84px 128px 64px minmax(172px, 2.4fr) 96px; min-width: 760px; }\n  .qm .m-g > .m-c52 { display: none; }\n}\n.qm .m-row { min-height: 64px; cursor: pointer; position: relative; }\n.qm .m-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-row.q-warn:hover { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .m-row.q-sel, .qm .m-row.q-sel:hover { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-sym .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }\n.qm .m-sym .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }\n.qm .m-sym small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n.qm .m-vc { display: flex; flex-direction: column; justify-content: center; padding-block: 8px; }\n.qm .m-unvalued { display: flex; align-items: center; gap: 12px; }\n.qm .m-qbtn { appearance: none; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l4);\n  background: transparent; cursor: pointer; color: var(--dsw-alias-link); font-size: 13px; font-weight: 500; }\n.qm .m-qbtn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-grp { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform);\n  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; text-align: start; cursor: pointer; font-size: 13px; }\n.qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-tkgrid button { appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }\n.qm .m-tkgrid button:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid button.q-sel { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-key { display: inline-flex; align-items: center; gap: 6px; }\n\n/* Detail */\n.qm .m-dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px; }\n.qm .m-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: var(--dsw-alias-bg-module-platform); }\n.qm .m-panes { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }\n.qm .m-left { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-right { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }\n.qm .m-box { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-dashed { border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column;\n  align-items: flex-start; gap: 12px; }\n.qm .m-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-hist { display: grid; grid-template-columns: 88px 1fr 1fr 1.4fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .m-hist.h { font-size: 12px; color: var(--dsw-alias-label-secondary); border-top: 0; padding: 4px 0; }\n.qm .m-chart { height: 280px; direction: ltr; }\n.qm .m-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; }\n.qm .m-sk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .m-sk > div { padding: 8px 10px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; }\n.qm .m-tv { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; display: flex; flex-direction: column; }\n.qm .m-tvh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }\n.qm .m-tvh a { color: inherit; }\n.qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }\n\n/* «متابعتي»: star toggle per row and in the detail header; one-line refresh note in the strip. */\n.qm .m-symw { display: flex; align-items: center; gap: 2px; min-width: 0; margin-inline-start: -6px; }\n.qm .m-symw > .m-sym { min-width: 0; flex: 1; }\n.qm .m-star { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; flex: none; display: grid; place-items: center;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; color: var(--dsw-alias-label-tertiary); }\n.qm .m-star:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .m-star.on { color: var(--dsw-alias-label-primary); }\n.qm .m-watch { gap: 6px; }\n.qm .m-watch.on { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); }\n.qm .m-plan { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n"
+const MARKET_CSS = "/* Market screen («Monos / السوق»). host tokens only; builds on styles.css. */\n\n/* Status strip */\n.qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }\n.qm .m-ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }\n.qm .m-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-kv b { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n.qm .m-stack { display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none; }\n.qm .m-stack > span { display: block; }\n\n/* Digest */\n.qm .m-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px; }\n.qm .m-digest-t { font-size: 14px; font-weight: 600; margin-inline-end: 8px; }\n.qm .m-di { appearance: none; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; font-size: 13px; white-space: nowrap; text-align: start; }\n.qm .m-di:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-ic { width: 18px; height: 18px; border-radius: var(--dsw-radius-xs); display: grid; place-items: center; background: var(--dsw-alias-markdown-tag);\n  color: var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-ic.w { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); }\n.qm .m-ic.b { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n\n/* Toolbar */\n.qm .m-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .m-toolbar .q-field input[type='search'] { width: 140px; }\n.qm .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .q-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */\n.qm .m-table { overflow: hidden; container-type: inline-size; }\n/* The first column carries the «متابعتي» star (32px), taken from the valuation column's minimum. */\n.qm .m-g { --cols: minmax(204px, 1.5fr) 88px 136px 68px minmax(188px, 2.5fr) 104px 112px; min-width: 930px; }\n@container (max-width: 930px) {\n  .qm .m-g { --cols: minmax(178px, 1.4fr) 84px 128px 64px minmax(172px, 2.4fr) 96px; min-width: 760px; }\n  .qm .m-g > .m-c52 { display: none; }\n}\n.qm .m-row { min-height: 64px; cursor: pointer; position: relative; }\n.qm .m-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-row.q-warn:hover { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .m-row.q-sel, .qm .m-row.q-sel:hover { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-sym .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }\n.qm .m-sym .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }\n.qm .m-sym small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n.qm .m-vc { display: flex; flex-direction: column; justify-content: center; padding-block: 8px; }\n.qm .m-unvalued { display: flex; align-items: center; gap: 12px; }\n.qm .m-qbtn { appearance: none; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l4);\n  background: transparent; cursor: pointer; color: var(--dsw-alias-link); font-size: 13px; font-weight: 500; }\n.qm .m-qbtn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-grp { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform);\n  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; text-align: start; cursor: pointer; font-size: 13px; }\n.qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-tkcell { display: flex; align-items: center; gap: 2px; min-width: 0; }\n.qm .m-tkgrid .m-tkpick { flex: 1; min-width: 0; appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }\n.qm .m-tkgrid .m-tkpick:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid .m-tkpick.q-sel { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-key { display: inline-flex; align-items: center; gap: 6px; }\n\n/* Detail */\n.qm .m-dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px; }\n.qm .m-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: var(--dsw-alias-bg-module-platform); }\n.qm .m-panes { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }\n.qm .m-left { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-right { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }\n.qm .m-box { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-dashed { border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column;\n  align-items: flex-start; gap: 12px; }\n.qm .m-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-hist { display: grid; grid-template-columns: 88px 1fr 1fr 1.4fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .m-hist.h { font-size: 12px; color: var(--dsw-alias-label-secondary); border-top: 0; padding: 4px 0; }\n.qm .m-chart { height: 280px; direction: ltr; }\n.qm .m-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; }\n.qm .m-sk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .m-sk > div { padding: 8px 10px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; }\n.qm .m-tv { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; display: flex; flex-direction: column; }\n.qm .m-tvh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }\n.qm .m-tvh a { color: inherit; }\n.qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }\n\n/* «متابعتي»: star toggle per row and in the detail header; one-line refresh note in the strip. */\n.qm .m-symw { display: flex; align-items: center; gap: 2px; min-width: 0; margin-inline-start: -6px; }\n.qm .m-symw > .m-sym { min-width: 0; flex: 1; }\n.qm .m-star { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; flex: none; display: grid; place-items: center;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; color: var(--dsw-alias-label-tertiary); }\n.qm .m-star:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .m-star.on { color: var(--dsw-alias-label-primary); }\n.qm .m-watch { gap: 6px; }\n.qm .m-watch.on { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); }\n.qm .m-plan { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n"
 const MARKET_TOTAL = 31
 
 const PERIOD_OPTIONS = [['1m', 'شهر'], ['3m', '3 شهور'], ['1y', 'سنة']]
@@ -1657,7 +1680,7 @@ function SortArrow({ desc }) {
 
 function StatusStrip({ data, portfolio }) {
   const cover = refreshCoverage(data)
-  const session = sessionLine(data.as_of, data.session_open)
+  const session = sessionLine(data.as_of, data.session_open, data.next_session)
   const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
   const run = data.last_sync
   const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
@@ -1855,7 +1878,7 @@ function TableHead({ sort, desc, period, onSort }) {
     }))
 }
 
-function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
+function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch }) {
   if (!rows.length) return null
   const preview = rows.slice(0, 8).map((r) => r.symbol).join(' · ') + (rows.length > 8 ? ' …' : '')
   return h(React.Fragment, null,
@@ -1867,11 +1890,13 @@ function NoPriceGroup({ rows, open, onToggle, selected, onSelect }) {
       open ? null : h('span', { className: 'q-ter num', style: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, preview),
       h('span', { className: 'q-grow' }),
       h('span', { className: 'q-link', style: { minHeight: 0 } }, open ? 'إخفاء' : 'عرض الأسماء')),
-    open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('button', {
-      key: r.symbol, type: 'button', className: selected === r.symbol ? 'q-sel' : '', onClick: () => onSelect(r.symbol),
-    }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name),
-      r.watched ? h('span', { title: 'في متابعتي', style: { alignSelf: 'center', display: 'inline-flex' } }, h(StarGlyph, { on: true, size: 12 }),
-        h('span', { className: 'q-sr' }, 'في متابعتي')) : null))) : null)
+    // Each waiting stock can be starred right here: these are the ones a free-plan user most wants
+    // to move up the refresh order.
+    open ? h('div', { className: 'm-tkgrid' }, rows.map((r) => h('div', { key: r.symbol, className: 'm-tkcell' },
+      h('button', {
+        type: 'button', className: `m-tkpick${selected === r.symbol ? ' q-sel' : ''}`, onClick: () => onSelect(r.symbol),
+      }, h('b', { className: 'q-sym' }, r.symbol), h('span', { className: 'q-sec', style: { fontSize: 12 } }, r.name_ar || r.name)),
+      h(WatchToggle, { row: r, onWatch })))) : null)
 }
 
 function RulerLegend() {
@@ -2216,17 +2241,15 @@ function MarketPage() {
     setSyncing(true); setSyncNote(''); setSyncFailure('')
     try {
       const r = await api('POST', '/egx/api/market/sync', {})
-      if (r.ok === false && r.error === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD')
-      else if (r.ok === false) setSyncFailure(r.error || 'خطأ غير معروف')
-      else {
-        const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
-        if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
-        setSyncNote(parts.join(' · '))
-      }
+      const parts = [r.bars_updated.length ? `حُدّثت أسعار ${r.bars_updated.length} سهمًا` : 'الأسعار محدّثة بالفعل']
+      if (r.skipped_for_budget.length) parts.push(`${r.skipped_for_budget.length} بانتظار رصيد تحديثات الغد`)
+      setSyncNote(parts.join(' · '))
       await load()
       monos.refresh()
     } catch (e) {
-      setSyncFailure(e.message)
+      // api() throws on any {error} body, so the missing key arrives here as its code.
+      if (e.message === 'no_key') setSyncNote('لم يتم العثور على مفتاح EODHD: أضِفه في ~/.dsh/.env أو في ملف egx-api.docx')
+      else setSyncFailure(e.message)
     } finally {
       setSyncing(false)
     }
@@ -2256,23 +2279,27 @@ function MarketPage() {
     ...d, refresh_plan: plan || d.refresh_plan,
     rows: d.rows.map((r) => (symbols.has(r.symbol) === Boolean(r.watched) ? r : { ...r, watched: symbols.has(r.symbol) })),
   })
-  // Optimistic: the star flips at once, then follows the server's list (or flips back on failure).
+  const flipWatched = (symbol, on) => setData((d) => d && {
+    ...d, rows: d.rows.map((r) => (r.symbol === symbol ? { ...r, watched: on } : r)),
+  })
+  // Optimistic: only the clicked star flips at once. The server's full list is applied only from
+  // the newest answer, so two quick clicks can never undo each other; a failure flips back just
+  // the star that failed.
+  const watchSeq = React.useRef(0)
   const onWatch = async (symbol, on) => {
-    const before = new Set(all.filter((r) => r.watched).map((r) => r.symbol))
-    const next = new Set(before)
-    if (on) next.add(symbol); else next.delete(symbol)
-    markWatched(next)
+    const seq = ++watchSeq.current
+    flipWatched(symbol, on)
     try {
       const res = on ? await api('POST', '/egx/api/watchlist', { symbol })
         : await api('DELETE', `/egx/api/watchlist/${encodeURIComponent(symbol)}`, {})
-      markWatched(new Set(res.watchlist.map((w) => w.symbol)), res.refresh_plan)
+      if (seq === watchSeq.current) markWatched(new Set(res.watchlist.map((w) => w.symbol)), res.refresh_plan)
       const plan = res.refresh_plan || {}
       if (on) {
         toast(plan.overflow > 0 ? `أُضيف ${symbol} إلى متابعتي. متابعتي ومحفظتك تجاوزتا رصيد التحديث اليومي، فبعضها سيتحدّث يومًا بعد يوم`
           : plan.all_daily ? `أُضيف ${symbol} إلى متابعتي` : `أُضيف ${symbol} إلى متابعتي، وسعره سيتحدّث يوميًا`)
       }
     } catch (e) {
-      markWatched(before)
+      flipWatched(symbol, !on)
       toast(`تعذّر تعديل متابعتي: ${e.message}`)
     }
   }
@@ -2286,7 +2313,7 @@ function MarketPage() {
   else if (!priced.length && !waiting.length) tableBody = h('div', { className: 'q-empty' }, 'لا توجد أسهم مطابقة. جرّب إزالة البحث أو تغيير التصفية.')
   else tableBody = [
     ...priced.map((r) => h(MarketRow, { key: r.symbol, row: r, period, selected: selectedRow && selectedRow.symbol === r.symbol, onSelect: selectSymbol, onValue, onWatch })),
-    h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol }),
+    h(NoPriceGroup, { key: 'grp', rows: waiting, open: groupExpanded, onToggle: () => setGroupOpen(!groupExpanded), selected: selectedRow && selectedRow.symbol, onSelect: selectSymbol, onWatch }),
   ]
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
@@ -2552,7 +2579,7 @@ function PortfolioPage() {
   const refresh = () => monos.refresh()
   const onValue = (symbol) => copyValuationPrompt(symbol, toast)
   const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
-  const session = market ? sessionLine(market.as_of, market.session_open) : null
+  const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null
   const run = market && market.last_sync
   const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
 

@@ -29,7 +29,10 @@ def _key_from_file(path: Path) -> str | None:
     if not path.exists():
         return None
     if path.suffix.lower() == ".docx":
-        xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8", errors="replace")
+        try:
+            xml = zipfile.ZipFile(path).read("word/document.xml").decode("utf-8", errors="replace")
+        except (zipfile.BadZipFile, KeyError) as exc:
+            raise MarketDataError(f"{path.name} is not a readable Word file; re-save it or set EODHD_API_KEY") from exc
         text = re.sub(r"<[^>]+>", " ", xml)
     else:
         text = path.read_text(encoding="utf-8", errors="replace")
@@ -99,7 +102,8 @@ class EodhdClient:
                 "low": _num(r.get("low")), "close": _num(r.get("close")),
                 "adjusted_close": _num(r.get("adjusted_close")), "volume": _num(r.get("volume")),
             }
-            for r in rows if _num(r.get("close")) is not None
+            # A 0 close (suspension day) is not a price: storing it would break every pricing level.
+            for r in rows if (_num(r.get("close")) or 0) > 0
         ]
 
     def quotes(self, symbols: list[str]) -> list[dict]:
@@ -115,7 +119,7 @@ class EodhdClient:
             code = str(r.get("code", "")).removesuffix(".EGX")
             quotes.append({
                 "symbol": code,
-                "price": _num(r.get("close")),
+                "price": _positive(r.get("close")),
                 "open": _num(r.get("open")), "high": _num(r.get("high")), "low": _num(r.get("low")),
                 "volume": _num(r.get("volume")),
                 "previous_close": _num(r.get("previousClose")),
@@ -123,6 +127,11 @@ class EodhdClient:
                 "quote_time": r.get("timestamp") if isinstance(r.get("timestamp"), int) else None,
             })
         return quotes
+
+
+def _positive(value) -> float | None:
+    number = _num(value)
+    return number if number is not None and number > 0 else None
 
 
 def _num(value) -> float | None:

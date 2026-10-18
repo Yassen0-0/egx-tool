@@ -10,7 +10,7 @@ from ..store.valuations import latest_valuation
 from ..store.watchlist import watched_symbols
 from ..universe import constituent, load_universe, normalize_symbol
 from . import store
-from .calendar import CAIRO, CLOSE, expected_last_bar, now_cairo, previous_trading_day, session_open
+from .calendar import CAIRO, CLOSE, expected_last_bar, next_session_day, now_cairo, previous_trading_day, session_open
 from .sync import refresh_plan
 
 PERIODS = {"1w": 7, "1m": 30, "3m": 91, "1y": 365}
@@ -45,7 +45,7 @@ def _returns(rows: list[dict], price: float, as_of: date) -> dict:
 
 
 def _quote_is_today(quote: dict | None, today: date) -> bool:
-    if not quote or quote.get("price") is None or not quote.get("quote_time"):
+    if not quote or not quote.get("price") or quote["price"] <= 0 or not quote.get("quote_time"):
         return False
     return datetime.fromtimestamp(quote["quote_time"], CAIRO).date() == today
 
@@ -67,8 +67,15 @@ def price_state(conn: sqlite3.Connection, symbol: str, at: datetime, rows: list[
              "as_of": None, "as_of_day": None, "stale": None, "day_high": None, "day_low": None, "volume": None,
              "source": None}
     if _quote_is_today(quote, today) and (not rows or rows[-1]["date"] < today.isoformat()):
+        # Today's move is against the previous session's close. When the cache misses that bar
+        # (a budget gap), the quote's own previous close is the right base, not an older bar.
+        previous_session = previous_trading_day(today).isoformat()
+        if rows and rows[-1]["date"] == previous_session:
+            previous_close = rows[-1]["close"]
+        else:
+            previous_close = quote.get("previous_close") or None
         state.update({
-            "price": quote["price"], "previous_close": rows[-1]["close"] if rows else quote.get("previous_close"),
+            "price": quote["price"], "previous_close": previous_close,
             "price_kind": "delayed",
             "as_of": datetime.fromtimestamp(quote["quote_time"], CAIRO).isoformat(timespec="minutes"),
             "as_of_day": today.isoformat(), "day_high": quote.get("high"), "day_low": quote.get("low"),
@@ -86,6 +93,16 @@ def price_state(conn: sqlite3.Connection, symbol: str, at: datetime, rows: list[
         state["change"] = state["price"] - state["previous_close"]
         state["change_pct"] = state["price"] / state["previous_close"] - 1
     return state
+
+
+def sourced_price(state: dict):
+    """The price_state price as a Sourced value (None without one). The one rule for "which price
+    is current" that the market list, the portfolio and the analyst tools all share."""
+    from ..data.provider import Sourced
+    if state.get("price") is None:
+        return None
+    kind = "delayed quote" if state["price_kind"] == "delayed" else "daily close"
+    return Sourced(state["price"], state["as_of"], f"{state['source']} {kind}")
 
 
 def valuation_steps(conn: sqlite3.Connection, symbol: str) -> list[dict]:
@@ -176,6 +193,8 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
     return {
         "as_of": at.isoformat(timespec="minutes"),
         "session_open": session_open(at),
+        # Holiday-aware (calendar.py): the screens show «تفتح …» from this, not their own calendar.
+        "next_session": next_session_day(at).isoformat(),
         "expected_last_bar": expected_last_bar(at).isoformat(),
         # Today's breadth counts fresh prices only: a stale close is not today's move.
         "breadth": {

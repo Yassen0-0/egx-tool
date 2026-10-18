@@ -6,7 +6,7 @@ from datetime import datetime
 from ..data.provider import DataProvider
 from ..errors import ValuationInputError
 from ..market.calendar import now_cairo
-from ..market.summary import portfolio_today, price_state
+from ..market.summary import portfolio_today, price_state, sourced_price
 from ..pricing import pricing_levels
 from ..universe import constituent, normalize_symbol
 from .db import now_iso
@@ -95,8 +95,10 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider, at: date
     rows, positions = [], []
     for h in holdings:
         cost = h["quantity"] * h["buy_price"]
-        price = provider.get_price(h["symbol"])
         state = price_state(conn, h["symbol"], at)
+        # The cached price comes from the state on this connection; the provider (manual file) is
+        # only the fallback for a stock the cache has never priced.
+        price = sourced_price(state) or provider.get_price(h["symbol"])
         # The day move only applies when the price shown is the one the move belongs to.
         same_price = price is not None and state["price"] is not None and abs(state["price"] - price.value) < 1e-9
         fresh = same_price and state["stale"] is False and state["change"] is not None

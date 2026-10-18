@@ -5,11 +5,9 @@ prices only.
 """
 
 from contextlib import closing
-from datetime import datetime
-
 from ..config import db_path
 from ..market import store
-from ..market.calendar import CAIRO
+from ..market.calendar import now_cairo
 from ..store.db import connect
 from ..universe import normalize_symbol
 from .manual import ManualProvider
@@ -26,19 +24,12 @@ class CachedMarketProvider:
         return closing(connect(db_path()))
 
     def get_price(self, symbol: str) -> Sourced | None:
+        # Same rule as the market list and the portfolio (market.summary.price_state).
+        from ..market.summary import price_state, sourced_price
         symbol = normalize_symbol(symbol)
         with self._conn() as conn:
-            quote = store.quote(conn, symbol)
-            last = store.last_bar_date(conn, symbol)
-            if quote and quote.get("price") is not None and quote.get("quote_time"):
-                quoted = datetime.fromtimestamp(quote["quote_time"], CAIRO)
-                if last is None or quoted.date().isoformat() > last:
-                    return Sourced(quote["price"], quoted.isoformat(timespec="minutes"),
-                                   f"{quote['source']} delayed quote")
-            if last:
-                bar = store.bars(conn, symbol, last)[-1]
-                return Sourced(bar["close"], bar["date"], f"{bar['source']} daily close")
-        return self.manual.get_price(symbol)
+            price = sourced_price(price_state(conn, symbol, now_cairo()))
+        return price or self.manual.get_price(symbol)
 
     def get_price_history(self, symbol: str) -> list[Sourced]:
         symbol = normalize_symbol(symbol)

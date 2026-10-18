@@ -34,7 +34,9 @@ def upsert_quote(conn: sqlite3.Connection, quote: dict, source: str) -> None:
 
 
 def bars(conn: sqlite3.Connection, symbol: str, since: str | None = None) -> list[dict]:
-    query = "SELECT date, open, high, low, close, adjusted_close, volume, source FROM daily_bars WHERE symbol = ?"
+    # close > 0: bars saved before 0 closes were filtered at the source are skipped, not shown.
+    query = ("SELECT date, open, high, low, close, adjusted_close, volume, source FROM daily_bars"
+             " WHERE symbol = ? AND close > 0")
     params: list = [symbol]
     if since:
         query += " AND date >= ?"

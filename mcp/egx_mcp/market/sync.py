@@ -67,12 +67,14 @@ def refresh_plan(conn: sqlite3.Connection) -> dict:
 def _needs_bars(conn: sqlite3.Connection, symbol: str, due: date, today: date) -> str | None:
     """Return the from-date to fetch, or None when the cache is current or already checked today."""
     last = store.last_bar_date(conn, symbol)
-    if last is None:
-        return (today - timedelta(days=HISTORY_DAYS)).isoformat()
-    if date.fromisoformat(last) >= due:
+    if last is not None and date.fromisoformat(last) >= due:
         return None
+    # One attempt per symbol per day, whether it brought rows, an empty list or an error: a
+    # ticker EODHD does not serve would otherwise eat the budget on every 5-minute sync.
     if store.sync_state(conn, symbol)["bars_checked_on"] == today.isoformat():
         return None
+    if last is None:
+        return (today - timedelta(days=HISTORY_DAYS)).isoformat()
     return (date.fromisoformat(last) + timedelta(days=1)).isoformat()
 
 
@@ -106,14 +108,14 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
                 if rows:
                     summary["bars_updated"].append(symbol)
             except MarketDataError as exc:
-                store.mark_checked(conn, symbol, error=str(exc))
+                store.mark_checked(conn, symbol, bars_on=today, error=str(exc))
                 summary["errors"][symbol] = str(exc)
             conn.commit()
 
         quotes_allowed = force_quotes or account["daily_limit"] >= QUOTES_MIN_DAILY_LIMIT
         if quotes_allowed and session_open(at) and budget > 0:
             last_run = conn.execute("SELECT MAX(quote_checked_at) FROM market_sync").fetchone()[0]
-            fresh = last_run and datetime.fromisoformat(last_run) > datetime.now(at.tzinfo) - QUOTE_INTERVAL
+            fresh = last_run and datetime.fromisoformat(last_run) > at - QUOTE_INTERVAL
             if force_quotes or not fresh:
                 batch = symbols[: max(0, budget)]
                 try:
@@ -121,7 +123,7 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
                         if q["symbol"]:
                             store.upsert_quote(conn, q, SOURCE)
                             summary["quotes"] += 1
-                    stamp = datetime.now(at.tzinfo).isoformat(timespec="seconds")
+                    stamp = at.isoformat(timespec="seconds")
                     for symbol in batch:
                         store.mark_checked(conn, symbol, quote_at=stamp)
                 except MarketDataError as exc:
@@ -133,6 +135,13 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
         conn.execute("UPDATE sync_runs SET finished_at=?, error=? WHERE id=?", (now_iso(), str(exc), run_id))
         conn.commit()
         return {"ok": False, "error": str(exc), **summary}
+    except Exception as exc:
+        # Never leave a run open: the UI reads the last run to say when prices were refreshed.
+        conn.rollback()
+        conn.execute("UPDATE sync_runs SET finished_at=?, error=? WHERE id=?",
+                     (now_iso(), f"{type(exc).__name__}: {exc}", run_id))
+        conn.commit()
+        raise
 
     calls = client.calls_made
     conn.execute("DELETE FROM sync_runs WHERE id <= ?", (run_id - KEEP_SYNC_RUNS,))

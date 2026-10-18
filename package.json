@@ -1,0 +1,21 @@
+{
+  "name": "monos-dev",
+  "private": true,
+  "description": "Dev tooling only (build, tests, lint). The app loads bundle/ and never installs this.",
+  "type": "module",
+  "scripts": {
+    "build": "node bundle/build-client.mjs",
+    "build:check": "node bundle/build-client.mjs --check",
+    "lint": "eslint bundle",
+    "test": "node --test bundle/test/*.test.mjs",
+    "test:py": "uv run --project mcp pytest -q"
+  },
+  "devDependencies": {
+    "esbuild": "0.24.2",
+    "eslint": "^9.17.0",
+    "globals": "^15.14.0",
+    "jsdom": "25.0.1",
+    "react": "18.3.1",
+    "react-dom": "18.3.1"
+  }
+}

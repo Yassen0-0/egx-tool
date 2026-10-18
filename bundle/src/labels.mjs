@@ -1,6 +1,6 @@
 // Arabic names and one-line beginner explanations for the keys stored in a valuation record
 // (methods, assumptions, sanity checks, risk criteria). Every abbreviation is spelled out on
-// first sight. Pure data + small formatters: inlined into client.js and tested in bundle/test.
+// first sight. Pure data + small formatters: bundled into client.js and tested in bundle/test.
 import { fmtNumber, fmtPct } from './format.mjs'
 
 export const METHOD_LABEL = {

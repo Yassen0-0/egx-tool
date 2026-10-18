@@ -1,21 +1,24 @@
 // «Monos / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
-// docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). Inlined into the factory
-// scope: h, React, api, N, nav, the format.mjs helpers, identity.js and components.js are in scope.
+// docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). ES module.
+import { ANALYSES_ID, LightweightCharts, N, QM_CSS, React, TvWidget, api, chartTheme, h, nav, useCallback, useEffect, useHostTheme, useState } from './runtime.js'
+import { RATING_LEVEL, fmtArrow, fmtChange, fmtCompact, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtTime, lastLimitReset, marginSentence, marginToFair, nextLimitReset, rangePosition, rulerScale, sessionLine, toneOf, weekdayName } from './format.mjs'
+import { Disclaimer, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
+import { MarginText, MineChip, PORTFOLIO_GLYPH, PriceCell, ProtectionHelp, ProtectionNote, Range52, RatingChip, Ruler, Skeleton, StaleChip, UnderProtectionCard } from './components.js'
+import MARKET_CSS from './market.css'
 
-const MARKET_CSS = '/* @css market.css */'
-const MARKET_TOTAL = 31
+export const MARKET_TOTAL = 31
 
-const PERIOD_OPTIONS = [['1m', 'شهر'], ['3m', '3 شهور'], ['1y', 'سنة']]
-const SORT_OPTIONS = [
+export const PERIOD_OPTIONS = [['1m', 'شهر'], ['3m', '3 شهور'], ['1y', 'سنة']]
+export const SORT_OPTIONS = [
   ['weight', 'الوزن في المؤشر'], ['symbol', 'الرمز'], ['price', 'آخر سعر'], ['day', 'التغير اليوم'],
   ['period', 'أداء الفترة'], ['margin', 'الفرق عن العادل'], ['rating', 'التصنيف'], ['r52', 'موضع 52 أسبوعًا'],
 ]
-const FILTERS = [
+export const FILTERS = [
   ['all', 'الكل'], ['valued', 'مقيَّم'], ['under', 'تحت الحماية'], ['unvalued', 'لم يُقيَّم'], ['noprice', 'بدون سعر'], ['stale', 'قديم'],
 ]
 
-const isUnder = (r) => Boolean(r.valuation && r.valuation.status === 'below_protection')
-const FILTER_TEST = {
+export const isUnder = (r) => Boolean(r.valuation && r.valuation.status === 'below_protection')
+export const FILTER_TEST = {
   all: () => true,
   valued: (r) => Boolean(r.valuation),
   under: isUnder,
@@ -26,7 +29,7 @@ const FILTER_TEST = {
 
 // Sort values; null always sorts last whatever the direction. A stale day change is not today's
 // move, so it is left out of the «اليوم» sort.
-const SORT_VALUE = {
+export const SORT_VALUE = {
   weight: (r) => r.weight_pct,
   symbol: (r) => r.symbol,
   price: (r) => r.price,
@@ -37,7 +40,7 @@ const SORT_VALUE = {
   r52: (r) => rangePosition(r.low_52w, r.high_52w, r.price),
 }
 
-function sortRows(rows, key, desc, period) {
+export function sortRows(rows, key, desc, period) {
   const value = SORT_VALUE[key] || SORT_VALUE.weight
   return rows.slice().sort((a, b) => {
     const x = value(a, period), y = value(b, period)
@@ -49,9 +52,9 @@ function sortRows(rows, key, desc, period) {
   })
 }
 
-const lastCloseOf = (data) => data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+export const lastCloseOf = (data) => data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
 
-function openAnalysis(id, section = null) {
+export function openAnalysis(id, section = null) {
   if (id == null || !nav.selectPanel) return
   nav.pendingAnalysisId = id
   nav.pendingSection = section
@@ -60,12 +63,12 @@ function openAnalysis(id, section = null) {
 
 // ── «متابعتي»: followed stocks get the daily price refresh right after holdings ─
 
-const STAR_PATH = 'M8 1.6l1.95 3.95 4.35.63-3.15 3.07.74 4.33L8 11.53l-3.89 2.05.74-4.33L1.7 6.18l4.35-.63Z'
-const StarGlyph = ({ on, size = 16 }) => h('svg', { width: size, height: size, viewBox: '0 0 16 16', 'aria-hidden': true },
+export const STAR_PATH = 'M8 1.6l1.95 3.95 4.35.63-3.15 3.07.74 4.33L8 11.53l-3.89 2.05.74-4.33L1.7 6.18l4.35-.63Z'
+export const StarGlyph = ({ on, size = 16 }) => h('svg', { width: size, height: size, viewBox: '0 0 16 16', 'aria-hidden': true },
   h('path', { d: STAR_PATH, fill: on ? 'currentColor' : 'none', stroke: 'currentColor', strokeWidth: 1.4, strokeLinejoin: 'round' }))
 
 /** Star toggle in a table row (icon only) or the detail header (with text). */
-function WatchToggle({ row, onWatch, withText = false }) {
+export function WatchToggle({ row, onWatch, withText = false }) {
   const on = Boolean(row.watched)
   const label = on ? `إزالة ${row.symbol} من متابعتي` : `أضف ${row.symbol} إلى متابعتي`
   const toggle = (e) => { e.stopPropagation(); onWatch(row.symbol, !on) }
@@ -79,10 +82,10 @@ function WatchToggle({ row, onWatch, withText = false }) {
 }
 
 /** «سهم واحد» · «سهمان» · «5 أسهم» · «18 سهمًا» (Arabic counted-noun agreement). */
-const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : [N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'])
+export const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : [N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'])
 
 /** Holdings + «متابعتي» counted live from the rows, against the plan's daily budget. */
-function refreshCoverage(data) {
+export function refreshCoverage(data) {
   const plan = data.refresh_plan || {}
   const priority = data.rows.filter((r) => r.held || r.watched).length
   const budget = plan.daily_budget == null ? null : plan.daily_budget
@@ -93,14 +96,14 @@ function refreshCoverage(data) {
   }
 }
 
-function SortArrow({ desc }) {
+export function SortArrow({ desc }) {
   return h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round' },
     h('path', { d: desc ? 'M6 2v8M3 7l3 3 3-3' : 'M6 10V2M3 5l3-3 3 3' }))
 }
 
 // ── Status strip ─────────────────────────────────────────────────────────────
 
-function StatusStrip({ data, portfolio }) {
+export function StatusStrip({ data, portfolio }) {
   const cover = refreshCoverage(data)
   const session = sessionLine(data.as_of, data.session_open, data.next_session)
   const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
@@ -148,7 +151,7 @@ function StatusStrip({ data, portfolio }) {
 }
 
 /** Holdings + «متابعتي» larger than the daily budget: say how many fall back to every other day. */
-function WatchBudgetNote({ data }) {
+export function WatchBudgetNote({ data }) {
   const cover = refreshCoverage(data)
   if (!cover.overflow) return null
   const title = cover.watched ? 'متابعتي ومحفظتك أكبر من رصيد التحديث اليومي' : 'محفظتك أكبر من رصيد التحديث اليومي'
@@ -164,7 +167,7 @@ function WatchBudgetNote({ data }) {
 
 // ── Sync alerts: failed refresh, daily limit, no fresh prices yet ───────────
 
-function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
+export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
   const [why, setWhy] = useState(false)
   const run = data.last_sync
   const now = data.as_of
@@ -212,13 +215,13 @@ function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
 
 // ── Digest ─────────────────────────────────────────────────────────────────────
 
-const DIGEST_ICON = {
+export const DIGEST_ICON = {
   status: ['w', h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true }, h('path', { d: 'M6 1.5 10.5 6 6 10.5 1.5 6Z', fill: 'currentColor' }))],
   valuation: ['b', h('svg', { width: 10, height: 10, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.6, strokeLinecap: 'round' }, h('path', { d: 'M2 9l3-3 2 2 3-4' }))],
   holding_move: ['', PORTFOLIO_GLYPH(10)],
 }
 
-function Digest({ items, onSelect }) {
+export function Digest({ items, onSelect }) {
   if (!items || !items.length) return null
   return h('section', { className: 'q-card m-digest', 'aria-label': 'منذ آخر إغلاق' },
     h('span', { className: 'm-digest-t' }, 'منذ آخر إغلاق'),
@@ -250,11 +253,11 @@ function Digest({ items, onSelect }) {
 
 // ── Table ──────────────────────────────────────────────────────────────────────
 
-const COLUMNS = [
+export const COLUMNS = [
   ['symbol', 'السهم'], ['price', 'آخر سعر'], ['day', 'اليوم'], ['period', null], ['margin', 'التقييم'], ['rating', 'التصنيف'], ['r52', 'نطاق 52 أسبوعًا'],
 ]
 
-function MarketRow({ row, period, selected, onSelect, onValue, onWatch }) {
+export function MarketRow({ row, period, selected, onSelect, onValue, onWatch }) {
   const v = row.valuation
   const per = (row.returns || {})[period]
   const select = () => onSelect(row.symbol)
@@ -289,7 +292,7 @@ function MarketRow({ row, period, selected, onSelect, onValue, onWatch }) {
   h('span', { className: 'm-c52', role: 'cell' }, h(Range52, { low: row.low_52w, high: row.high_52w, price: row.price })))
 }
 
-function TableHead({ sort, desc, period, onSort }) {
+export function TableHead({ sort, desc, period, onSort }) {
   const periodLabel = PERIOD_OPTIONS.find(([k]) => k === period)[1]
   return h('div', { className: 'q-grid m-g q-th', role: 'row' },
     COLUMNS.map(([key, label]) => {
@@ -300,7 +303,7 @@ function TableHead({ sort, desc, period, onSort }) {
     }))
 }
 
-function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch }) {
+export function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch }) {
   if (!rows.length) return null
   const preview = rows.slice(0, 8).map((r) => r.symbol).join(' · ') + (rows.length > 8 ? ' …' : '')
   return h(React.Fragment, null,
@@ -321,7 +324,7 @@ function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch }) {
       h(WatchToggle, { row: r, onWatch })))) : null)
 }
 
-function RulerLegend() {
+export function RulerLegend() {
   const key = (swatch, label) => h('span', { className: 'm-key' }, swatch, label)
   return [
     h('span', { key: 't' }, 'المسطرة لكل سهم بمقياسه:'),
@@ -334,7 +337,7 @@ function RulerLegend() {
 
 // ── Detail: our valuation ─────────────────────────────────────────────────────
 
-function BigRuler({ v, price }) {
+export function BigRuler({ v, price }) {
   const s = rulerScale({ bear: v.bear, bull: v.bull, fair: v.fair_value, price })
   if (!s) return null
   // Labels can collide when marks are close: nudge the bottom labels apart (min 14% gap).
@@ -360,12 +363,12 @@ function BigRuler({ v, price }) {
   label('fair', 'السعر العادل', v.fair_value, 'q-blue q-strong'), label('bull', 'المتفائل', v.bull, 'q-sec'))
 }
 
-const lastFullId = (row) => {
+export const lastFullId = (row) => {
   const full = (row.valuation_history || []).filter((s) => s.kind === 'full')
   return full.length ? full[full.length - 1].id : row.valuation && row.valuation.id
 }
 
-function ValuationCard({ row }) {
+export function ValuationCard({ row }) {
   const v = row.valuation
   const [help, setHelp] = useState(true)
   const steps = (row.valuation_history || []).slice().reverse()
@@ -413,7 +416,7 @@ function ValuationCard({ row }) {
 
 // ── Detail: candles with fair / protection as step lines by valuation date ────
 
-function ValuationCandles({ bars, steps }) {
+export function ValuationCandles({ bars, steps }) {
   const ref = React.useRef(null)
   useEffect(() => {
     if (!bars.length) return undefined
@@ -463,7 +466,7 @@ function ValuationCandles({ bars, steps }) {
   return h('div', { ref, className: 'm-chart', role: 'img', 'aria-label': 'شارت شموع يومية مع السعر العادل وسعر الحماية حسب تاريخ كل تقييم' })
 }
 
-function chartExplanation(steps, bars) {
+export function chartExplanation(steps, bars) {
   if (!bars.length) return null
   const first = bars[0].date, last = bars[bars.length - 1].date
   const shown = steps.filter((s, i) => s.date >= first || (steps[i + 1] ? steps[i + 1].date > first : true))
@@ -478,7 +481,7 @@ function chartExplanation(steps, bars) {
   return ['لا نرسم أي تقييم على أيام سبقته', after ? '، وتقييم ما بعد آخر شمعة يظهر عند الحافة اليمنى. ' : '. ', 'العادل ', ...parts]
 }
 
-function CandlesPanel({ row, history }) {
+export function CandlesPanel({ row, history }) {
   const bars = React.useMemo(() => (history ? history.bars.filter((b) => b.open != null).slice(-60) : []), [history])
   const steps = React.useMemo(() => (history ? history.valuation_history || [] : []), [history])
   const recent = history ? history.bars.slice(-11) : []
@@ -513,16 +516,16 @@ function CandlesPanel({ row, history }) {
 
 // ── Detail: TradingView tabs (display only; never feeds our numbers) ──────────
 
-function TvFrame({ title, symbol, children }) {
+export function TvFrame({ title, symbol, children }) {
   return h('div', { className: 'm-tv' },
     h('div', { className: 'm-tvh' }, h('span', null, `TradingView · ${title} · `, h('span', { className: 'q-sym' }, symbol)),
       h('a', { href: 'https://www.tradingview.com/', target: '_blank', rel: 'noreferrer' }, 'TradingView®')),
     h('div', { className: 'm-tvbody' }, children))
 }
 
-const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
+export const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
 
-function SymbolDetail({ row, period, onValue, onWatch }) {
+export function SymbolDetail({ row, period, onValue, onWatch }) {
   const [tab, setTab] = useState('ours')
   const theme = useHostTheme()
   const [history, setHistory] = useState(null)
@@ -622,7 +625,7 @@ function SymbolDetail({ row, period, onValue, onWatch }) {
 
 // ── Page ─────────────────────────────────────────────────────────────────────
 
-function MarketPage() {
+export function MarketPage() {
   const portfolio = useMonos()
   const [data, setData] = useState(null)
   const [digest, setDigest] = useState(null)

@@ -1,12 +1,14 @@
 // Monos identity: the brand icon, the shared portfolio store the icon and the screens read, the
 // sidebar entry and the panel header.
-// Inlined into client.js's factory scope (h, React, api, N and the format.mjs helpers are in scope).
+// ES module: everything it uses is imported below.
+import { React, api, h, useEffect, useState } from './runtime.js'
+import { fmtPct, iconState } from './format.mjs'
 
 // ── Shared portfolio store ─────────────────────────────────────────────────────
 // One fetch of /egx/api/portfolio feeds the sidebar badge and every screen, so they always agree.
 // Refreshed on first use, every few minutes (the desktop app syncs prices every 5), after each
 // market sync and after any holding change.
-const monos = {
+export const monos = {
   portfolio: undefined, // undefined = not loaded yet, null = unavailable
   listeners: new Set(),
   pending: null,
@@ -24,9 +26,9 @@ const monos = {
     return this.pending
   },
 }
-const MONOS_REFRESH_MS = 3 * 60 * 1000
+export const MONOS_REFRESH_MS = 3 * 60 * 1000
 
-function useMonos() {
+export function useMonos() {
   const [, bump] = useState(0)
   useEffect(() => {
     const listener = () => bump((n) => n + 1)
@@ -41,7 +43,7 @@ function useMonos() {
 // The Monos app icon: a green rounded square with the white trend line, drawn on the 24-grid.
 // Brand colours (green #37B77A, white glyph) come from the asset pack in bundle/assets/monos/,
 // which also holds the .icns / .iconset for the macOS app. Static — one version, no up/down/neutral.
-function MonosIcon({ size = 22 }) {
+export function MonosIcon({ size = 22 }) {
   const dot = (cx, cy, key) => h('circle', { key, cx, cy, r: 1.125, fill: '#FFFFFF' })
   return h('svg', {
     width: size, height: size, viewBox: '0 0 24 24', 'aria-hidden': true, style: { flex: 'none', display: 'block' },
@@ -56,11 +58,11 @@ function MonosIcon({ size = 22 }) {
 
 // Empty-conversation mark: fills the host's conversation.hero.brand.mark slot, so the host's
 // animated fallback (the DeepSeek whale) never shows. The host passes the size and its own class.
-function HeroMonosMark({ size = 34, className }) {
+export function HeroMonosMark({ size = 34, className }) {
   return h('span', { className, style: { display: 'inline-flex' } }, h(MonosIcon, { size }))
 }
 
-function todayOf(portfolio) {
+export function todayOf(portfolio) {
   const totals = portfolio && portfolio.totals
   return { state: iconState(portfolio), change: totals && totals.today_change, pct: totals && totals.today_change_pct }
 }
@@ -69,9 +71,9 @@ function todayOf(portfolio) {
 // The host row renders our icon (16px wide, 18px in the collapsed rail) and the static label
 // «Monos». When the portfolio moved today, the row also shows today's % beside the label, and
 // the row's tooltip and accessible name become «Monos — السوق».
-const SIDEBAR_PCT_CLASS = 'monos-sidebar-pct'
+export const SIDEBAR_PCT_CLASS = 'monos-sidebar-pct'
 
-function SidebarMonosIcon({ size }) {
+export function SidebarMonosIcon({ size }) {
   const portfolio = useMonos()
   const ref = React.useRef(null)
   const { state, pct } = todayOf(portfolio)
@@ -104,7 +106,7 @@ function SidebarMonosIcon({ size }) {
 
 // ── Panel header ──────────────────────────────────────────────────────────────
 // Right: icon 22 + «Monos» / screen (with breadcrumb links before it). Left: actions.
-function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
+export function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
   return h('header', { className: 'q-head', 'data-window-drag': true },
     h('div', { className: 'q-head-in' },
       h(MonosIcon, { size: 22 }),
@@ -121,15 +123,15 @@ function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
       actions ? h('div', { className: 'q-head-actions' }, actions) : null))
 }
 
-const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
-function Disclaimer({ extra }) {
+export const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
+export function Disclaimer({ extra }) {
   return h('p', { className: 'q-foot' }, extra || null, extra ? ' ' : null, h('b', { style: { fontWeight: 600 } }, DISCLAIMER))
 }
 
 // ── «قيّم سهم X» ──────────────────────────────────────────────────────────────
 // The host exposes the composer's draft only to components rendered inside the chat, and our
 // panels replace the chat while open, so the message is copied for the user to paste there.
-function useToast() {
+export function useToast() {
   const [text, setText] = useState('')
   useEffect(() => {
     if (!text) return undefined
@@ -140,7 +142,7 @@ function useToast() {
   return [node, setText]
 }
 
-async function copyValuationPrompt(symbol, toast) {
+export async function copyValuationPrompt(symbol, toast) {
   const message = `قيّم سهم ${symbol}`
   try {
     await navigator.clipboard.writeText(message)

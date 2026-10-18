@@ -1,12 +1,17 @@
 // «Monos / المحفظة»: today first and biggest, the add form above the holdings with a live total,
-// and the holdings grid tied to each stock's valuation (§7.4). Inlined into the factory scope.
+// and the holdings grid tied to each stock's valuation (§7.4). ES module.
 // Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
+import { N, QM_CSS, api, h, useEffect, useState } from './runtime.js'
+import { cairoDay, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtTime, parseDayInput, parseNumberInput, sessionLine, toneOf } from './format.mjs'
+import { Disclaimer, MonosIcon, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
+import { MarginText, PriceCell, ProtectionHelp, ProtectionNote, Ruler, Skeleton, StatusMark } from './components.js'
+import MARKET_CSS from './market.css'
+import PORTFOLIO_CSS from './portfolio.css'
 
-const PORTFOLIO_CSS = '/* @css portfolio.css */'
-const HOLDING_SORTS = [['pnl', 'مساهمة الربح/الخسارة'], ['value', 'القيمة'], ['share', 'نسبة من المحفظة']]
-const todayCairo = () => cairoDay(new Date().toISOString())
+export const HOLDING_SORTS = [['pnl', 'مساهمة الربح/الخسارة'], ['value', 'القيمة'], ['share', 'نسبة من المحفظة']]
+export const todayCairo = () => cairoDay(new Date().toISOString())
 
-function SummaryCard({ portfolio, lastClose }) {
+export function SummaryCard({ portfolio, lastClose }) {
   const t = portfolio.totals
   const valued = portfolio.holdings.filter((r) => r.fair_value != null)
   const under = t.below_protection.length
@@ -33,7 +38,7 @@ function SummaryCard({ portfolio, lastClose }) {
         lastClose ? [' (آخر إغلاق ', N(fmtDate(lastClose)), ')'] : null)))
 }
 
-function AddForm({ universe, onAdded, startOpen }) {
+export function AddForm({ universe, onAdded, startOpen }) {
   const [open, setOpen] = useState(startOpen)
   const [symbol, setSymbol] = useState('')
   const [price, setPrice] = useState('')
@@ -114,12 +119,12 @@ function AddForm({ universe, onAdded, startOpen }) {
         h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, plus, busy ? 'جارٍ الإضافة…' : 'أضف إلى المحفظة'))) : null)
 }
 
-const EDIT_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinejoin: 'round' },
+export const EDIT_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinejoin: 'round' },
   h('path', { d: 'M10.5 2.5l3 3L6 13H3v-3z' }))
-const TRASH_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' },
+export const TRASH_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' },
   h('path', { d: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5' }))
 
-function HoldingRow({ row, onChanged, onValue }) {
+export function HoldingRow({ row, onChanged, onValue }) {
   const [mode, setMode] = useState('view')
   const [qty, setQty] = useState(String(row.quantity))
   const [cost, setCost] = useState(String(row.buy_price))
@@ -177,7 +182,7 @@ function HoldingRow({ row, onChanged, onValue }) {
       error ? h('span', { className: 'q-error', role: 'alert', style: { fontSize: 12 } }, error) : null))
 }
 
-function sortHoldings(rows, key) {
+export function sortHoldings(rows, key) {
   const value = { pnl: (r) => r.pnl, value: (r) => r.market_value, share: (r) => r.share_of_portfolio }[key]
   return rows.slice().sort((a, b) => {
     const x = value(a), y = value(b)
@@ -188,7 +193,7 @@ function sortHoldings(rows, key) {
   })
 }
 
-function PortfolioPage() {
+export function PortfolioPage() {
   const portfolio = useMonos()
   const [universe, setUniverse] = useState([])
   const [market, setMarket] = useState(null)

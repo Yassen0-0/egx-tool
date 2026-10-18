@@ -16,7 +16,7 @@
 ## 3. متى يظهر التعديل في التطبيق
 | ما تغيّر | ما المطلوب |
 |---|---|
-| `bundle/src/*` (الشاشات) | `node bundle/build-client.mjs`، ثم يُغلق التطبيق (Cmd+Q) ويُفتح من جديد |
+| `bundle/src/*` (الشاشات) | `npm install` (أول مرة بس، عشان أدوات البناء)، وبعدين `npm run build`، وبعدين تقفل التطبيق (Cmd+Q) وتفتحه تاني |
 | `bundle/host/egx-portfolio.mjs` (الـ API) | إعادة تشغيل التطبيق |
 | `mcp/egx_mcp/*` (Python) | الـ API يقرأ التعديل مباشرة؛ أدوات المحلل (MCP) تحتاج إعادة تشغيل التطبيق |
 | `skills/*`، `bundle/presets/*`، `bundle/cordis.patch.yml` | إعادة تشغيل التطبيق |
@@ -35,5 +35,8 @@
 ## 5. قواعد ثابتة
 - تقييم وليس توصية: ممنوع أي كلام عن شراء أو بيع كنصيحة (التفاصيل في `docs/design/CLAUDE_CODE.md` §2).
 - الألوان من توكنز التطبيق فقط (`--dsw-alias-*`)، وكل رقم داخل `<span class="num">`.
-- مصادر الواجهة في `bundle/src/`، و`bundle/client.js` ملف مولَّد: عدّل المصادر ثم ابنِ.
+- مصادر الواجهة في `bundle/src/`، و`bundle/client.js` ملف مولَّد: عدّل المصادر وبعدين ابنيها.
+  - كل شاشة module مستقل فيه `import` صريح. نقطة البداية `src/index.js`، والأجزاء المشتركة في `src/runtime.js`، والبناء بـ esbuild.
+  - `npm run lint` بيفشل لو فيه اسم مستخدَم من غير `import`.
+  - `bundle/test/render.test.mjs` بيعرض كل الشاشات في Node ببيانات صناعية (`bundle/test/fixtures/api.json`). لو اتغيّر شكل الـ API، ولّد البيانات من جديد بـ `uv run --project mcp python scripts/make-ui-fixtures.py`.
 - بعد كل تغيير: شغّل الاختبارات، واعمل commit، وأوصله إلى `main` واعمل له push (المستودع: Yassen0-0/egx-tool).

@@ -1,21 +1,26 @@
-// «Monos / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). Inlined into
-// the factory scope: h, React, api, N, nav, Markdown, the format/labels helpers, identity.js and
-// components.js are in scope. Every number about price vs fair uses the same helpers as Market,
+// «Monos / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). ES module;
+// every name it uses is imported below. Every number about price vs fair uses the same helpers as Market,
 // with the current price taken from the same /egx/api/market rows.
+import { Markdown, N, QM_CSS, React, api, h, nav, useEffect, useHostTheme, useState } from './runtime.js'
+import { PROTECTION_PCT, RATING_LABEL, belowProtectionBy, cairoDay, fmtArrow, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, marginSentence, marginToFair, statusOf } from './format.mjs'
+import { BANK_RISK_ORDER, CHECK_LABEL, RED_FLAG_LABEL, RISK_LABEL, assumptionRows, methodLabel, riskValue } from './labels.mjs'
+import { Disclaimer, PanelHeader, copyValuationPrompt, useToast } from './identity.js'
+import { MarginText, NumText, ProtectionHelp, RatingChip, Ruler, Skeleton, StaleChip, UnderProtectionCard } from './components.js'
+import { BigRuler } from './market.js'
+import ANALYSES_CSS from './analyses.css'
 
-const ANALYSES_CSS = '/* @css analyses.css */'
-const KIND_LABEL = { full: 'كامل', light: 'خفيف' }
-const PERIOD_FILTERS = [['', 'كل الفترات'], ['30', 'آخر 30 يومًا'], ['90', 'آخر 3 شهور'], ['365', 'آخر سنة']]
-const KIND_FILTERS = [['', 'الكل'], ['full', 'كامل'], ['light', 'خفيف']]
-const STATUS_CHIP = { above: 'أعلى من العادل', between: 'بين الحماية والعادل', under: 'تحت سعر الحماية — يحتاج مراجعة' }
+export const KIND_LABEL = { full: 'كامل', light: 'خفيف' }
+export const PERIOD_FILTERS = [['', 'كل الفترات'], ['30', 'آخر 30 يومًا'], ['90', 'آخر 3 شهور'], ['365', 'آخر سنة']]
+export const KIND_FILTERS = [['', 'الكل'], ['full', 'كامل'], ['light', 'خفيف']]
+export const STATUS_CHIP = { above: 'أعلى من العادل', between: 'بين الحماية والعادل', under: 'تحت سعر الحماية — يحتاج مراجعة' }
 /** «FY2025» → «السنة المالية 2025», «Q2 2026» → «الربع 2 من 2026»; anything else as stored. */
-const fiscalPeriod = (p) => String(p).replace(/^FY\s?(\d{4})$/i, 'السنة المالية $1').replace(/^Q([1-4])\s?(\d{4})$/i, 'الربع $1 من $2')
-const EXPLAIN_KINDS = 'التقييم الكامل يعيد بناء النموذج من الأرقام الأساسية، والتحديث الخفيف مراجعة أسبوعية للسعر والأخبار بنفس العادل.'
+export const fiscalPeriod = (p) => String(p).replace(/^FY\s?(\d{4})$/i, 'السنة المالية $1').replace(/^Q([1-4])\s?(\d{4})$/i, 'الربع $1 من $2')
+export const EXPLAIN_KINDS = 'التقييم الكامل يعيد بناء النموذج من الأرقام الأساسية، والتحديث الخفيف مراجعة أسبوعية للسعر والأخبار بنفس العادل.'
 
-const PAGE = 200 // the API's page cap
+export const PAGE = 200 // the API's page cap
 
 /** Every saved valuation, page by page: version numbers and counts need the whole archive. */
-async function allValuations() {
+export async function allValuations() {
   const items = []
   for (let offset = 0; ; offset += PAGE) {
     const page = await api('GET', `/egx/api/valuations?kind=&limit=${PAGE}&offset=${offset}`)
@@ -25,7 +30,7 @@ async function allValuations() {
 }
 
 /** Loads the archive (all kinds, newest first) and the market rows for today's prices. */
-function useArchive() {
+export function useArchive() {
   const [state, setState] = useState({ items: null, market: null, error: '' })
   useEffect(() => {
     let alive = true
@@ -39,12 +44,12 @@ function useArchive() {
   return state
 }
 
-function marketRow(market, symbol) {
+export function marketRow(market, symbol) {
   return market ? market.rows.find((r) => r.symbol === symbol) || null : null
 }
 
 /** Versions per symbol, oldest = 1, with each record's predecessor and successor. */
-function versionsBySymbol(items) {
+export function versionsBySymbol(items) {
   const bySymbol = {}
   items.slice().sort((a, b) => (a.created_at < b.created_at ? -1 : a.created_at > b.created_at ? 1 : a.id - b.id))
     .forEach((v) => { (bySymbol[v.symbol] = bySymbol[v.symbol] || []).push(v) })
@@ -55,14 +60,14 @@ function versionsBySymbol(items) {
   return { bySymbol, info }
 }
 
-function FairDelta({ v }) {
+export function FairDelta({ v }) {
   if (v.kind === 'light') return h('small', { className: 'q-sec' }, 'بلا تغيير عن التقييم الكامل')
   const prevFull = v.previous_fair_value
   if (prevFull == null) return h('small', { className: 'q-ter' }, 'أول تقييم')
   return h('small', { className: 'q-sec' }, N(`${fmtArrow(prevFull, v.fair_value)} (${fmtPct(v.fair_value / prevFull - 1, { signed: true })})`))
 }
 
-function ListRow({ v, info, current, onOpen }) {
+export function ListRow({ v, info, current, onOpen }) {
   const latest = info.latest
   const price = current && current.price
   const status = latest && price != null ? statusOf(price, v.fair_value) : null
@@ -93,7 +98,7 @@ function ListRow({ v, info, current, onOpen }) {
   h('span', { className: 'a-reason', role: 'cell', dir: 'auto', title: v.reason || '' }, v.reason === 'first valuation' ? 'أول تقييم' : (v.reason || '—')))
 }
 
-function AnalysesList({ onOpen }) {
+export function AnalysesList({ onOpen }) {
   const { items, market, error } = useArchive()
   const [filters, setFilters] = useState({ symbol: '', rating: '', period: '', kind: '' })
   const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target ? e.target.value : e }))
@@ -184,10 +189,10 @@ function AnalysesList({ onOpen }) {
 
 // ── Fair value history chart (SVG): fair and protection as steps, price from month-end closes ──
 
-const DAY_MS = 864e5
-const toTime = (day) => Date.parse(`${day}T00:00:00Z`)
+export const DAY_MS = 864e5
+export const toTime = (day) => Date.parse(`${day}T00:00:00Z`)
 
-function FairHistoryChart({ points, bars }) {
+export function FairHistoryChart({ points, bars }) {
   const dark = useHostTheme() === 'dark'
   const steps = points.map((p) => ({ ...p, day: cairoDay(p.created_at) }))
   if (!steps.length) return null
@@ -304,19 +309,19 @@ function FairHistoryChart({ points, bars }) {
 
 // ── Analysis detail ───────────────────────────────────────────────────────────
 
-const SECTIONS = [
+export const SECTIONS = [
   ['summary', 'الملخص والأطروحة'], ['methods', 'طرق التقييم'], ['assumptions', 'الافتراضات'], ['checks', 'فحوصات المنطق'],
   ['risk', 'المخاطر'], ['critic', 'ملاحظات الناقد'], ['sources', 'المصادر'], ['report', 'التقرير الكامل'],
 ]
 
-function Table({ cols, head, rows, foot }) {
+export function Table({ cols, head, rows, foot }) {
   return h('div', { className: 'a-t q-scroll' },
     h('div', { className: 'q-grid q-th', style: { '--cols': cols } }, head.map((t, i) => h('span', { key: i }, t))),
     rows.map((cells, i) => h('div', { key: i, className: 'q-grid q-tr', style: { '--cols': cols } }, cells.map((c, j) => h('span', { key: j, className: 'q-cell' }, c)))),
     foot ? h('div', { className: 'q-grid q-tr a-total', style: { '--cols': cols } }, foot.map((c, j) => h('span', { key: j }, c))) : null)
 }
 
-function MethodsSection({ item }) {
+export function MethodsSection({ item }) {
   const methods = item.methods || []
   if (!methods.length) return h('p', { className: 'q-sec' }, 'لا توجد طرق محفوظة لهذا التقييم.')
   const totalWeight = methods.reduce((s, m) => s + (m.weight || 0), 0) || 1
@@ -337,7 +342,7 @@ function MethodsSection({ item }) {
   ]
 }
 
-function AssumptionsSection({ item }) {
+export function AssumptionsSection({ item }) {
   const rows = assumptionRows(item.assumptions)
   if (!rows.length) return h('p', { className: 'q-sec' }, 'لا توجد افتراضات محفوظة.')
   return h(Table, {
@@ -348,7 +353,7 @@ function AssumptionsSection({ item }) {
   })
 }
 
-function ChecksSection({ item }) {
+export function ChecksSection({ item }) {
   const [all, setAll] = useState(false)
   const checks = (item.sanity && item.sanity.checks) || []
   if (!checks.length) return h('p', { className: 'q-sec' }, 'لا توجد فحوصات محفوظة.')
@@ -375,7 +380,7 @@ function ChecksSection({ item }) {
   ]
 }
 
-function RiskSection({ item }) {
+export function RiskSection({ item }) {
   const details = item.risk_details
   if (!details) return h('p', { className: 'q-sec' }, 'لا توجد تفاصيل مخاطر محفوظة لهذا التقييم.')
   const values = { ...(details.metrics || {}) }
@@ -411,7 +416,7 @@ function RiskSection({ item }) {
   ]
 }
 
-function SourcesSection({ item }) {
+export function SourcesSection({ item }) {
   const sources = item.sources || []
   if (!sources.length) return h('p', { className: 'q-sec' }, 'لا توجد مصادر محفوظة.')
   return h(Table, {
@@ -421,7 +426,7 @@ function SourcesSection({ item }) {
   })
 }
 
-function ReportSection({ item, toast }) {
+export function ReportSection({ item, toast }) {
   const [open, setOpen] = useState(false)
   if (!item.report) return h('p', { className: 'q-sec' }, 'لا يوجد تقرير محفوظ لهذا التقييم.')
   const copy = async () => {
@@ -435,13 +440,13 @@ function ReportSection({ item, toast }) {
 }
 
 // The panel root is the scroll container; leave room for the sticky header and section nav.
-function scrollToSection(key) {
+export function scrollToSection(key) {
   const target = document.getElementById(`a-${key}`)
   const box = target && target.closest('.qm')
   if (box) box.scrollTo({ top: target.getBoundingClientRect().top - box.getBoundingClientRect().top + box.scrollTop - 100 })
 }
 
-function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
+export function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
   const [item, setItem] = useState(null)
   const [series, setSeries] = useState(null)
   const [bars, setBars] = useState([])
@@ -588,7 +593,7 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
     toastNode)
 }
 
-function AnalysesPage() {
+export function AnalysesPage() {
   const [opening] = useState(() => {
     const pending = { id: nav.pendingAnalysisId, section: nav.pendingSection }
     nav.pendingAnalysisId = null

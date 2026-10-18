@@ -8,21 +8,19 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 from pydantic import BaseModel, Field
 
-from . import pricing
-from .config import data_dir, db_path
+from . import commands, pricing
+from .config import db_path
 from .data import default_provider
 from .data.metrics import derived_metrics
-from .data.schema import validate_data
 from .errors import ValuationInputError
 from .risk import rating as rating_mod
 from .risk.altman import altman_z2 as altman_z2_calc
 from .risk.beneish import beneish_m as beneish_m_calc
 from .risk.from_financials import quality_scores
 from .risk.piotroski import piotroski_f as piotroski_f_calc
-from .store import portfolio, valuations, weekly
+from .store import valuations, weekly
 from .store.db import connect
-from .universe import constituent, load_universe, normalize_symbol
-from .market.summary import market_summary, symbol_history
+from .universe import normalize_symbol
 from .valuation import bank, dcf, ddm, multiples, nav, rates, sanity, scenarios
 
 INSTRUCTIONS = """\
@@ -51,11 +49,7 @@ def _db():
     return closing(connect(db_path()))
 
 
-def _require_symbol(symbol: str) -> dict:
-    entry = constituent(symbol)
-    if entry is None:
-        raise ValuationInputError(f"{symbol} is not an EGX30 constituent")
-    return entry
+_require_symbol = commands.require_symbol
 
 
 class ScenarioMethod(BaseModel):
@@ -84,19 +78,6 @@ class FinancialYear(BaseModel):
 
 
 # ── universe and data ────────────────────────────────────────────────────────
-
-@tool
-def universe_list() -> dict:
-    """List EGX30 constituents with weights and the suggested valuation model for each."""
-    return load_universe()
-
-
-@tool
-def validate_manual_data() -> dict:
-    """Check every file under data/manual (financials, macro, prices, events, holidays) against its
-    schema and list each problem with the file and field. Run it before a valuation when inputs
-    were edited by hand; the allowed financial fields and their units are in data/schema.py."""
-    return validate_data(data_dir() / "manual")
 
 
 @tool
@@ -210,24 +191,6 @@ def sanity_check(fair_value: float | None = None, current_price: float | None = 
                                discount_rate_currency)
 
 
-@tool
-def get_market_list() -> dict:
-    """EGX30 market list from the local price cache: last price (delayed quote or daily close) with its
-    date and source, day change, 1w/1m/3m/ytd/1y returns, 52-week range, breadth, and each stock's latest
-    fair value, rating and protection status. Cite `as_of` and `source`; prices are delayed, never live."""
-    with _db() as conn:
-        return market_summary(conn)
-
-
-@tool
-def get_price_history(symbol: str, days: int = 365) -> dict:
-    """Daily OHLCV bars for one EGX30 stock from the local cache (oldest first), plus the latest
-    valuation levels (fair value, entry, protection, bear, bull) when one exists."""
-    entry = _require_symbol(symbol)
-    with _db() as conn:
-        return symbol_history(conn, entry["symbol"], days)
-
-
 # ── risk ─────────────────────────────────────────────────────────────────────
 
 @tool
@@ -326,24 +289,6 @@ def get_valuation_history(symbol: str, limit: int = 20) -> dict:
 
 
 @tool
-def list_valuations(symbol: str | None = None,
-                    risk_rating: Literal["safe", "balanced", "high_risk"] | None = None,
-                    kind: Literal["full", "light"] | None = "full", date_from: str | None = None,
-                    date_to: str | None = None, limit: int = 50, offset: int = 0) -> dict:
-    """Search the analyses archive, newest first. Dates are YYYY-MM-DD. Each item carries the change
-    in fair value against the symbol's previous full valuation."""
-    with _db() as conn:
-        return valuations.list_valuations(conn, symbol, risk_rating, kind, date_from, date_to, limit, offset)
-
-
-@tool
-def get_valuation(valuation_id: int) -> dict:
-    """One archived valuation in full: report, assumptions, methods, sources, sanity, critic notes, change."""
-    with _db() as conn:
-        return valuations.get_valuation(conn, valuation_id)
-
-
-@tool
 def list_latest_valuations() -> list[dict]:
     """The latest valuation for every symbol that has one."""
     with _db() as conn:
@@ -359,37 +304,9 @@ def weekly_check(symbol: str) -> dict:
         return weekly.weekly_check(conn, default_provider(), entry["symbol"])
 
 
-# ── portfolio (user-entered) ─────────────────────────────────────────────────
-
-@tool
-def portfolio_add(symbol: str, buy_price: float, quantity: float | None = None,
-                  invested_amount: float | None = None, buy_date: str | None = None,
-                  note: str | None = None) -> dict:
-    """Add a holding the user entered: give quantity, or the amount invested in EGP."""
-    with _db() as conn:
-        return portfolio.add_holding(conn, symbol, buy_price, quantity, invested_amount, buy_date, note)
-
-
-@tool
-def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,
-                     buy_date: str | None = None, note: str | None = None) -> dict:
-    """Edit a holding the user entered."""
-    with _db() as conn:
-        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note)
-
-
-@tool
-def portfolio_remove(holding_id: int) -> dict:
-    """Remove a holding the user entered."""
-    with _db() as conn:
-        return portfolio.remove_holding(conn, holding_id)
-
-
-@tool
-def portfolio_summary() -> dict:
-    """Holdings with market value, P/L, weight, fair value, risk rating and protection price."""
-    with _db() as conn:
-        return portfolio.portfolio_summary(conn, default_provider())
+# Database-backed tools shared with egx-cli (the screens): defined once in commands.py.
+for _fn in commands.MCP_TOOLS:
+    tool(_fn)
 
 
 def main() -> None:

@@ -1,5 +1,6 @@
 // Run: node --test bundle/test/*.test.mjs
-// The /egx/api/watchlist routes, against a stand-in egx-cli that echoes the command it was given.
+// The /egx/api routes (bundle/host/egx-portfolio.mjs), against a stand-in egx-cli that echoes the
+// command it was given.
 import { test, before } from 'node:test'
 import assert from 'node:assert/strict'
 import { chmodSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs'
@@ -80,4 +81,27 @@ test('a body that is not a JSON object is a 400, never a hung request', async ()
   }
   const sync = await call('POST', '/egx/api/market/sync', { body: null, headers: SAME_ORIGIN })
   assert.equal(sync.status, 400)
+})
+
+// Every /egx/api route reaches the egx-cli command (commands.py) the screens rely on.
+test('each route maps to its egx-cli command and arguments', async () => {
+  const get = async (url) => (await call('GET', url)).body
+  assert.equal((await get('/egx/api/portfolio')).command, 'portfolio-summary')
+  assert.equal((await get('/egx/api/universe')).command, 'universe')
+  assert.equal((await get('/egx/api/market')).command, 'market-summary')
+  assert.equal((await get('/egx/api/market/digest')).command, 'market-digest')
+  assert.deepEqual(await get('/egx/api/market/COMI/history?days=90'), { command: 'market-history', payload: { symbol: 'COMI', days: 90 } })
+  assert.deepEqual(await get('/egx/api/valuations/series/COMI'), { command: 'valuation-series', payload: { symbol: 'COMI' } })
+  assert.deepEqual(await get('/egx/api/valuations/7'), { command: 'valuation-get', payload: { valuation_id: 7 } })
+  const list = await get('/egx/api/valuations?kind=&limit=200&offset=200')
+  assert.equal(list.command, 'valuations-list')
+  assert.deepEqual([list.payload.kind, list.payload.limit, list.payload.offset], [null, 200, 200])
+  const add = await call('POST', '/egx/api/holdings', { body: { symbol: 'COMI', buy_price: 80, quantity: 5 }, headers: SAME_ORIGIN })
+  assert.deepEqual(add.body, { command: 'portfolio-add', payload: { symbol: 'COMI', buy_price: 80, quantity: 5 } })
+  const edit = await call('PATCH', '/egx/api/holdings/3', { body: { quantity: 6 }, headers: SAME_ORIGIN })
+  assert.deepEqual(edit.body, { command: 'portfolio-update', payload: { quantity: 6, holding_id: 3 } })
+  const remove = await call('DELETE', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })
+  assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
+  assert.equal((await call('GET', '/egx/api/nothing')).status, 405)
+  assert.equal((await call('POST', '/egx/api/nothing', { body: {}, headers: SAME_ORIGIN })).status, 404)
 })

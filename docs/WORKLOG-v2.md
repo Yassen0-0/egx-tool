@@ -126,3 +126,29 @@
   - `holidays.csv`
   - شرح التحقق
 - **الاختبارات:** Python ‏97 ناجح، وJS ‏22 ناجح.
+
+## المرحلة 5: إعادة الهيكلة الكاملة
+**الواجهة (`9b56632`):**
+- `client.src.js` اتقسم لملفين:
+  - `src/runtime.js`: الحاجات المشتركة، زي React وh وN وapi وnav وMarkdown وTradingView.
+  - `src/index.js`: تسجيل الإضافة.
+- كل شاشة بقت ES module فيه `import` صريح. اتولّدوا أوتوماتيك من تقرير eslint `no-undef`.
+- البناء بقى بـ **esbuild** (`bundle/build-client.mjs`):
+  - React من المضيف.
+  - Lightweight Charts بيتحمّل جوه الـ factory من غير ما يسيب أي global.
+  - `--check` بيتأكد إن `client.js` محدّث.
+- أدوات التطوير في `package.json` في جذر المشروع، بعيد عن الحزمة. `npm install` مرة واحدة، وبعدها `npm run build | build:check | lint | test`.
+- **إثبات إن الشاشات ما اتغيرتش:** شغّلت `client.js` القديم والجديد في jsdom بنفس البيانات الصناعية. الـ HTML طلع **مطابق بالحرف** في:
+  - الشاشات السبعة
+  - فتح تفاصيل سهم
+  - فتح تحليل
+- `bundle/test/render.test.mjs`: اختبار دائم بيعرض كل الشاشات، وبيفشل لو ظهر أي خطأ جديد أو طلب API مش معروف. البيانات الصناعية في `bundle/test/fixtures/api.json`، وبتتولّد بـ `scripts/make-ui-fixtures.py` من قاعدة مؤقتة، **مش من بياناتك**.
+
+**Python:**
+- `mcp/egx_mcp/commands.py` بقى المكان الوحيد للعمليات اللي بتشتغل على قاعدة البيانات:
+  - `server.py` بيسجّل `MCP_TOOLS` منه. الـ 31 أداة بنفس أساميها، ومعاهم `validate_manual_data`.
+  - `cli.py` بقى مجرد جدول أسامي (`CLI_COMMANDS`)، وبيتحقق من الـ arguments بـ pydantic على نفس الـ signature.
+- `test_cli.py`: اختبارات لكل أوامر الشاشات.
+- `host-routes.test.mjs`: اختبار لكل مسار `/egx/api`.
+
+**الاختبارات:** Python ‏103 ناجح، وJS ‏24 ناجح، وeslint نضيف.

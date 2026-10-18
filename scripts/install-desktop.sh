@@ -1,22 +1,20 @@
 #!/usr/bin/env bash
-# Install the EGX bundle into the DeepSeek Harness desktop app (or its «Monos» rebranded copy,
-# see scripts/rebrand-desktop.sh).
-# Prerequisites: "DeepSeek Harness.app" (or "Monos.app") in /Applications, launched once
-# (creates ~/.dsh/profiles/desktop), and `uv` installed. Quit the app before running this.
+# Install the EGX bundle into the «Monos» desktop app (the rebranded DeepSeek Harness copy,
+# created by scripts/rebrand-desktop.sh).
+# Prerequisites: "Monos.app" in /Applications, launched once (creates ~/.dsh/profiles/desktop),
+# and `uv` installed. Quit the app before running this.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DSH_HOME="${DSH_HOME:-$HOME/.dsh}"
-# Prefer the rebranded copy; fall back to the original app.
 APP="/Applications/Monos.app"
-[ -d "$APP" ] || APP="/Applications/DeepSeek Harness.app"
 DSH="$APP/Contents/Resources/runtime/cli/bin/dsh"
 UV="$(command -v uv || true)"
 
-[ -x "$DSH" ] || { echo "DeepSeek Harness.app (or Monos.app) is not installed in /Applications" >&2; exit 1; }
+[ -x "$DSH" ] || { echo "Monos.app is not installed in /Applications (create it with scripts/rebrand-desktop.sh)" >&2; exit 1; }
 [ -n "$UV" ] || { echo "uv is not installed (brew install uv)" >&2; exit 1; }
-[ -f "$DSH_HOME/profiles/desktop/package.json" ] || { echo "Launch DeepSeek Harness once, quit it, then rerun" >&2; exit 1; }
-if pgrep -f "Monos.app/Contents/MacOS" >/dev/null || pgrep -f "DeepSeek Harness.app/Contents/MacOS" >/dev/null; then
-  echo "Quit DeepSeek Harness first (the app owns its profile while running)" >&2; exit 1
+[ -f "$DSH_HOME/profiles/desktop/package.json" ] || { echo "Launch Monos once, quit it, then rerun" >&2; exit 1; }
+if pgrep -f "Monos.app/Contents/MacOS" >/dev/null; then
+  echo "Quit Monos first (the app owns its profile while running)" >&2; exit 1
 fi
 
 echo "→ Python MCP server"
@@ -35,4 +33,4 @@ done
 echo "→ EGX bundle into the desktop profile"
 "$DSH" plugin --profile desktop add "link:$ROOT/bundle"
 
-echo "Done. Open DeepSeek Harness: new sessions use the egx-analyst preset, and the sidebar has المحفظة."
+echo "Done. Open Monos: new sessions use the egx-analyst preset, and the sidebar has المحفظة."

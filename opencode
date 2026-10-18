@@ -1,8 +1,8 @@
 # opencode — تقرير إعادة العلامة: «قيمة / Qima» → «Monos»
 
 > **لمين الملف:** أي حد هيراجع الشغل (صاحب المشروع / مطور جديد / مراجع تقني).
-> **الحالة:** مكتمل. الريبو اتعدّل، تطبيق الديسكتوب اتبنى واتشغّل، والـ commit باسم `new-icon` اتعمَل واتدفع لـ `origin/main`. الجولة الثالثة خلصت: **الاسم جوه الواجهة نفسها** اتغيّر لـ `Monos` جوه `app.asar` (القسم 5). والجولة الرابعة خلصت كمان: **حساب DeepSeek اتشال من الواجهة كلها** عبر طبقة البروفايل (القسم 6).
-> **آخر تحديث:** 17 أكتوبر 2026 — بعد الجولة الرابعة (إزالة DeepSeek من الواجهة: الدخول، الموديلات، البحث، التحليلات والتليمتري).
+> **الحالة:** مكتمل. الريبو اتعدّل، تطبيق الديسكتوب اتبنى واتشغّل، والـ commit باسم `new-icon` اتعمَل واتدفع لـ `origin/main`. الجولة الثالثة خلصت: **الاسم جوه الواجهة نفسها** اتغيّر لـ `Monos` جوه `app.asar` (القسم 5). والجولة الرابعة: **حساب DeepSeek اتشال من الواجهة كلها** عبر طبقة البروفايل (القسم 6). والجولة الخامسة: **آخر آثار DeepSeek اتشالت** — اسم الملف التنفيذي، عنوان/فافيكون شاشة الإقلاع، والتطبيق الأصلي نفسي بقى zip في الباك أب (القسم 7).
+> **آخر تحديث:** 17 أكتوبر 2026 — بعد الجولة الخامسة (التنفيذي = `Monos`، فافيكون/تايتل النافذة، أرشفة التطبيق الأصلي).
 
 ---
 
@@ -18,8 +18,9 @@
 | commit + push باسم `new-icon` | ✅ على فرع `main` (تشوف الـ hash بـ `git log --oneline -1`) |
 | التطبيق على الديسكتوب | ✅ `/Applications/Monos.app` شغال حاليًا وفاتح من نفس بروفايل المستخدم (نفس الجلسات والبيانات) |
 | إزالة حساب DeepSeek من الواجهة | ✅ 11 plugin اتقفلوا في طبقة البروفايل + الموديل الافتراضي بقى Google/Gemini (الجولة الرابعة — القسم 6) |
+| آخر آثار DeepSeek (اسم الملف التنفيذي، فافيكون/تايتل شاشة الإقلاع، وجود التطبيق الأصلي) | ✅ التنفيذي بقى `Monos`، الفافيكون (الحوت) والتايتل اتبرندت، والأصل بقي zip في الباك أب (الجولة الخامسة — القسم 7) |
 
-**ملاحظة مهمة:** التطبيق الأصلي `/Applications/DeepSeek Harness.app` **سليم وما اتغيرش منه أي بايت** — موجود كنسخة رجوع كاملة.
+**ملاحظة مهمة (محدثة — الجولة 5):** التطبيق الأصلي `DeepSeek Harness.app` **اتشال من `/Applications`** — بقى محفوظ مضغوطًا في `~/.dsh/backups/DeepSeek-Harness.app.0.2.0-rc.2.20261017.zip` (مضمون وفحص بـ `unzip -t`). ليه + إزاي تستخدمه: القسم 7.
 
 ---
 
@@ -27,7 +28,8 @@
 
 - الفرع: `main` — الدفعة الجديدة فوق `3accf4f` (Merge PR #1 ui-qima).
 - commits الجولات 1–3: رسالة `new-icon` — بيشمل كل تعديلات الريبو + السكربتات (منها أداة الواجهة الداخلية الجديدة `scripts/asar-brand.py` وتحديث `rebrand-desktop.sh`) + ملف `opencode` ده + حزمة الصور الجديدة.
-- commit الجولة 4: إزالة DeepSeek — `scripts/strip-deepseek-profile.py` (جديد) + سطر البروفايل في `rebrand-desktop.sh` + قسم 6 في الدوك (`git log --oneline -2` بيبيّن الاتنين).
+- commit الجولة 4: إزالة DeepSeek — `scripts/strip-deepseek-profile.py` (جديد) + سطر البروفايل في `rebrand-desktop.sh` + قسم 6 في الدوك.
+- commit الجولة 5: آخر آثار DeepSeek — تمديد `asar-brand.py` (تايتل + فافيكون + مانيفست)، تمديد `rebrand-desktop.sh` (إعادة تسمية التنفيذي + تنظيف Info.plist + شيم الـ CLI + مصدر الباك أب)، تحديث `install-desktop.sh` و`README.md` + القسم 7 ده.
 - الملفات المتروكة عمدًا (untracked): `data/.fuse_hidden*` — ملفات مؤقتة بتعملها طبقة FUSE على قرص العمل، مش جزء من الشغل.
 
 ```bash
@@ -303,11 +305,77 @@ python3 scripts/strip-deepseek-profile.py --apply        # كتابة + نسخة
 ```
 
 - idempotent: إعادة تشغيله على ملف سليم ما بتغيّرش أي بايت. واتدمج في `scripts/rebrand-desktop.sh` (بيعيد فرضه أوتوماتيك في نهاية أي إعادة براند).
-- **نسخ الرجوع:** `~/.dsh/profiles/desktop/cordis.patch.yml.bak-20261017-account` (حالة ما قبل الجولة) + نسخة تانية في `~/dsh-home/backups/`، ونسخة الاعتمادات (قبل شيل توكنات DeepSeek) في `~/dsh-home/backups/credentials.yaml.pre-deepseek-removal-20261017` — طريقة الرجوع في القسم 9.
+- **نسخ الرجوع:** `~/.dsh/profiles/desktop/cordis.patch.yml.bak-20261017-account` (حالة ما قبل الجولة) + نسخة تانية في `~/dsh-home/backups/`، ونسخة الاعتمادات (قبل شيل توكنات DeepSeek) في `~/dsh-home/backups/credentials.yaml.pre-deepseek-removal-20261017` — طريقة الرجوع في القسم 10.
 
 ---
 
-## 7. أدلة التحقق (تقدر تعيدها بنفسك)
+## 7. الجولة الخامسة — آخر آثار DeepSeek (شهادة المالك: «الأيقونة والاسم بيظهروا لثواني»)
+
+### 7.1 البحث: حصلت على screenshot فعلي (بعد تمكين Screen Recording)
+
+شكل الوميض اللي المالك شافه كان صعب نحدده من غير نظرة على الشاشة — فلما ثبت إن `screencapture` شغال (إذن Screen Recording مُمنوح)، التقطنا إطارات متتالية (كل 0.3 ثانية) أثناء إطلاق حقيقي للتطبيق. **النتيجة: إطلاق Monos نفسه نظيف 100%** — الدوك بالأيقونة الخضرا بمارك Monos، تلميح الدوك «Monos»، شريط القوائم «Monos»، وشاشة البوت «Monos / Loading plugins…». مفيش وميض DeepSeek في أي إطار من الـ 18.
+
+### 7.2 التشخيص: مين بيحقن هوية DeepSeek وقت الإطلاق؟
+
+1. **نسخ أصليّة موجودة على القرص.** `/Applications/DeepSeek Harness.app` (999 MB، مُسجّل في LaunchServices — وبنفس bundle ID بتاع Monos) + نسخة تانية كاملة (999 MB) في `/Volumes/ssd-work/apps/`. العملية اللي ظهرت في `ps` باسم «DeepSeek Harness» أثبتت إن الاسم القديم لسه حي — والمفاجأة: دي كانت runtime child بتاع Monos نفسه (بيشتغل بـ `MacOS/DeepSeek Harness --expose-internals …app.asar/…dsh-desktop-host/…` — يعني حتى عمليات Monos الخلفية شايلة اسم DeepSeek في قائمة العمليات).
+2. **اسم الملف التنفيذي نفسه.** ملف `Contents/MacOS/DeepSeek Harness` + `CFBundleExecutable` بتاع Monos كان لسه «DeepSeek Harness» — macOS بيعرض اسم الملف التنفيذي ده في Activity Monitor وForce Quit وفي بعض ردود فعل الإطلاق؛ آخر قطعة هوية من الجولة 2 اللي ما اتسمّعتش.
+3. **صفحة الإقلاع للويب** (`dsh-web-frontend/dist/index.html`): `<title>DeepSeek Harness</title>` — العنوان اللي النافذة بتستخدمه قبل ما الواجهة تحمّل وتكتب «Monos»، ومعاه فافيكونين شايلين صورة الحوت، و`manifest.webmanifest` فيه «DeepSeek Harness»/«DSH».
+4. **محتوى Info.plist:** `CFBundleURLName = DeepSeek Harness`، و`NSHumanReadableCopyright = Copyright © 2026 DeepSeek Harness`، و`NSMicrophoneUsageDescription = "DeepSeek Harness uses your microphone..."` — الرسالة دي بتظهر حرفيًا في تنبيه إذن الميكروفون.
+5. **شيم CLI جوه التطبيق** (`Resources/runtime/cli/bin/dsh`) كان بينفّذ `Contents/MacOS/DeepSeek Harness` بالاسم القديم.
+
+### 7.3 اللي اتغير — إعادة تسمية التنفيذي (آخر قطعة هوية)
+
+- `Contents/MacOS/DeepSeek Harness` → `Contents/MacOS/Monos`، و`CFBundleExecutable = Monos`.
+- تنظيف Info.plist: `CFBundleURLName` → «Monos»، حقوق النشر، و`NSMicrophoneUsageDescription` (رسالة إذن الميكروفون بقى «Monos uses your microphone...»).
+- شيم الـ CLI `runtime/cli/bin/dsh`: بقى ينفّذ `Contents/MacOS/Monos`.
+- عناوين متعلقة بالويب جوه `app.asar`: «DeepSeek Harness» → «Monos»، `favicon.svg` + `favicon-dark.svg` (الحوت) → مارك Monos، `manifest.webmanifest` «DeepSeek Harness»/«DSH» → «Monos»/«Monos».
+- إعادة التوقيع ad-hoc (نفس أسلوب الجولة 2) — التحقق: `codesign -vv` سليم.
+- **أمان إعادة التسمية:** الـ Host بيطلع الـ runtime بـ `process.execPath` (اللي بيتحسب وقت الإطلاق — `main.js:11033`)، فالتسمية الجديدة شفافة بالنسبة له. الدليل العملي: الـ runtime اشتغل迎来了 بعد إعادة التشغيل (استمع على منفذه المحلي طبيعي).
+- **الشيم اتصلح:** `runtime/cli/bin/dsh` بقى ينفّذ «MacOS/Monos»، واتجرب: `dsh --help` من جوه التطبيق شغال.
+
+### 7.4 التطبيق الأصلي بقى zip في الباك أب
+
+الطلب: «مش عايز إي حاجة فيها هوية DeepSeek» → التطبيق الأصلي نفسه (999 MB بتوقيع DeepSeek + فافيكون الحوت) اتشال من `/Applications`:
+
+1. **zip مضغوط** في `~/.dsh/backups/DeepSeek-Harness.app.0.2.0-rc.2.20261017.zip` (363 MB — فحص السلامة `unzip -t` نتيجته نظيفة).
+2. نسخة `/Volumes/ssd-work/apps/DeepSeek Harness.app` (سليمة ومطابقة بالهاش) — **انُقلت بالاسم** لـ `~/.dsh/backups/DeepSeek-Harness.app.0.2.0-rc.2/` (شيلنا الامتداد `.app` فمش بيبقى تطبيق قابل للتشغيل من Spotlight/Finder، وفاضي نفس المحتوى للرجوع).
+3. `lsregister -f` على Monos + `killall Dock` — بعد ما بقى التطبيق الأصلي مش مُسجّل، احتمال إن الـ LaunchServices يعرض أيقونة قديمة من نفس الـ bundle ID بقي احتمال نظري.
+
+ملحوظة: النسخ الاحتياطية القديمة في `backups/deepseek-app-orig-20261017/` (icon.icns + Info.plist + dock-orig.plist) زي ما هي — محتاجة للرجوع.
+
+### 7.5 التحقق
+
+```bash
+# اسم التنفيذي الجديد (شبكة العمليات الحية):
+ps aux | grep "[M]onos.app/Contents/MacOS" | grep -v Helper | awk '{print $11}' | sort -u
+# → /Applications/Monos.app/Contents/MacOS/Monos
+
+# CFBundleExecutable (اللبيظهر في Force Quit / Activity Monitor):
+/usr/libexec/PlistBuddy -c "Print :CFBundleExecutable" "/Applications/Monos.app/Contents/Info.plist"   # Monos
+
+# مفيش أي "DeepSeek Harness" في محتوى الحزمة برا الـ asar (سلاسل الوحدات الداخلية جواه مقبولة):
+grep -rl "DeepSeek Harness" "/Applications/Monos.app/Contents" 2>/dev/null | grep -v "\.asar" | wc -l
+# → 0
+
+# الشيم بيستخدم التنفيذي الجديد:
+grep -o "MacOS/Monos" "/Applications/Monos.app/Contents/Resources/runtime/cli/bin/dsh"
+
+# تايتل صفحة الإقلاع والفافيكون (من الـ asar المفكوك في scripts/asar-brand.py --check):
+# الـ --check بيقول up to date = العناصر الثلاثة (تايتل/فافيكون/مانيفست) مبرندة
+```
+
+### 7.6 السكربتات — اللي اتعدّل
+
+| الملف | التعديل |
+|---|---|
+| `scripts/asar-brand.py` | + `<title>`, + `manifest.webmanifest`, + `favicon.svg`/`favicon-dark.svg` (الحوت → مارك Monos). الماركر: تعليق `Monos favicon` للـ idempotence. |
+| `scripts/rebrand-desktop.sh` | + خطوة إعادة تسمية التنفيذي (helper-style loop على السطر 80: الآن التنفيذي الرئيسي + Info.plist), + شيم CLI, + مسار ZIP المصدر في `~/.dsh/backups/` لو الأصل مش موجود. |
+| `scripts/install-desktop.sh` | بقى يستخدم `Monos.app` بس (من غير fallback للأصل). الرسائل بقت كلها عن Monos. |
+| `README.md` | قسم تطبيق الديسكتوب بيشرح إنه نسخة معاد برندتها (الأصل في `~/.dsh/backups/`) — مش تطبيق رسمي من DeepSeek. |
+
+---
+
+## 8. أدلة التحقق (تقدر تعيدها بنفسك)
 
 ```bash
 cd /Volumes/ssd-work/egx
@@ -345,20 +413,21 @@ python3 scripts/strip-deepseek-profile.py --check
 
 ---
 
-## 8. قرارات اتخذت — محتاجة تأكيد المراجع/المالك
+## 9. قرارات اتخذت — محتاجة تأكيد المراجع/المالك
 
 1. **الأيقونة الديناميكية (أخضر/أحمر/محايدة) اتشالت** واستبدلت بأيقونة Monos ثابتة — لأن الـ zip فيه نسخة واحدة. النسبة اليومية جنب الاسم **فضلت شغالة**. لو مطلوب سلوك ديناميكي بشكله القديم، ده تعديل جديد فوق الشغل الحالي.
 2. **اختبار «منع ألوان hex»** بقى يسمح باللونين الرسميين للأيقونة (`#37B77A`, `#FFFFFF`) — لو القاعدة مقدسة، البديل استخدام الأيقونة كملف خارجي بدل رسمها في الكود.
-3. **نسخة موازية على الديسكتوب:** `Monos.app` جنب `DeepSeek Harness.app` (مش استبدال). السبب: حماية macOS منعت التعديل المباشر. الاتنين شغالين ومستقلين.
+3. ~~**نسخة موازية على الديسكتوب:** `Monos.app` جنب `DeepSeek Harness.app` (مش استبدال)~~ — **اتلغت في الجولة 5 بطلب المالك** (بعدها طلب «مفيش أي حاجة فيها هوية DeepSeek»): الأصل بقي zip في `~/.dsh/backups/`، والشغل مستمر على نسخة واحدة. الرجوع ليك في القسم 10.
 4. **إعادة التوقيع ad-hoc** — التطبيق مبقاش بتوقيع DeepSeek المصدّق. مقبول تمامًا للاستخدام المحلي (السيستم شغاله ومجرّب)، لكن **ممنوع توزيعه** بهذا الشكل، ومحدّث DeepSeek التلقائي مش هيستبدله.
 5. **التوثيق التاريخي:** `docs/design/**` و`docs/HANDOFF.md` لسه فيهم «قيمة» — سِبتهم عن قصد كأرشيف للمرحلة السابقة. لو المطلوب تحديثهم ده قرار منفصل.
 6. **نصوص الواجهة الداخلية** اتعدلت جوه `app.asar` (الجولة 3) — تعديل جوه تطبيق مرزوم بره كود الريبو؛ بيتكرر تلقائيًا مع `rebrand-desktop.sh` وشرحه كامل في القسم 5.
 7. **لوك-أب نافذة الترحيب اترسم من جديد** (SVG نصي بسيط بنفس متغيرات ألوان الأصل) لأن الـ zip فيه المارك بس ومفيش لوك-أب «Monos» جاهز بنفس أبعاد الأصلي (472×40).
 8. **هوية الوكيل في الـ system prompt بقت «Monos»** — قرار سهل الرجوع لو للمراجع رأي تاني.
-9. **حساب DeepSeek اتشال من الواجهة، بس منصته وcontroller بتاعه لسه شغالين كسباكة boot** (من غير أي واجهة) — لأن الـ Desktop Host بيعتمد عليهم وهو بيفتح أول نافذة (شوف 6.3 و6.5). والتوكنات المخزنة للحساب اتشالت كمان (القسم 10). إزالة أعمق من كده معناها جراحة في كود الـ Host نفسه جوه `app.asar` — تعديل جديد فوق الشغل ده.
+9. **حساب DeepSeek اتشال من الواجهة، بس منصته وcontroller بتاعه لسه شغالين كسباكة boot** (من غير أي واجهة) — لأن الـ Desktop Host بيعتمد عليهم وهو بيفتح أول نافذة (شوف 6.3 و6.5). والتوكنات المخزنة للحساب اتشالت كمان (القسم 11). إزالة أعمق من كده معناها جراحة في كود الـ Host نفسه جوه `app.asar` — تعديل جديد فوق الشغل ده.
 10. **البحث في الويب متوقف تمامًا** — مزوّده الوحيد كان DeepSeek؛ أداة `web_search` دلوقتي من غير مزوّد. لو عايزها شغالة تاني، يتضاف مزوّد بديل في طبقة البروفايل (قرار منفصل).
+11. **الجولة 5:** إعادة تسمية التنفيذي الرئيسي + أرشفة التطبيق الأصلي (zip في `~/.dsh/backups/`) — بطلب صريح من المالك («مش عايز أي حاجة فيها هوية ديب سيك»). Thếtبة: auto-updater مش هينفع أصلًا (ad-hoc)، والأصل مش هيتحدّث وهو مضغوب — لو DeepSeek نزّل تحديث مهم، تنزّله يدوي وتحطه في /Applications قبل ما تمسح Monos (السكربت بيقرأه من هناك) أو تفك الـ zip القديم.
 
-## 9. إزاي ترجع كل حاجة (لو اتقرر الرجوع)
+## 10. إزاي ترجع كل حاجة (لو اتقرر الرجوع)
 
 ```bash
 # إلغاء الـ commit (من غير مسح التاريخ المدفوع):
@@ -367,9 +436,10 @@ git push origin main
 
 # الديسكتوب: امسح النسخة الجديدة وارجع للDock الأصلي
 rm -rf /Applications/Monos.app
+# التطبيق الأصل يتم أرشفته: لاستعادته (مطلوب للرجوع الكامل؛ ودوک الأصلي بيشاور عليه):
+#   ditto -x -k ~/.dsh/backups/DeepSeek-Harness.app.*.zip /Applications/
 defaults import com.apple.dock /Volumes/ssd-work/dsh-home/backups/deepseek-app-orig-20261017/dock-orig.plist
 killall Dock
-# ملحوظة: التطبيق الأصلي DeepSeek Harness.app ما اتغيرش أصلاً — مفيش حاجة تترجع فيه
 # ولرجوع نصوص الواجهة الداخلية بس للأصل: علّق سطر asar-brand.py من rebrand-desktop.sh ثم:
 #   rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh
 
@@ -381,11 +451,11 @@ cp cordis.patch.yml.bak-20261017-account cordis.patch.yml
 # (للرجوع الجزئي: امسح/عدّل صف واحد بس جوه cordis.patch.yml — سطر `disabled: true` بتاعه — وبعدين أعد التشغيل)
 ```
 
-## 10. ملاحظات أخيرة للمراجع
+## 11. ملاحظات أخيرة للمراجع
 
-- **نفس الهوية الرقمية:** Monos.app و DeepSeek Harness.app الاتنين بنفس `CFBundleIdentifier` — لو الاتنين مفتوحين في نفس الوقت ممكن يحصل تعارض في قفل البروفايل؛ افتح واحد بس.
+- **نفس الهوية الرقمية:** `Monos.app` شايل نفس `CFBundleIdentifier` بتاع الأصل (`com.deepseek.dsh`) — ده مقصود: بيخليه يفتح نفس `~/.dsh` بنفس الجلسات. بعد الجولة 5 مفيش تاني تطبيق بنفس الـ ID مثبت، فمفيش تعارض فتح.
 - **الأذونات (مايك/شاشة):** بسبب إعادة التوقيع، ممكن macOS يطلب الأذونات مرة تانية أول استخدام لفيتشر محتاجها — طبيعي.
 - **ملف `AGENTS.md`** اللي في `~/Downloads` مش بتاع المشروع ده (مشروع تاني) — محدش استخدمه ولا اتغير حاجة بسببه.
 - **الصور المصدر:** `/Users/rebuytech/Downloads/assets.zip` — لو محتاج تتأكد إن حزمة الريبو مطابقة: فك الضغط واعمل `diff -r`.
 - **توكنات حساب DeepSeek اتشالت** من `~/.dsh/.credentials.yaml` (بطلب المالك): اللي اتشال `deepseek-account-platform/device` و`deepseek-account-platform/default` و`DEEPSEEK_API_KEY`، وفضل `client-connection/browser-session` + `GOOGLE_API_KEY`. النسخة الأرشيفية الكاملة (قبل الحذف) في `~/dsh-home/backups/credentials.yaml.pre-deepseek-removal-20261017`. **لو عدّلت الملف ده بأي أداة خلي صلاحيته `600`** — حزمة الاعتمادات بترفض أي mode غير كده وتفشل الـ boot برسالة واضحة (حصل مرة واتصلح بـ `chmod 600`).
-- **بعد أي تحديث من DeepSeek للأصل**: `rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh` بيعيد البراند كامل أوتوماتيك — بما فيه نصوص الواجهة الداخلية (القسم 5) وطبقة البروفايل بتاعة إزالة DeepSeek (القسم 6.6).
+- **بعد أي تحديث من DeepSeek للأصل**: حط `DeepSeek Harness.app` الجديد في /Applications (أو فك نسخة من `~/.dsh/backups/`)، بعد كده: `rm -rf /Applications/Monos.app && ./scripts/rebrand-desktop.sh` بيعيد البراند كامل أوتوماتيك — نصوص الواجهة (القسم 5)، طبقة البروفايل (6.6)، واسم التنفيذي/الشيم (7.6).

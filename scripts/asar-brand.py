@@ -14,7 +14,9 @@ patches the archive itself:
      to the original archive),
   4. updates ElectronAsarIntegrity.Resources/app.asar in Info.plist — Electron
      verifies this sha256 at launch and would refuse a stale hash,
-  5. swaps Resources/icon.png (About panel / welcome window icon) for the Monos one.
+  5. swaps Resources/icon.png (About panel / welcome window icon) for the Monos one,
+  6. rebrands the web entry document: <title> (window title / Mission Control), both
+     favicons (the DeepSeek whale) and manifest.webmanifest ("DeepSeek Harness" / "DSH").
 
 Run it AFTER quitting the app and BEFORE re-signing the bundle (the asar, the
 plist and icon.png are all sealed by the code signature). rebrand-desktop.sh
@@ -176,6 +178,13 @@ EXACT = [
      '"Signed in to DeepSeek"', '"Signed in to Monos"'),
     ('dsh/node_modules/@deepseek-ai/dsh-client-ui-settings-account/lib/client.js',
      '已登录 DeepSeek', '已登录 Monos'),
+    # web entry document: the window title (Mission Control / window menu) + PWA metadata.
+    ('dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/index.html',
+     '<title>DeepSeek Harness</title>', '<title>Monos</title>'),
+    ('dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/manifest.webmanifest',
+     '"name": "DeepSeek Harness"', '"name": "Monos"'),
+    ('dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/manifest.webmanifest',
+     '"short_name": "DSH"', '"short_name": "Monos"'),
 ]
 
 BOOT_GLOB = 'dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/assets/index-*.js'
@@ -200,6 +209,23 @@ WELCOME_SVG = '''<svg width="472" height="40" viewBox="0 0 472 40" fill="none" x
 <text x="53" y="30.5" fill="var(--dsw-alias-label-primary)" font-family="-apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif" font-size="29" font-weight="600" letter-spacing="-1.2">Monos</text>
 </svg>
 '''
+
+# both favicons carry the DeepSeek whale; replace them with the Monos app-icon mark (the same
+# drawing as bundle/assets/monos/monos-app-icon.svg).  The XML comment doubles as the
+# idempotence marker.
+FAVICON_FILES = [
+    'dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/favicon.svg',
+    'dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/favicon-dark.svg',
+]
+FAVICON_SVG = (
+    '<!-- Monos favicon: what used to be the DeepSeek whale -->\n'
+    '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 1024 1024">'
+    '<rect width="1024" height="1024" rx="230" fill="#37B77A"/>'
+    '<path d="M301 672L442 506L550 595L730 352" stroke="#fff" stroke-width="96"'
+    ' stroke-linecap="round" stroke-linejoin="round" fill="none"/>'
+    '<circle cx="301" cy="672" r="48" fill="#fff"/><circle cx="442" cy="506" r="48" fill="#fff"/>'
+    '<circle cx="550" cy="595" r="48" fill="#fff"/><circle cx="730" cy="352" r="48" fill="#fff"/>'
+    '</svg>\n')
 
 ICON_OLD = 'Contents/Resources/icon.png'
 ICON_NEW = ASSETS / 'monos-1024.png'
@@ -251,6 +277,18 @@ def apply_edits(src: Path, log):
         changed.append(WELCOME_SVG_PATH)
     else:
         log.append(f'  {WELCOME_SVG_PATH}: already branded')
+
+    for rel in FAVICON_FILES:
+        p = src / rel
+        if not p.is_file():
+            raise SystemExit(f'brand patch: missing file in archive: {rel}')
+        text = p.read_text(encoding='utf-8')
+        if 'Monos favicon' in text:
+            log.append(f'  {rel}: already branded')
+        else:
+            p.write_text(FAVICON_SVG, encoding='utf-8')
+            log.append(f'  {rel}: replaced the DeepSeek whale favicon')
+            changed.append(rel)
 
     return changed
 

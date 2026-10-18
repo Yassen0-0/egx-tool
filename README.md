@@ -21,9 +21,9 @@
 | `harness/` | نسخة مثبتة من DeepSeek Harness CLI ‏(0.2.0-rc.2) |
 
 ## تطبيق الديسكتوب (الطريقة الأساسية)
-نستخدم تطبيق DeepSeek Harness الرسمي (موقّع من DeepSeek ومعتمد من Apple)، وتُركّب أداة EGX بداخله كإضافة.
+نستخدم تطبيق **Monos** — نسخة معاد برندتها من تطبيق DeepSeek Harness الرسمي (يتولّدها `scripts/rebrand-desktop.sh`؛ الأصل محفوظ مضغوطًا في `~/.dsh/backups/`) — وتُركّب أداة EGX بداخله كإضافة.
 
-1. ثبّت `DeepSeek Harness.app` في Applications، من ملف `dsh-latest-macos-arm64.dmg` أو من deepseek.com/harness.
+1. تأكد أن `Monos.app` موجود في Applications (لو مش موجود: `./scripts/rebrand-desktop.sh`).
 2. افتح التطبيق مرة واحدة ثم أغلقه، لكي ينشئ ملفاته.
 3. شغّل:
 ```bash

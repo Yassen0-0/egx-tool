@@ -28,8 +28,7 @@ function SummaryCard({ portfolio, lastClose }) {
         unvalued ? h('small', null, 'لم يُقيَّم بعد: ', N(String(unvalued))) : null,
         t.unpriced_holdings.length ? h('small', null, 'بانتظار السعر: ', t.unpriced_holdings.join('، ')) : null)),
     h('div', { className: 'p-strip' },
-      portfolio.demo_data ? h('span', { className: 'q-chip' }, 'بيانات تجريبية') : null,
-      h('span', null, portfolio.demo_data ? 'المراكز أمثلة توضيحية من بيانات التطوير. ' : '',
+      h('span', null,
         'الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية',
         lastClose ? [' (آخر إغلاق ', N(fmtDate(lastClose)), ')'] : null)))
 }
@@ -257,7 +256,7 @@ function PortfolioPage() {
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + MARKET_CSS + PORTFOLIO_CSS),
-    h(PanelHeader, { here: 'المحفظة', demo: Boolean(portfolio && portfolio.demo_data) }, headerMeta),
+    h(PanelHeader, { here: 'المحفظة' }, headerMeta),
     h('div', { className: 'q-wrap', style: { paddingTop: 12 } },
       content,
       h(Disclaimer, { extra: 'الأسعار إغلاق يومي متأخر من EODHD (مزوّد بيانات الأسعار)، وكل سعر مؤرّخ بيوم إغلاقه. الربح والخسارة محسوبان على التكلفة المُدخلة يدويًا ولا يشملان رسوم الوساطة أو الضرائب. «نسبة من المحفظة» = قيمة المركز ÷ قيمة المحفظة، وهي غير وزن السهم في المؤشر.' })),

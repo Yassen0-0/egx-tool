@@ -331,6 +331,8 @@ Assumed EODHD daily reset 00:00 UTC = 03:00 Cairo (UTC+3) — **verify in EODHD 
 
 ## 9. Implementation plan (phases + acceptance criteria)
 
+> **Update 18 Oct 2026:** the browser dev mode (`run-dev.sh`, `seed-dev.py`) was removed. Verify in the desktop app (Monos), which loads `main` from `/Volumes/ssd-work/egx`. See `CLAUDE.md`.
+
 Work on a branch `ui-qima`. After each phase, run `uv run --project mcp pytest -q` and `node bundle/build-client.mjs`, and check both themes in the browser dev mode (`./scripts/run-dev.sh`, seeded with `scripts/seed-dev.py`). Commit per phase.
 
 | Phase | Scope | Done when |

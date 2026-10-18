@@ -98,7 +98,7 @@ function SidebarMonosIcon({ size }) {
 
 // ── Panel header ──────────────────────────────────────────────────────────────
 // Right: icon 22 + «Monos» / screen (with breadcrumb links before it). Left: actions.
-function PanelHeader({ here, crumbs = [], actions = null, demo = false, children = null }) {
+function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
   return h('header', { className: 'q-head', 'data-window-drag': true },
     h('div', { className: 'q-head-in' },
       h(MonosIcon, { size: 22 }),
@@ -111,7 +111,6 @@ function PanelHeader({ here, crumbs = [], actions = null, demo = false, children
         ]),
         h('span', { className: 'q-sep', 'aria-hidden': true }, '/'),
         h('h1', { className: 'q-here q-h1', 'aria-current': 'page' }, here)),
-      demo ? h('span', { className: 'q-chip', title: 'البيانات من قاعدة التطوير (scripts/seed-dev.py)' }, 'بيانات تجريبية') : null,
       children,
       actions ? h('div', { className: 'q-head-actions' }, actions) : null))
 }

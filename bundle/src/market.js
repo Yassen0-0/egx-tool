@@ -737,7 +737,7 @@ function MarketPage() {
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + MARKET_CSS),
     h(PanelHeader, {
-      here: 'السوق', demo: Boolean(data && data.demo_data),
+      here: 'السوق',
       actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
         h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
           h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3' })),

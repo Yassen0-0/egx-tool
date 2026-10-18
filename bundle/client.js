@@ -467,7 +467,7 @@ function SidebarMonosIcon({ size }) {
 
 // ── Panel header ──────────────────────────────────────────────────────────────
 // Right: icon 22 + «Monos» / screen (with breadcrumb links before it). Left: actions.
-function PanelHeader({ here, crumbs = [], actions = null, demo = false, children = null }) {
+function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
   return h('header', { className: 'q-head', 'data-window-drag': true },
     h('div', { className: 'q-head-in' },
       h(MonosIcon, { size: 22 }),
@@ -480,7 +480,6 @@ function PanelHeader({ here, crumbs = [], actions = null, demo = false, children
         ]),
         h('span', { className: 'q-sep', 'aria-hidden': true }, '/'),
         h('h1', { className: 'q-here q-h1', 'aria-current': 'page' }, here)),
-      demo ? h('span', { className: 'q-chip', title: 'البيانات من قاعدة التطوير (scripts/seed-dev.py)' }, 'بيانات تجريبية') : null,
       children,
       actions ? h('div', { className: 'q-head-actions' }, actions) : null))
 }
@@ -978,7 +977,7 @@ function useArchive() {
     Promise.all([
       api('GET', '/egx/api/valuations?kind=&limit=200'),
       api('GET', '/egx/api/market').catch(() => null),
-    ]).then(([list, market]) => alive && setState({ items: list.items, demo: list.demo_data, market, error: '' }))
+    ]).then(([list, market]) => alive && setState({ items: list.items, market, error: '' }))
       .catch((e) => alive && setState({ items: null, market: null, error: e.message }))
     return () => { alive = false }
   }, [])
@@ -1040,7 +1039,7 @@ function ListRow({ v, info, current, onOpen }) {
 }
 
 function AnalysesList({ onOpen }) {
-  const { items, market, demo, error } = useArchive()
+  const { items, market, error } = useArchive()
   const [filters, setFilters] = useState({ symbol: '', rating: '', period: '', kind: '' })
   const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target ? e.target.value : e }))
   const dirty = Object.values(filters).some(Boolean)
@@ -1100,7 +1099,7 @@ function AnalysesList({ onOpen }) {
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + ANALYSES_CSS),
-    h(PanelHeader, { here: 'التحليلات', demo: Boolean(demo),
+    h(PanelHeader, { here: 'التحليلات',
       actions: h('span', { className: 'q-meta' }, 'لإضافة تقييم اكتب في المحادثة: «قيّم سهم ', h('span', { className: 'q-sym' }, 'COMI'), '»') }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8 } },
       h('div', { className: 'a-top' },
@@ -1450,7 +1449,7 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + ANALYSES_CSS),
     h(PanelHeader, {
-      crumbs, demo: false,
+      crumbs,
       here: h('span', null, h('span', { className: 'q-sym' }, item.symbol), ' — ', N(fmtDate(item.created_at))),
       actions: h('button', { type: 'button', className: 'q-btn q-btn-p', onClick: () => copyValuationPrompt(item.symbol, toast) }, 'تحديث التقييم من المحادثة'),
     }),
@@ -2287,7 +2286,7 @@ function MarketPage() {
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + MARKET_CSS),
     h(PanelHeader, {
-      here: 'السوق', demo: Boolean(data && data.demo_data),
+      here: 'السوق',
       actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
         h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
           h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3' })),
@@ -2372,8 +2371,7 @@ function SummaryCard({ portfolio, lastClose }) {
         unvalued ? h('small', null, 'لم يُقيَّم بعد: ', N(String(unvalued))) : null,
         t.unpriced_holdings.length ? h('small', null, 'بانتظار السعر: ', t.unpriced_holdings.join('، ')) : null)),
     h('div', { className: 'p-strip' },
-      portfolio.demo_data ? h('span', { className: 'q-chip' }, 'بيانات تجريبية') : null,
-      h('span', null, portfolio.demo_data ? 'المراكز أمثلة توضيحية من بيانات التطوير. ' : '',
+      h('span', null,
         'الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية',
         lastClose ? [' (آخر إغلاق ', N(fmtDate(lastClose)), ')'] : null)))
 }
@@ -2601,7 +2599,7 @@ function PortfolioPage() {
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + MARKET_CSS + PORTFOLIO_CSS),
-    h(PanelHeader, { here: 'المحفظة', demo: Boolean(portfolio && portfolio.demo_data) }, headerMeta),
+    h(PanelHeader, { here: 'المحفظة' }, headerMeta),
     h('div', { className: 'q-wrap', style: { paddingTop: 12 } },
       content,
       h(Disclaimer, { extra: 'الأسعار إغلاق يومي متأخر من EODHD (مزوّد بيانات الأسعار)، وكل سعر مؤرّخ بيوم إغلاقه. الربح والخسارة محسوبان على التكلفة المُدخلة يدويًا ولا يشملان رسوم الوساطة أو الضرائب. «نسبة من المحفظة» = قيمة المركز ÷ قيمة المحفظة، وهي غير وزن السهم في المؤشر.' })),

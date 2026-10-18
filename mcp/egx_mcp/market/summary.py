@@ -6,7 +6,6 @@ import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
 from ..pricing import pricing_levels, status_of
-from ..store.db import is_demo_db
 from ..store.valuations import latest_valuation
 from ..store.watchlist import watched_symbols
 from ..universe import constituent, load_universe, normalize_symbol
@@ -192,7 +191,6 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
         # Holdings + «متابعتي» against the daily price budget (the UI warns on overflow).
         "refresh_plan": refresh_plan(conn),
         "universe_as_of": load_universe()["as_of"],
-        "demo_data": is_demo_db(conn),
     }
 
 

@@ -9,7 +9,7 @@ from ..market.calendar import now_cairo
 from ..market.summary import portfolio_today, price_state
 from ..pricing import pricing_levels
 from ..universe import constituent, normalize_symbol
-from .db import is_demo_db, now_iso
+from .db import now_iso
 from .valuations import latest_valuation
 
 
@@ -171,6 +171,5 @@ def portfolio_summary(conn: sqlite3.Connection, provider: DataProvider, at: date
             "below_protection": [r["symbol"] for r in rows if r["status"] == "below_protection"],
             "unpriced_holdings": [r["symbol"] for r in rows if r["market_value"] is None],
         },
-        "demo_data": is_demo_db(conn),
         "disclaimer": "Values are based on the amounts and prices the user entered; the user is responsible for their accuracy.",
     }

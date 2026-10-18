@@ -125,14 +125,6 @@ def connect(path: Path) -> sqlite3.Connection:
     return conn
 
 
-DEMO_TABLE = "dev_seed"
-
-
-def is_demo_db(conn: sqlite3.Connection) -> bool:
-    """True for a database filled by scripts/seed-dev.py (it creates the dev_seed table)."""
-    return conn.execute("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?", (DEMO_TABLE,)).fetchone() is not None
-
-
 def row_to_dict(row: sqlite3.Row | None) -> dict | None:
     if row is None:
         return None

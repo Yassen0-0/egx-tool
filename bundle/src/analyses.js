@@ -20,7 +20,7 @@ function useArchive() {
     Promise.all([
       api('GET', '/egx/api/valuations?kind=&limit=200'),
       api('GET', '/egx/api/market').catch(() => null),
-    ]).then(([list, market]) => alive && setState({ items: list.items, demo: list.demo_data, market, error: '' }))
+    ]).then(([list, market]) => alive && setState({ items: list.items, market, error: '' }))
       .catch((e) => alive && setState({ items: null, market: null, error: e.message }))
     return () => { alive = false }
   }, [])
@@ -82,7 +82,7 @@ function ListRow({ v, info, current, onOpen }) {
 }
 
 function AnalysesList({ onOpen }) {
-  const { items, market, demo, error } = useArchive()
+  const { items, market, error } = useArchive()
   const [filters, setFilters] = useState({ symbol: '', rating: '', period: '', kind: '' })
   const set = (key) => (e) => setFilters((f) => ({ ...f, [key]: e.target ? e.target.value : e }))
   const dirty = Object.values(filters).some(Boolean)
@@ -142,7 +142,7 @@ function AnalysesList({ onOpen }) {
 
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + ANALYSES_CSS),
-    h(PanelHeader, { here: 'التحليلات', demo: Boolean(demo),
+    h(PanelHeader, { here: 'التحليلات',
       actions: h('span', { className: 'q-meta' }, 'لإضافة تقييم اكتب في المحادثة: «قيّم سهم ', h('span', { className: 'q-sym' }, 'COMI'), '»') }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8 } },
       h('div', { className: 'a-top' },
@@ -492,7 +492,7 @@ function AnalysisDetail({ id, onBack, onOpen, initialSection = null }) {
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + ANALYSES_CSS),
     h(PanelHeader, {
-      crumbs, demo: false,
+      crumbs,
       here: h('span', null, h('span', { className: 'q-sym' }, item.symbol), ' — ', N(fmtDate(item.created_at))),
       actions: h('button', { type: 'button', className: 'q-btn q-btn-p', onClick: () => copyValuationPrompt(item.symbol, toast) }, 'تحديث التقييم من المحادثة'),
     }),

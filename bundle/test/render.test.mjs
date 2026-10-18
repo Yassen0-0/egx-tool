@@ -23,6 +23,13 @@ test('every screen renders from the built client.js', { skip: !harness && 'run n
         await act(async () => { target.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
         await settle()
         opened[key] = host.textContent
+        // The TradingView tabs: each is one cross-origin iframe, never TradingView's script in our page.
+        for (const name of ['chart', 'financials', 'technical']) {
+          const tab = [...host.querySelectorAll('[role="tab"]')].find((b) => b.textContent === { chart: 'الشارت الفني', financials: 'البيانات المالية', technical: 'التحليل الفني' }[name])
+          await act(async () => { tab.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+          await settle()
+          opened[name] = { frames: [...host.querySelectorAll('iframe')].map((f) => f.getAttribute('src')), scripts: host.querySelectorAll('script').length }
+        }
       }
     },
   })
@@ -43,4 +50,13 @@ test('every screen renders from the built client.js', { skip: !harness && 'run n
   assert.match(text('main:egx-analyses'), /التحليلات/)
   assert.match(r.html['conversation.hero.brand.mark:conversation.hero.brand.mark'], /<svg/)
   assert.ok(opened['egx-market'], 'clicking a market row opens its detail')
+  for (const [tab, widget] of [['chart', 'advanced-chart'], ['financials', 'financials'], ['technical', 'technical-analysis']]) {
+    assert.equal(opened[tab].scripts, 0, `${tab}: no script injected`)
+    assert.equal(opened[tab].frames.length, 1, `${tab}: one iframe`)
+    const src = new URL(opened[tab].frames[0])
+    assert.equal(`${src.origin}${src.pathname}${src.search}`, `https://www.tradingview-widget.com/embed-widget/${widget}/?locale=ar_AE`)
+    const settings = JSON.parse(decodeURIComponent(src.hash.slice(1)))
+    assert.match(settings.symbol, /^EGX:/)
+    assert.equal(settings.locale, undefined)
+  }
 })

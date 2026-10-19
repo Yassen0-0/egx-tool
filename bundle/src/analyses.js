@@ -2,7 +2,7 @@
 // every name it uses is imported below. Every number about price vs fair uses the same helpers as Market,
 // with the current price taken from the same /egx/api/market rows.
 import { Markdown, N, QM_CSS, React, api, frag, h, nav, useEffect, useHostTheme, useState } from './runtime.js'
-import { PROTECTION_PCT, RATING_LABEL, belowProtectionBy, cairoDay, fmtArrow, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, marginSentence, marginToFair, statusOf } from './format.mjs'
+import { PROTECTION_PCT, RATING_LABEL, belowProtectionBy, cairoDay, fmtArrow, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, lastCloseOf, marginSentence, marginToFair, statusOf } from './format.mjs'
 import { BANK_RISK_ORDER, CHECK_LABEL, RED_FLAG_LABEL, RISK_LABEL, assumptionRows, methodLabel, riskValue } from './labels.mjs'
 import { Disclaimer, PanelHeader, copyValuationPrompt, useToast } from './identity.js'
 import { MarginText, NumText, ProtectionHelp, RatingChip, Ruler, Skeleton, StaleChip, UnderProtectionCard } from './components.js'
@@ -121,7 +121,7 @@ export function AnalysesList({ onOpen }) {
       .sort((a, b) => (a.under !== b.under ? (a.under ? -1 : 1) : a.latestAt < b.latestAt ? 1 : -1))
   }, [items, bySymbol, market, filters])
 
-  const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
+  const lastClose = lastCloseOf(market && market.rows)
   const total = items ? items.length : 0
   const symbols = Object.keys(bySymbol).sort()
   const select = (key, label, options) => h('label', { className: `q-field${filters[key] ? ' on' : ''}` },

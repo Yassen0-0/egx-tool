@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url'
 import {
   MINUS, fmtPrice, fmtNumber, fmtSigned, fmtPct, fmtChange, fmtArrow, fmtQty, fmtCount,
   marginToFair, belowProtectionBy, statusOf, marginSentence, rulerScale, iconState, toneOf,
-  cairoDay, fmtDayMonth, fmtDate, fmtLongDay, fmtTime,
+  cairoDay, fmtDayMonth, fmtDate, fmtLongDay, fmtTime, lastCloseOf, callsUsed,
 } from '../src/format.mjs'
 
 const src = join(dirname(fileURLToPath(import.meta.url)), '..', 'src')
@@ -186,4 +186,25 @@ test('EODHD limit resets at midnight GMT, shown in Cairo time', async () => {
   assert.deepEqual(nextLimitReset('2026-11-05T10:00:00Z'), { when: 'بكره', time: '02:00' }) // winter time
   assert.deepEqual(nextLimitReset('2026-10-15T22:30:00Z'), { when: 'اليوم', time: '03:00' }) // 01:30 Cairo, reset later today
   assert.equal(lastLimitReset('2026-10-15T06:02:00Z').toISOString(), '2026-10-15T00:00:00.000Z')
+})
+
+test('last close: latest priced as_of day, timestamps cut to the date', () => {
+  const rows = [
+    { price: 10, as_of: '2026-10-14' },
+    { price: 11, as_of: '2026-10-15T14:30:00+03:00' },
+    { price: null, as_of: '2026-10-16' },
+    { price: 12, as_of: null },
+  ]
+  assert.equal(lastCloseOf(rows), '2026-10-15')
+  assert.equal(lastCloseOf([{ price: null, as_of: '2026-10-15' }]), '')
+  assert.equal(lastCloseOf([]), '')
+  assert.equal(lastCloseOf(null), '')
+})
+
+test('calls used: before the run plus the run, null without a daily limit', () => {
+  assert.equal(callsUsed({ daily_limit: 20, used_before: 5, calls_made: 3 }), 8)
+  assert.equal(callsUsed({ daily_limit: 20, calls_made: 3 }), 3)
+  assert.equal(callsUsed({ daily_limit: 20 }), 0)
+  assert.equal(callsUsed({ daily_limit: 0, calls_made: 3 }), null)
+  assert.equal(callsUsed(null), null)
 })

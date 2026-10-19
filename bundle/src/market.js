@@ -1,12 +1,10 @@
 // «Monos / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
 // docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). ES module.
 import { ANALYSES_ID, LightweightCharts, N, QM_CSS, React, TvWidget, api, chartTheme, frag, h, nav, useCallback, useEffect, useHostTheme, useState } from './runtime.js'
-import { RATING_LEVEL, fmtArrow, fmtChange, fmtCompact, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtTime, lastLimitReset, marginSentence, marginToFair, nextLimitReset, rangePosition, rulerScale, sessionLine, toneOf, weekdayName } from './format.mjs'
+import { RATING_LEVEL, callsUsed, fmtArrow, fmtChange, fmtCompact, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtTime, lastCloseOf, lastLimitReset, marginSentence, marginToFair, nextLimitReset, rangePosition, rulerScale, sessionLine, toneOf, weekdayName } from './format.mjs'
 import { Disclaimer, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
 import { MarginText, MineChip, PORTFOLIO_GLYPH, PriceCell, ProtectionHelp, ProtectionNote, Range52, RatingChip, Ruler, Skeleton, StaleChip, UnderProtectionCard } from './components.js'
 import MARKET_CSS from './market.css'
-
-export const MARKET_TOTAL = 31
 
 export const PERIOD_OPTIONS = [['1m', 'شهر'], ['3m', '3 شهور'], ['1y', 'سنة']]
 export const SORT_OPTIONS = [
@@ -51,8 +49,6 @@ export function sortRows(rows, key, desc, period) {
     return desc ? -c : c
   })
 }
-
-export const lastCloseOf = (data) => data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
 
 export function openAnalysis(id, section = null) {
   if (id == null || !nav.selectPanel) return
@@ -106,9 +102,9 @@ export function SortArrow({ desc }) {
 export function StatusStrip({ data, portfolio }) {
   const cover = refreshCoverage(data)
   const session = sessionLine(data.as_of, data.session_open, data.next_session)
-  const lastClose = data.rows.reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+  const lastClose = lastCloseOf(data.rows)
   const run = data.last_sync
-  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const used = callsUsed(run)
   const b = data.breadth
   const holdings = portfolio && portfolio.holdings && portfolio.holdings.length
   const totals = portfolio && portfolio.totals
@@ -171,7 +167,7 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
   const [why, setWhy] = useState(false)
   const run = data.last_sync
   const now = data.as_of
-  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const used = callsUsed(run)
   const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now))
   const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0
   const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
@@ -752,7 +748,7 @@ export function MarketPage() {
     }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
       data ? h(StatusStrip, { data, portfolio }) : null,
-      data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data) }) : null,
+      data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data.rows) }) : null,
       data ? h(WatchBudgetNote, { data }) : null,
       noKey ? h('section', { className: 'q-card q-pad q-sec', role: 'note' },
         h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
@@ -788,7 +784,7 @@ export function MarketPage() {
           h(TableHead, { sort, desc, period, onSort: pickSort }),
           tableBody),
         h('div', { className: 'm-foot' },
-          h('span', null, 'عرض ', N(fmtCount(shown)), ' من ', N(fmtCount(MARKET_TOTAL)),
+          h('span', null, 'عرض ', N(fmtCount(shown)), ' من ', N(fmtCount(all.length)),
             waiting.length && !groupExpanded ? frag(' · ', N(fmtCount(waiting.length)), ' مطويّة بانتظار السعر') : null),
           h(RulerLegend),
           h('span', { className: 'q-grow' }),

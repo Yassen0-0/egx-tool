@@ -2,7 +2,7 @@
 // and the holdings grid tied to each stock's valuation (§7.4). ES module.
 // Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
 import { N, QM_CSS, api, frag, h, useEffect, useState } from './runtime.js'
-import { cairoDay, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtTime, parseDayInput, parseNumberInput, sessionLine, toneOf } from './format.mjs'
+import { cairoDay, callsUsed, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtTime, lastCloseOf, parseDayInput, parseNumberInput, sessionLine, toneOf } from './format.mjs'
 import { Disclaimer, MonosIcon, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
 import { MarginText, PriceCell, ProtectionHelp, ProtectionNote, Ruler, Skeleton, StatusMark } from './components.js'
 import MARKET_CSS from './market.css'
@@ -207,10 +207,10 @@ export function PortfolioPage() {
   }, [])
   const refresh = () => monos.refresh()
   const onValue = (symbol) => copyValuationPrompt(symbol, toast)
-  const lastClose = market ? market.rows.reduce((m, r) => (r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m), '') : ''
+  const lastClose = lastCloseOf(market && market.rows)
   const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null
   const run = market && market.last_sync
-  const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+  const used = callsUsed(run)
 
   const holdings = portfolio && portfolio.holdings ? sortHoldings(portfolio.holdings, sort) : []
   const loading = portfolio === undefined

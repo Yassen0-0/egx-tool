@@ -496,6 +496,12 @@ var __egx = (() => {
     const today = cairoDay(new Date(now).toISOString());
     return { when: cairoDay(next.toISOString()) === today ? "اليوم" : "بكره", time: fmtTime(next.toISOString()) };
   }
+  function lastCloseOf(rows) {
+    return (rows || []).reduce((m, r) => r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m, "");
+  }
+  function callsUsed(run) {
+    return run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null;
+  }
 
   // bundle/src/identity.js
   var monos = {
@@ -945,7 +951,6 @@ var __egx = (() => {
   var market_default = "/* Market screen («Monos / السوق»). host tokens only; builds on styles.css. */\n\n/* Status strip */\n.qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }\n.qm .m-ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }\n.qm .m-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-kv b { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n.qm .m-stack { display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none; }\n.qm .m-stack > span { display: block; }\n\n/* Digest */\n.qm .m-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px; }\n.qm .m-digest-t { font-size: 14px; font-weight: 600; margin-inline-end: 8px; }\n.qm .m-di { appearance: none; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; font-size: 13px; white-space: nowrap; text-align: start; }\n.qm .m-di:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-ic { width: 18px; height: 18px; border-radius: var(--dsw-radius-xs); display: grid; place-items: center; background: var(--dsw-alias-markdown-tag);\n  color: var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-ic.w { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); }\n.qm .m-ic.b { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n\n/* Toolbar */\n.qm .m-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .m-toolbar .q-field input[type='search'] { width: 140px; }\n.qm .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .q-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */\n.qm .m-table { overflow: hidden; container-type: inline-size; }\n/* The first column carries the «متابعتي» star (32px), taken from the valuation column's minimum. */\n.qm .m-g { --cols: minmax(204px, 1.5fr) 88px 136px 68px minmax(188px, 2.5fr) 104px 112px; min-width: 930px; }\n@container (max-width: 930px) {\n  .qm .m-g { --cols: minmax(178px, 1.4fr) 84px 128px 64px minmax(172px, 2.4fr) 96px; min-width: 760px; }\n  .qm .m-g > .m-c52 { display: none; }\n}\n.qm .m-row { min-height: 64px; cursor: pointer; position: relative; }\n.qm .m-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-row.q-warn:hover { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .m-row.q-sel, .qm .m-row.q-sel:hover { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-sym .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }\n.qm .m-sym .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }\n.qm .m-sym small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n.qm .m-vc { display: flex; flex-direction: column; justify-content: center; padding-block: 8px; }\n.qm .m-unvalued { display: flex; align-items: center; gap: 12px; }\n.qm .m-qbtn { appearance: none; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l4);\n  background: transparent; cursor: pointer; color: var(--dsw-alias-link); font-size: 13px; font-weight: 500; }\n.qm .m-qbtn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-grp { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform);\n  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; text-align: start; cursor: pointer; font-size: 13px; }\n.qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-tkcell { display: flex; align-items: center; gap: 2px; min-width: 0; }\n.qm .m-tkgrid .m-tkpick { flex: 1; min-width: 0; appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }\n.qm .m-tkgrid .m-tkpick:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid .m-tkpick.q-sel { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-key { display: inline-flex; align-items: center; gap: 6px; }\n\n/* Detail */\n.qm .m-dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px; }\n.qm .m-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: var(--dsw-alias-bg-module-platform); }\n.qm .m-panes { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }\n.qm .m-left { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-right { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }\n.qm .m-box { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-dashed { border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column;\n  align-items: flex-start; gap: 12px; }\n.qm .m-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-hist { display: grid; grid-template-columns: 88px 1fr 1fr 1.4fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .m-hist.h { font-size: 12px; color: var(--dsw-alias-label-secondary); border-top: 0; padding: 4px 0; }\n.qm .m-chart { height: 280px; direction: ltr; }\n.qm .m-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; }\n.qm .m-sk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .m-sk > div { padding: 8px 10px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; }\n.qm .m-tv { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; display: flex; flex-direction: column; }\n.qm .m-tvh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }\n.qm .m-tvh a { color: inherit; }\n.qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }\n\n/* «متابعتي»: star toggle per row and in the detail header; one-line refresh note in the strip. */\n.qm .m-symw { display: flex; align-items: center; gap: 2px; min-width: 0; margin-inline-start: -6px; }\n.qm .m-symw > .m-sym { min-width: 0; flex: 1; }\n.qm .m-star { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; flex: none; display: grid; place-items: center;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; color: var(--dsw-alias-label-tertiary); }\n.qm .m-star:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .m-star.on { color: var(--dsw-alias-label-primary); }\n.qm .m-watch { gap: 6px; }\n.qm .m-watch.on { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); }\n.qm .m-plan { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n";
 
   // bundle/src/market.js
-  var MARKET_TOTAL = 31;
   var PERIOD_OPTIONS = [["1m", "شهر"], ["3m", "3 شهور"], ["1y", "سنة"]];
   var SORT_OPTIONS = [
     ["weight", "الوزن في المؤشر"],
@@ -995,7 +1000,6 @@ var __egx = (() => {
       return desc ? -c : c;
     });
   }
-  var lastCloseOf = (data) => data.rows.reduce((m, r) => r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m, "");
   function openAnalysis(id, section = null) {
     if (id == null || !nav.selectPanel) return;
     nav.pendingAnalysisId = id;
@@ -1059,9 +1063,9 @@ var __egx = (() => {
   function StatusStrip({ data, portfolio }) {
     const cover = refreshCoverage(data);
     const session = sessionLine(data.as_of, data.session_open, data.next_session);
-    const lastClose = data.rows.reduce((m, r) => r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m, "");
+    const lastClose = lastCloseOf(data.rows);
     const run = data.last_sync;
-    const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null;
+    const used = callsUsed(run);
     const b = data.breadth;
     const holdings = portfolio && portfolio.holdings && portfolio.holdings.length;
     const totals = portfolio && portfolio.totals;
@@ -1164,7 +1168,7 @@ var __egx = (() => {
     const [why, setWhy] = useState(false);
     const run = data.last_sync;
     const now = data.as_of;
-    const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null;
+    const used = callsUsed(run);
     const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now));
     const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0;
     const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0);
@@ -2025,7 +2029,7 @@ var __egx = (() => {
         "div",
         { className: "q-wrap", style: { paddingTop: 8, gap: 8 } },
         data ? h(StatusStrip, { data, portfolio }) : null,
-        data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data) }) : null,
+        data ? h(SyncAlerts, { data, failure: syncFailure, syncing, onRetry: sync, lastClose: lastCloseOf(data.rows) }) : null,
         data ? h(WatchBudgetNote, { data }) : null,
         noKey ? h(
           "section",
@@ -2118,7 +2122,7 @@ var __egx = (() => {
               "عرض ",
               N(fmtCount(shown)),
               " من ",
-              N(fmtCount(MARKET_TOTAL)),
+              N(fmtCount(all.length)),
               waiting.length && !groupExpanded ? frag(" · ", N(fmtCount(waiting.length)), " مطويّة بانتظار السعر") : null
             ),
             h(RulerLegend),
@@ -2254,7 +2258,7 @@ var __egx = (() => {
         return { symbol, list, rows: list.filter(keep).reverse(), current, under, latestAt: latest.created_at };
       }).filter((g) => g.rows.length).sort((a, b) => a.under !== b.under ? a.under ? -1 : 1 : a.latestAt < b.latestAt ? 1 : -1);
     }, [items, bySymbol, market, filters]);
-    const lastClose = market ? market.rows.reduce((m, r) => r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m, "") : "";
+    const lastClose = lastCloseOf(market && market.rows);
     const total = items ? items.length : 0;
     const symbols = Object.keys(bySymbol).sort();
     const select = (key, label, options) => h(
@@ -3321,10 +3325,10 @@ var __egx = (() => {
     }, []);
     const refresh = () => monos.refresh();
     const onValue = (symbol) => copyValuationPrompt(symbol, toast);
-    const lastClose = market ? market.rows.reduce((m, r) => r.price != null && r.as_of > m ? r.as_of.slice(0, 10) : m, "") : "";
+    const lastClose = lastCloseOf(market && market.rows);
     const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null;
     const run = market && market.last_sync;
-    const used = run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null;
+    const used = callsUsed(run);
     const holdings = portfolio && portfolio.holdings ? sortHoldings(portfolio.holdings, sort) : [];
     const loading = portfolio === void 0;
     const failed = portfolio === null;

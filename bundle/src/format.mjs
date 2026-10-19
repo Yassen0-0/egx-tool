@@ -326,3 +326,15 @@ export function nextLimitReset(now) {
   const today = cairoDay(new Date(now).toISOString())
   return { when: cairoDay(next.toISOString()) === today ? 'اليوم' : 'بكره', time: fmtTime(next.toISOString()) }
 }
+
+// ── Market data (/egx/api/market) ─────────────────────────────────────────────
+
+/** Latest close date (YYYY-MM-DD) among the priced rows; '' when none is priced. */
+export function lastCloseOf(rows) {
+  return (rows || []).reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
+}
+
+/** Price-provider calls used today by the last sync run (before it + by it); null without a run or limit. */
+export function callsUsed(run) {
+  return run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
+}

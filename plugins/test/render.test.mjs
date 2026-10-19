@@ -85,6 +85,21 @@ test('each plugin renders on its own and registers only its own slots', { skip: 
   }
 })
 
+test('the market screen says so when the price budget has not renewed for days', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const market = harness.FIXTURES['/egx/api/market']
+  const text = async (priceBudget) => {
+    const r = await harness.renderClient([clientPath('monos-market')], { fixtures: { '/egx/api/market': { ...market, price_budget: priceBudget } } })
+    assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
+    return r.html['main:egx-market'].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  }
+  const stuck = await text({ blocked_since: '2026-10-12T04:53:48+00:00', blocked_days: 3, last_fetch_at: '2026-10-12T04:49:35+00:00' })
+  assert.match(stuck, /رصيد EODHD اليومي لا يتجدد/)
+  assert.match(stuck, /12\/10/)
+  assert.doesNotMatch(stuck, /بلغنا الحد اليومي/)
+  const normal = await text({ blocked_since: null, blocked_days: 0, last_fetch_at: '2026-10-15T04:49:35+00:00' })
+  assert.doesNotMatch(normal, /لا يتجدد/)
+})
+
 test('npm run new-plugin scaffolds a plugin that builds and renders', { skip: !harness && 'run npm install at the repo root' }, async () => {
   const root = join(here, '..', '..')
   const dir = join(here, '..', 'monos-scaffold-check')

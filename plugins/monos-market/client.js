@@ -805,6 +805,7 @@ var __monos = (() => {
     }, h(StarGlyph, { on }));
   }
   var stockCount = (n) => n === 1 ? "سهم واحد" : n === 2 ? "سهمان" : frag(N(fmtCount(n)), n <= 10 ? " أسهم" : " سهمًا");
+  var dayCount = (n) => n === 2 ? "يومين" : frag(N(fmtCount(n)), n <= 10 ? " أيام" : " يومًا");
   function refreshCoverage(data) {
     const plan = data.refresh_plan || {};
     const priority = data.rows.filter((r) => r.held || r.watched).length;
@@ -935,7 +936,9 @@ var __monos = (() => {
     const used = callsUsed(run);
     const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now));
     const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0;
-    const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0);
+    const blocked = data.price_budget || {};
+    const stuck = blocked.blocked_days >= 2;
+    const limitReached = !stuck && sinceReset && used != null && (used >= run.daily_limit || skipped > 0);
     const error = failure || run && run.error;
     const goodData = h(
       "span",
@@ -962,6 +965,22 @@ var __monos = (() => {
         ),
         h(import_react.default.Fragment, { key: "g" }, goodData),
         h("div", { key: "b" }, h("button", { type: "button", className: "q-btn q-btn-sm", disabled: syncing, onClick: onRetry }, syncing ? "جارٍ المحاولة…" : "إعادة المحاولة"))
+      ]));
+    }
+    if (stuck) {
+      cards.push(card("s", "alert", "--dsw-alias-file-diff-deleted-marker", [
+        h("b", { key: "t" }, "الأسعار متوقفة: رصيد EODHD اليومي لا يتجدد"),
+        h(
+          "span",
+          { key: "x", className: "q-sec", style: { lineHeight: 1.7 } },
+          "منذ ",
+          N(fmtDayMonth(blocked.blocked_since.slice(0, 10))),
+          " وكل محاولة تحديث تجد رصيد اليوم مستهلكًا بالكامل، طوال ",
+          dayCount(blocked.blocked_days),
+          " على التوالي، مع أن الرصيد يتجدد كل يوم عند منتصف الليل بتوقيت جرينتش. ",
+          "هذا يعني غالبًا أن المفتاح نفسه مستخدم في برنامج أو جهاز آخر يستهلك الرصيد أولًا. راجع الاستخدام في حسابك على EODHD، أو خصّص لهذا التطبيق مفتاحًا وحده."
+        ),
+        h(import_react.default.Fragment, { key: "g" }, goodData)
       ]));
     }
     if (limitReached) {
@@ -995,7 +1014,7 @@ var __monos = (() => {
     }
     const b = data.breadth;
     const priced = data.rows.some((r) => r.price != null);
-    if (!error && !limitReached && priced && b.up + b.down + b.flat === 0) {
+    if (!error && !limitReached && !stuck && priced && b.up + b.down + b.flat === 0) {
       cards.push(card("f", "status", "--dsw-alias-label-tertiary", [
         h("b", { key: "t" }, "لا أسعار محدّثة بعد"),
         h(

@@ -24,6 +24,14 @@ KEY_PATTERN = re.compile(r"(?<![0-9A-Za-z.])[0-9a-f]{12,20}\.[0-9]{6,10}(?![0-9A
 class MarketDataError(RuntimeError):
     """A provider failure with a message that is safe to show (never contains the key)."""
 
+    def __init__(self, message: str, status: int | None = None):
+        super().__init__(message)
+        self.status = status
+
+
+# 402: the daily limit (and any purchased extra calls) is spent; 429: too many calls per minute.
+LIMIT_STATUSES = {402, 429}
+
 
 def _key_from_file(path: Path) -> str | None:
     if not path.exists():
@@ -71,7 +79,7 @@ class EodhdClient:
                 body = response.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
             detail = exc.read().decode("utf-8", errors="replace").replace(self._key, "***")[:200]
-            raise MarketDataError(f"EODHD {path} returned HTTP {exc.code}: {detail}") from None
+            raise MarketDataError(f"EODHD {path} returned HTTP {exc.code}: {detail}", exc.code) from None
         except (urllib.error.URLError, TimeoutError) as exc:
             raise MarketDataError(f"EODHD {path} unreachable: {str(exc).replace(self._key, '***')}") from None
         finally:
@@ -82,10 +90,14 @@ class EodhdClient:
             raise MarketDataError(f"EODHD {path} returned non-JSON: {body[:120]}") from None
 
     def account(self) -> dict:
+        """`used_today` is EODHD's count for `counted_on` (apiRequestsDate, a GMT day). EODHD zeroes
+        it on the first counted call after midnight GMT, not on a schedule, and this call is not
+        counted: a past `counted_on` means nothing was used today (see sync.calls_used_today)."""
         data = self._get("user", cost=0)
         return {
             "plan": data.get("subscriptionType"),
             "used_today": int(data.get("apiRequests") or 0),
+            "counted_on": data.get("apiRequestsDate"),
             "daily_limit": int(data.get("dailyRateLimit") or 0),
         }
 

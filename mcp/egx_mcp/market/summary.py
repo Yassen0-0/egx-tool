@@ -11,7 +11,7 @@ from ..store.watchlist import watched_symbols
 from ..universe import constituent, load_universe, normalize_symbol
 from . import store
 from .calendar import CAIRO, CLOSE, expected_last_bar, next_session_day, now_cairo, previous_trading_day, session_open
-from .sync import refresh_plan
+from .sync import budget_status, refresh_plan
 
 PERIODS = {"1w": 7, "1m": 30, "3m": 91, "1y": 365}
 DIGEST_LIMIT = 3
@@ -209,6 +209,8 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
         "last_sync": last_run,
         # Holdings + «متابعتي» against the daily price budget (the UI warns on overflow).
         "refresh_plan": refresh_plan(conn),
+        # Days in a row with no budget to fetch anything (the UI explains a block that outlasts a day).
+        "price_budget": budget_status(conn),
         "universe_as_of": load_universe()["as_of"],
     }
 

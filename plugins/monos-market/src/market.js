@@ -81,6 +81,9 @@ export function WatchToggle({ row, onWatch, withText = false }) {
 /** «سهم واحد» · «سهمان» · «5 أسهم» · «18 سهمًا» (Arabic counted-noun agreement). */
 export const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : frag(N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'))
 
+/** «يومين» · «3 أيام» · «12 يومًا». */
+const dayCount = (n) => (n === 2 ? 'يومين' : frag(N(fmtCount(n)), n <= 10 ? ' أيام' : ' يومًا'))
+
 /** Holdings + «متابعتي» counted live from the rows, against the plan's daily budget. */
 export function refreshCoverage(data) {
   const plan = data.refresh_plan || {}
@@ -171,7 +174,11 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
   const used = callsUsed(run)
   const sinceReset = Boolean(run && run.finished_at && new Date(run.finished_at) >= lastLimitReset(now))
   const skipped = run && run.summary && run.summary.skipped_for_budget ? run.summary.skipped_for_budget.length : 0
-  const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
+  // The daily limit seen on two or more GMT days in a row is not the normal limit: it renews at
+  // midnight GMT, so a block that outlasts a day means something else spends the key (Python counts the days).
+  const blocked = data.price_budget || {}
+  const stuck = blocked.blocked_days >= 2
+  const limitReached = !stuck && sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
   const error = failure || (run && run.error)
   const goodData = h('span', { className: 'q-meta' }, 'آخر بيانات سليمة: ',
     lastClose ? frag('إغلاق ', N(fmtDayMonth(lastClose))) : 'لا يوجد', run && run.finished_at && !run.error ? frag(' · مزامنة ', N(fmtTime(run.finished_at))) : null)
@@ -185,6 +192,15 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
         h('span', { className: 'q-ter', dir: 'auto' }, `(${String(error).slice(0, 140)})`)),
       h(React.Fragment, { key: 'g' }, goodData),
       h('div', { key: 'b' }, h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: syncing, onClick: onRetry }, syncing ? 'جارٍ المحاولة…' : 'إعادة المحاولة'))]))
+  }
+  if (stuck) {
+    cards.push(card('s', 'alert', '--dsw-alias-file-diff-deleted-marker', [
+      h('b', { key: 't' }, 'الأسعار متوقفة: رصيد EODHD اليومي لا يتجدد'),
+      h('span', { key: 'x', className: 'q-sec', style: { lineHeight: 1.7 } },
+        'منذ ', N(fmtDayMonth(blocked.blocked_since.slice(0, 10))), ' وكل محاولة تحديث تجد رصيد اليوم مستهلكًا بالكامل، طوال ',
+        dayCount(blocked.blocked_days), ' على التوالي، مع أن الرصيد يتجدد كل يوم عند منتصف الليل بتوقيت جرينتش. ',
+        'هذا يعني غالبًا أن المفتاح نفسه مستخدم في برنامج أو جهاز آخر يستهلك الرصيد أولًا. راجع الاستخدام في حسابك على EODHD، أو خصّص لهذا التطبيق مفتاحًا وحده.'),
+      h(React.Fragment, { key: 'g' }, goodData)]))
   }
   if (limitReached) {
     const reset = nextLimitReset(now)
@@ -201,7 +217,7 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
   }
   const b = data.breadth
   const priced = data.rows.some((r) => r.price != null)
-  if (!error && !limitReached && priced && b.up + b.down + b.flat === 0) {
+  if (!error && !limitReached && !stuck && priced && b.up + b.down + b.flat === 0) {
     cards.push(card('f', 'status', '--dsw-alias-label-tertiary', [
       h('b', { key: 't' }, 'لا أسعار محدّثة بعد'),
       h('span', { key: 'x', className: 'q-sec' }, 'إغلاق جلسة ', N(fmtDayMonth(data.expected_last_bar)), ' لم يُجلب بعد، والمعروض هو إغلاق ',

@@ -1,7 +1,7 @@
 """Budget-aware refresh of the market cache.
 
-Each run asks EODHD how many calls remain today (the account call is free), keeps a small
-reserve, then spends the rest in priority order: holdings first, then the user's «متابعتي»
+Each run asks EODHD how many calls remain today (the account call is free; its count is for
+apiRequestsDate, so a count from an earlier GMT day means a fresh budget), keeps a small reserve, then spends the rest in priority order: holdings first, then the user's «متابعتي»
 watchlist, then everything else. Inside each tier the stalest cache goes first (index weight breaks
 ties), so when the budget cannot cover a tier its symbols take turns instead of the same ones
 always winning. On the free plan (20 calls, 18 after the reserve) holdings + watchlist up to 18
@@ -13,14 +13,14 @@ since one quote costs one call per symbol.
 
 import json
 import sqlite3
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 
 from ..store.db import now_iso
 from ..store.watchlist import watched_symbols
 from ..universe import load_universe
 from . import store
 from .calendar import expected_last_bar, now_cairo, session_open
-from .eodhd import SOURCE, EodhdClient, MarketDataError
+from .eodhd import LIMIT_STATUSES, SOURCE, EodhdClient, MarketDataError
 
 RESERVE_CALLS = 2
 HISTORY_DAYS = 365 * 5
@@ -29,6 +29,33 @@ QUOTE_INTERVAL = timedelta(minutes=4)
 KEEP_SYNC_RUNS = 500
 # EODHD free plan; used for the refresh plan until a sync has read the real limit.
 FREE_DAILY_LIMIT = 20
+
+
+def calls_used_today(account: dict, at: datetime) -> int:
+    """EODHD's count belongs to `counted_on` and is only zeroed by the first counted call after
+    midnight GMT. Trusting a count from an earlier day blocks every call, so the count never
+    resets (this kept prices frozen from 2026-10-15 to 10-19)."""
+    counted_on = account.get("counted_on")
+    if counted_on and counted_on < at.astimezone(timezone.utc).date().isoformat():
+        return 0
+    return account["used_today"]
+
+
+def budget_status(conn: sqlite3.Connection) -> dict:
+    """Since when the latest syncs have fetched nothing for lack of budget. `blocked_days` counts
+    the GMT days (EODHD's reset) in that streak: one is the normal daily limit, two or more means
+    the budget is not coming back and the UI says so."""
+    days, since = set(), None
+    for started_at, calls, summary in conn.execute(
+            "SELECT started_at, calls_made, summary FROM sync_runs"
+            " WHERE error IS NULL AND summary IS NOT NULL ORDER BY id DESC"):
+        summary = json.loads(summary)
+        if not summary.get("skipped_for_budget") or (calls and not summary.get("limit_refused")):
+            break
+        since = started_at
+        days.add(started_at[:10])
+    last_fetch = conn.execute("SELECT MAX(finished_at) FROM sync_runs WHERE calls_made > 0").fetchone()[0]
+    return {"blocked_since": since, "blocked_days": len(days), "last_fetch_at": last_fetch}
 
 
 def held_symbols(conn: sqlite3.Connection) -> set[str]:
@@ -89,6 +116,9 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
     account = {"plan": None, "used_today": 0, "daily_limit": 0}
     try:
         account = client.account()
+        if account.get("counted_on"):
+            summary["counted_on"] = account["counted_on"]
+        account["used_today"] = calls_used_today(account, at)
         budget = account["daily_limit"] - account["used_today"] - RESERVE_CALLS
         symbols = priority_symbols(conn)
 
@@ -108,6 +138,13 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
                 if rows:
                     summary["bars_updated"].append(symbol)
             except MarketDataError as exc:
+                if exc.status in LIMIT_STATUSES:
+                    # EODHD refused for budget, not for this symbol: leave it unchecked so it is
+                    # retried, and spend nothing more this run.
+                    summary["limit_refused"] = str(exc)
+                    summary["skipped_for_budget"].append(symbol)
+                    budget = 0
+                    continue
                 store.mark_checked(conn, symbol, bars_on=today, error=str(exc))
                 summary["errors"][symbol] = str(exc)
             conn.commit()

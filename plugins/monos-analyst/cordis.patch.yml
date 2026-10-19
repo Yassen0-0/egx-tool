@@ -1,0 +1,5 @@
+# monos-analyst: new sessions start with the EGX analyst preset (egx-analyst.patch.yml); users can
+# still pick another preset from the session menu.
+- id: agent-preset-registry
+  config:
+    default: egx-analyst

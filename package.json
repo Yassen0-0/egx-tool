@@ -1,17 +1,18 @@
 {
   "name": "monos-dev",
   "private": true,
-  "description": "Dev tooling only (build, tests, lint). The app loads bundle/ and never installs this.",
+  "description": "Dev tooling only (build, tests, lint). The app loads the plugins/ packages and never installs this.",
   "type": "module",
   "scripts": {
-    "build": "node bundle/build-client.mjs",
-    "build:check": "node bundle/build-client.mjs --check",
-    "lint": "eslint bundle",
-    "test": "node --test bundle/test/*.test.mjs",
+    "build": "node plugins/build.mjs",
+    "build:check": "node plugins/build.mjs --check",
+    "lint": "eslint plugins eslint.config.js",
+    "test": "node --test plugins/test/*.test.mjs",
     "test:py": "uv run --project mcp pytest -q",
     "lint:py": "uvx ruff@0.8.4 check --config mcp/pyproject.toml mcp",
     "fixtures": "uv run --project mcp python scripts/make-ui-fixtures.py",
-    "check": "npm run build:check && npm run lint && npm test && npm run test:py && npm run lint:py"
+    "check": "npm run build:check && npm run lint && npm test && npm run test:py && npm run lint:py",
+    "new-plugin": "node plugins/new-plugin.mjs"
   },
   "devDependencies": {
     "esbuild": "0.24.2",

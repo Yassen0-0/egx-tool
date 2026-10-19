@@ -1,0 +1,6 @@
+{
+  "meta": {
+    "title": "Monos — Core",
+    "description": "Calculations, storage (MCP server) and the /egx/api routes every screen reads."
+  }
+}

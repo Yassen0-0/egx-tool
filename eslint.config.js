@@ -1,10 +1,12 @@
-// Lint for the screens (bundle/src), the host API and the tests. no-undef is the important rule:
-// every name a screen uses must be imported, so a missing helper fails here, not in the app.
+// Lint for the plugins: their screens (plugins/*/src, plugins/shared), the host API, the build and
+// the tests. no-undef is the important rule: every name a screen uses must be imported, so a missing
+// helper fails here, not in the app.
 import globals from 'globals'
 
 export default [
+  { ignores: ['plugins/*/client.js', 'plugins/*/vendor/**', 'plugins/*/assets/**'] },
   {
-    files: ['bundle/src/**/*.{js,mjs}'],
+    files: ['plugins/shared/**/*.{js,mjs}', 'plugins/*/src/**/*.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.browser } },
     rules: {
       'no-undef': 'error',
@@ -15,7 +17,7 @@ export default [
     },
   },
   {
-    files: ['bundle/host/**/*.mjs', 'bundle/test/**/*.mjs', 'bundle/build-client.mjs', 'eslint.config.js'],
+    files: ['plugins/*/index.js', 'plugins/*/host/**/*.mjs', 'plugins/test/**/*.mjs', 'plugins/build.mjs', 'plugins/new-plugin.mjs', 'eslint.config.js'],
     languageOptions: { ecmaVersion: 2022, sourceType: 'module', globals: { ...globals.node } },
     rules: { 'no-undef': 'error', 'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }] },
   },

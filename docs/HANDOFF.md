@@ -26,7 +26,7 @@
 ```
 egx/
 ├── mcp/                  محرك Python (uv): الحسابات والتخزين والأسعار
-│   ├── egx_mcp/server.py     31 أداة MCP للمحلل (mcp__egx__*)
+│   ├── egx_mcp/server.py     32 أداة MCP للمحلل (mcp__egx__*)
 │   ├── egx_mcp/cli.py        نفس المنطق كأوامر JSON (تستخدمها الشاشات)
 │   ├── egx_mcp/valuation/    DCF، مكررات، DDM، NAV/RNAV، P/B للبنوك، سيناريوهات، فحوصات منطق
 │   ├── egx_mcp/risk/         Altman Z''، Piotroski F، Beneish M، معايير البنوك، التصنيف
@@ -35,26 +35,29 @@ egx/
 │   ├── egx_mcp/data/         مزوّد البيانات: أسعار EODHD المحفوظة أولًا، ثم الملفات اليدوية
 │   └── tests/                اختبارات Python (uv run --project mcp pytest -q)
 ├── skills/               9 ملفات منهجية يتبعها المحلل (SKILL.md)
-├── bundle/               إضافة التطبيق
-│   ├── cordis.patch.yml      صف MCP + صف الشاشات + الشخصية الافتراضية
-│   ├── presets/              شخصية egx-analyst (بدون shell ولا كتابة ملفات)
-│   ├── host/egx-portfolio.mjs  API داخلي /egx/api/* + تحديث الأسعار كل 5 دقائق
-│   ├── src/client.src.js     مصدر الشاشات (React بـ createElement)
-│   ├── client.js             **مولَّد**: node bundle/build-client.mjs (لا تعدّله يدويًا)
-│   └── vendor/               Lightweight Charts 5.2.1 (Apache-2.0)
+├── plugins/              البلوجنز اللي بتتركّب في التطبيق (docs/PLUGINS.md)
+│   ├── monos-core/           صف MCP + host/api.mjs (/egx/api/* + تحديث الأسعار كل 5 دقايق)
+│   ├── monos-analyst/        شخصية egx-analyst (من غير shell ولا كتابة ملفات) + الافتراضية
+│   ├── monos-identity/       شعار المحادثة الفاضية + أصول أيقونة التطبيق
+│   ├── monos-market/         شاشة السوق + متابعتي (+ vendor/ Lightweight Charts 5.2.1، Apache-2.0)
+│   ├── monos-analyses/       التحليلات
+│   ├── monos-portfolio/      المحفظة
+│   ├── shared/               الكود المشترك (runtime، format، labels، components، identity، CSS)
+│   ├── test/                 اختبارات JS + عرض الشاشات في jsdom
+│   └── build.mjs             بيبني client.js لكل بلوجن (esbuild). client.js **مولَّد**، ما تعدّلوش بإيدك
 ├── data/manual/          قوالب القوائم المالية والاقتصاد الكلي (فارغة)
 ├── data/egx.sqlite       قاعدة البيانات الحقيقية (مستبعدة من git)
 ├── scripts/              install-desktop.sh وسكربتات إعادة التسمية (شرحها في `docs/REBRAND-MONOS.md`)
 └── docs/                 هذا الملف، وموجز التصميم
 ```
 
-**تدفق البيانات:** الشاشة ← `/egx/api/*` (host plugin) ← `egx-cli` (Python) ← SQLite. المحلل ← أدوات MCP ← نفس دوال Python. منطق واحد للطرفين.
+**تدفق البيانات:** الشاشة (بلوجن) ← `/egx/api/*` (`monos-core`) ← `egx-cli` (`commands.py`) ← SQLite. المحلل ← أدوات MCP ← نفس دوال Python. منطق واحد للطرفين.
 
 ## 4. التشغيل
-- **تطبيق الديسكتوب (الاستخدام الفعلي):** `scripts/install-desktop.sh` مرة واحدة (يكتب `EGX_HOME` و`EGX_DATA_DIR` و`EGX_UV` في `~/.dsh/.env` ويربط الإضافة كرابط). أي تعديل يظهر بعد إعادة تشغيل التطبيق. الإضافة مثبتة على ملف التطبيق `~/.dsh/profiles/desktop`.
+- **تطبيق الديسكتوب (الاستخدام الفعلي):** `scripts/install-desktop.sh` مرة واحدة (يكتب `EGX_HOME` و`EGX_DATA_DIR` و`EGX_UV` في `~/.dsh/.env` ويربط الـ 6 بلوجنز كروابط، ويتأكد من التكوين). أي تعديل بيظهر بعد إعادة تشغيل التطبيق. البلوجنز متثبتة على ملف التطبيق `~/.dsh/profiles/desktop`.
 - **لا يوجد وضع تطوير في المتصفح (أُزيل في 18 أكتوبر).** التطبيق (Monos) هو المنتج الوحيد، ويقرأ من `/Volumes/ssd-work/egx` على `main`. أي شغل على فرع آخر أو worktree لا يظهر فيه قبل دمجه في `main`. القواعد كاملة في `CLAUDE.md`.
-- **بعد تعديل الشاشات:** `node bundle/build-client.mjs`. المصادر في `bundle/src/`: `client.src.js` (الهيكل والتسجيل في الشريط الجانبي)، و`format.mjs` و`labels.mjs` (دوال مختبرة)، وملف لكل شاشة (`market.js`، `analyses.js`، `portfolio.js`) مع `identity.js` و`components.js` وملفات CSS. البناء يدمجهم في نطاق واحد.
-- **اختبارات الواجهة:** `node --test bundle/test/*.test.mjs`.
+- **بعد تعديل الشاشات:** `npm run build`. كل شاشة بلوجن ليه `src/` لوحده، والمشترك في `plugins/shared/`. أي ميزة جديدة: `npm run new-plugin`، وبعدين `FEATURE.md` (`docs/PLUGINS.md`).
+- **الاختبارات:** `npm run check`.
 
 ## 5. مصادر البيانات والحالة الحالية
 | البيان | المصدر | الحالة |
@@ -78,7 +81,7 @@ egx/
     - نسخة من مستودع `deepseek-ai/deepseek-harness` (رخصة MIT؛ يجب إبقاء إشعار الرخصة) وبناء تطبيق الديسكتوب منه بنفسنا (pnpm monorepo + Electron).
     - التطبيق الناتج غير موقّع من Apple إلا بحساب مطوّر (99$ سنويًا)؛ للاستخدام الشخصي يكفي تشغيله غير موقّع مع تحذير أول مرة.
     - كل تحديث للمحرّك الأساسي يحتاج دمجًا يدويًا مع تعديلاتنا. لتقليل ذلك: كل ما يمكن عمله بإضافة أو إعدادات يبقى خارج الفورك، والفورك للمظهر فقط.
-    - بعض ميزات المطورين يمكن إخفاؤها من الإعدادات (`disabled: true` على صفوفها في `bundle/cordis.patch.yml`) بدون فورك.
+    - بعض ميزات المطورين يمكن إخفاؤها من الإعدادات (`disabled: true` على صفوفها في `~/.dsh/profiles/desktop/cordis.patch.yml`) بدون فورك.
 
 ## 7. أشياء قد تفاجئك
 - التحديث التلقائي للتطبيق مقفول. تحديث المحرّك يتم يدويًا (README، «البنية الداخلية»)، وجرّب الأداة بعد كل تحديث.

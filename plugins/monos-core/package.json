@@ -1,0 +1,32 @@
+{
+  "name": "monos-core",
+  "version": "1.0.0",
+  "description": "Monos core: the egx MCP server (valuation, risk, storage) and the /egx/api routes every screen plugin reads",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "icon": "./icon.svg",
+  "exports": {
+    ".": "./host/api.mjs",
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "host/api.mjs",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml"
+      ]
+    }
+  },
+  "monos": {
+    "feature": "FEATURE.md"
+  }
+}

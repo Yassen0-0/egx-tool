@@ -1,5 +1,5 @@
-"""Write bundle/test/fixtures/api.json: what /egx/api answers for a small SYNTHETIC portfolio, at a
-fixed Cairo time, so bundle/test/render.test.mjs can render every screen in Node.
+"""Write plugins/test/fixtures/api.json: what /egx/api answers for a small SYNTHETIC portfolio, at a
+fixed Cairo time, so plugins/test/render.test.mjs can render every screen in Node.
 
 Never reads data/egx.sqlite: everything is created in a temporary database. Re-run after an API
 change:  uv run --project mcp python scripts/make-ui-fixtures.py
@@ -13,7 +13,7 @@ from datetime import date, datetime, timedelta
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "bundle" / "test" / "fixtures" / "api.json"
+OUT = ROOT / "plugins" / "test" / "fixtures" / "api.json"
 
 
 def main() -> None:

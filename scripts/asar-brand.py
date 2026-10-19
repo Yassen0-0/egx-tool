@@ -40,7 +40,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-ASSETS = ROOT / 'bundle/assets/monos'
+ASSETS = ROOT / 'plugins/monos-identity/assets/monos'
 
 PRODUCT = 'DeepSeek Harness'   # the brand token as baked into the app UI
 BRAND = 'Monos'                # our replacement
@@ -213,7 +213,7 @@ EXACT = [
      'function needsWelcome(authentication) {\n\treturn !authentication.loggedIn && !authentication.hasApiKey;\n}',
      'function needsWelcome(authentication) {\n\treturn false; // Monos: no DeepSeek sign-in gate\n}'),
     # empty conversation: the headline under the hero mark (the mark itself is filled by the
-    # bundle through the conversation.hero.brand.mark slot, see bundle/src/identity.js).
+    # bundle through the conversation.hero.brand.mark slot, the monos-identity plugin, plugins/monos-identity).
     ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
      '"hero.headline": "Into the Unknown"', '"hero.headline": "Monos"'),
     ('dsh/node_modules/@deepseek-ai/dsh-client-ui-conversation/lib/client.js',
@@ -295,7 +295,7 @@ WELCOME_SVG = '''<svg width="472" height="40" viewBox="0 0 472 40" fill="none" x
 '''
 
 # both favicons carry the DeepSeek whale; replace them with the Monos app-icon mark (the same
-# drawing as bundle/assets/monos/monos-app-icon.svg).  The XML comment doubles as the
+# drawing as plugins/monos-identity/assets/monos/monos-app-icon.svg).  The XML comment doubles as the
 # idempotence marker.
 FAVICON_FILES = [
     'dsh/node_modules/@deepseek-ai/dsh-web-frontend/dist/favicon.svg',

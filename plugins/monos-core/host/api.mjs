@@ -1,0 +1,204 @@
+// monos-core host plugin: the JSON API at /egx/api/* every Monos screen plugin reads, backed by
+// the same Python logic the MCP tools use (egx-cli → mcp/egx_mcp/commands.py), plus the
+// 5-minute price refresh.
+// Desktop forwards dsh-app://app requests here after dropping Host and Origin.
+//
+// The API answers same-origin requests only: mutating requests must carry
+// X-EGX-Request and a JSON body (which forces a CORS preflight that this route
+// never approves), any Origin header must match the Host, and the Host must be
+// a loopback name so DNS rebinding cannot reach it.
+
+import { execFile } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
+
+export const name = 'monos-core'
+export const inject = ['webServer']
+
+const MAX_BODY_BYTES = 16 * 1024
+const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
+
+
+function cliCommand() {
+  const home = process.env.EGX_HOME
+  if (!home) throw new Error('EGX_HOME is not set')
+  const direct = join(home, 'mcp', '.venv', 'bin', 'egx-cli')
+  if (existsSync(direct)) return { file: direct, prefix: [] }
+  return { file: process.env.EGX_UV ?? 'uv', prefix: ['run', '--quiet', '--directory', join(home, 'mcp'), 'egx-cli'] }
+}
+
+function runCli(command, payload) {
+  const { file, prefix } = cliCommand()
+  const args = [...prefix, command]
+  if (payload !== undefined) args.push(JSON.stringify(payload))
+  const env = { ...process.env }
+  if (!env.EGX_DATA_DIR && env.EGX_HOME) env.EGX_DATA_DIR = join(env.EGX_HOME, 'data')
+  return new Promise((resolve) => {
+    execFile(file, args, { env, timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+      let body
+      try {
+        body = JSON.parse(stdout)
+      } catch {
+        body = { error: (stderr || error?.message || 'egx-cli produced no output').trim().slice(0, 500) }
+      }
+      const status = body && typeof body === 'object' && 'error' in body ? (error?.code === 2 ? 400 : 500) : 200
+      resolve({ status, body })
+    })
+  })
+}
+
+function sendJson(res, status, body) {
+  res.writeHead(status, { 'content-type': 'application/json; charset=utf-8', 'cache-control': 'no-store' })
+  res.end(JSON.stringify(body))
+}
+
+function hostAllowed(req) {
+  const host = (req.headers.host ?? '').toLowerCase()
+  const name = host.startsWith('[') ? host.slice(0, host.indexOf(']') + 1) : host.split(':')[0]
+  if (!LOOPBACK_HOSTS.has(name)) return false
+  const origin = req.headers.origin
+  if (origin === undefined) return true
+  try {
+    return new URL(origin).host.toLowerCase() === host
+  } catch {
+    return false
+  }
+}
+
+async function readJson(req) {
+  let size = 0
+  const chunks = []
+  for await (const chunk of req) {
+    size += chunk.length
+    if (size > MAX_BODY_BYTES) throw new Error('request body too large')
+    chunks.push(chunk)
+  }
+  const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
+  // Every route reads named fields: null, a number or an array is a bad request, not a crash.
+  if (body === null || typeof body !== 'object' || Array.isArray(body)) throw new Error('request body must be a JSON object')
+  return body
+}
+
+async function handleApi(req, res, path, query) {
+  const method = req.method ?? 'GET'
+  if (method === 'GET' && path === '/egx/api/portfolio') {
+    const { status, body } = await runCli('portfolio-summary')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/watchlist') {
+    const { status, body } = await runCli('watchlist-list')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/universe') {
+    const { status, body } = await runCli('universe')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/valuations') {
+    const q = query
+    const { status, body } = await runCli('valuations-list', {
+      symbol: q.get('symbol') || null,
+      risk_rating: q.get('risk_rating') || null,
+      kind: q.has('kind') ? (q.get('kind') || null) : 'full',
+      date_from: q.get('date_from') || null,
+      date_to: q.get('date_to') || null,
+      limit: Number(q.get('limit') || 50),
+      offset: Number(q.get('offset') || 0),
+    })
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/market') {
+    const { status, body } = await runCli('market-summary')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/market/digest') {
+    const { status, body } = await runCli('market-digest')
+    return sendJson(res, status, body)
+  }
+  const history = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/history$/.exec(path)
+  if (method === 'GET' && history) {
+    const { status, body } = await runCli('market-history', { symbol: history[1], days: Number(query.get('days') || 365) })
+    return sendJson(res, status, body)
+  }
+  const series = /^\/egx\/api\/valuations\/series\/([A-Za-z0-9.]{2,12})$/.exec(path)
+  if (method === 'GET' && series) {
+    const { status, body } = await runCli('valuation-series', { symbol: series[1] })
+    return sendJson(res, status, body)
+  }
+  const single = /^\/egx\/api\/valuations\/(\d+)$/.exec(path)
+  if (method === 'GET' && single) {
+    const { status, body } = await runCli('valuation-get', { valuation_id: Number(single[1]) })
+    return sendJson(res, status, body)
+  }
+  const mutating = method === 'POST' || method === 'PATCH' || method === 'DELETE'
+  if (!mutating) return sendJson(res, 405, { error: 'method not allowed' })
+  if (req.headers['x-egx-request'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) {
+    return sendJson(res, 403, { error: 'missing same-origin request headers' })
+  }
+  let payload
+  try {
+    payload = await readJson(req)
+  } catch (error) {
+    return sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
+  }
+  if (method === 'POST' && path === '/egx/api/market/sync') {
+    return sendJson(res, 200, await syncMarket(Boolean(payload.force_quotes)))
+  }
+  // «متابعتي»: POST {symbol} follows a stock, DELETE /watchlist/{SYMBOL} unfollows it.
+  const watch = /^\/egx\/api\/watchlist(?:\/([A-Za-z0-9.]{2,12}))?$/.exec(path)
+  if (watch) {
+    let result
+    if (method === 'POST' && watch[1] === undefined) result = await runCli('watchlist-add', { symbol: String(payload.symbol ?? '') })
+    else if (method === 'DELETE' && watch[1] !== undefined) result = await runCli('watchlist-remove', { symbol: watch[1] })
+    else return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, result.status, result.body)
+  }
+  const match = /^\/egx\/api\/holdings(?:\/(\d+))?$/.exec(path)
+  if (!match) return sendJson(res, 404, { error: 'not found' })
+  const id = match[1] === undefined ? undefined : Number(match[1])
+  let result
+  if (method === 'POST' && id === undefined) result = await runCli('portfolio-add', payload)
+  else if (method === 'PATCH' && id !== undefined) result = await runCli('portfolio-update', { ...payload, holding_id: id })
+  else if (method === 'DELETE' && id !== undefined) result = await runCli('portfolio-remove', { holding_id: id })
+  else return sendJson(res, 405, { error: 'method not allowed' })
+  return sendJson(res, result.status, result.body)
+}
+
+// Market refresh: one run at a time. Each run asks EODHD for the remaining daily budget
+// (free) and only spends calls when bars or quotes are due, so a short interval is cheap.
+const SYNC_INTERVAL_MS = 5 * 60 * 1000
+let syncing = null
+
+function syncMarket(forceQuotes = false) {
+  if (!syncing) {
+    syncing = runCli('market-sync', { force_quotes: forceQuotes })
+      .then(({ body }) => body)
+      .finally(() => { syncing = null })
+  }
+  return syncing
+}
+
+export function apply(ctx) {
+  if (process.env.EGX_AUTO_SYNC !== '0') {
+    ctx.effect(() => {
+      const first = setTimeout(() => { void syncMarket() }, 15_000)
+      const every = setInterval(() => { void syncMarket() }, SYNC_INTERVAL_MS)
+      return () => { clearTimeout(first); clearInterval(every) }
+    })
+  }
+  ctx.effect(() => ctx.webServer.register({
+    kind: 'prefix',
+    path: '/egx/api',
+    async handler(req, res) {
+      const url = new URL(req.url ?? '/', 'http://local')
+      const path = url.pathname.replace(/\/+$/, '')
+      if (!hostAllowed(req)) return sendJson(res, 403, { error: 'forbidden host or origin' })
+      if (!path.startsWith('/egx/api/')) return sendJson(res, 404, { error: 'not found' })
+      try {
+        return await handleApi(req, res, path, url.searchParams)
+      } catch (error) {
+        // An unexpected failure still answers, so the screen shows an error instead of waiting forever.
+        if (!res.headersSent) sendJson(res, 500, { error: error instanceof Error ? error.message : 'internal error' })
+      }
+    },
+  }))
+}

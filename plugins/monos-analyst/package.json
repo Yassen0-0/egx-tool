@@ -1,0 +1,33 @@
+{
+  "name": "monos-analyst",
+  "version": "1.0.0",
+  "description": "Monos analyst: the EGX Analyst agent preset (no shell, egx tools and the EGX skills) as the default for new sessions",
+  "license": "UNLICENSED",
+  "private": true,
+  "type": "module",
+  "icon": "./icon.svg",
+  "exports": {
+    "./cordis.patch.yml": "./cordis.patch.yml",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg",
+    "./package.json": "./package.json",
+    "./egx-analyst.patch.yml": "./egx-analyst.patch.yml"
+  },
+  "files": [
+    "cordis.patch.yml",
+    "locale/*.json",
+    "icon.svg",
+    "egx-analyst.patch.yml"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": [
+        "./cordis.patch.yml",
+        "./egx-analyst.patch.yml"
+      ]
+    }
+  },
+  "monos": {
+    "feature": "FEATURE.md"
+  }
+}

@@ -1,0 +1,6 @@
+# monos-analyses: شاشة التحليلات: أرشيف التقييمات وصفحة التحليل الكاملة. Turn it off without touching the others with a profile patch row
+#   - id: monos-analyses
+#     disabled: true
+- insert:
+    - id: monos-analyses
+      name: monos-analyses

@@ -7,7 +7,7 @@
 
 ## 2. التطبيق يقرأ من هنا فقط
 - التطبيق مربوط بالمجلد `/Volumes/ssd-work/egx` على الفرع **`main`**:
-  - الواجهة والـ API: `~/.dsh/profiles/desktop/node_modules/dsh-egx-bundle` → `bundle/`
+  - المشروع عبارة عن 6 بلوجنز في `plugins/monos-*`، وكل واحد مربوط (link) في `~/.dsh/profiles/desktop/node_modules/<name>`. التفاصيل في `docs/PLUGINS.md`
   - Python: `EGX_HOME` و`EGX_DATA_DIR` في `~/.dsh/.env` يشيران إلى نفس المجلد
 - **أي شغل خارج هذا المجلد أو على فرع غير `main` لا يظهر في التطبيق.**
 - لو الجلسة تعمل داخل worktree (مسار فيه `.claude/worktrees/`): لا تقل «خلصت» قبل أن يصل الشغل إلى `main` داخل `/Volumes/ssd-work/egx`. الطريقة: ادمج `origin/main` في فرعك، ثم `git push origin HEAD:main`، ثم `git -C /Volumes/ssd-work/egx pull --ff-only origin main`. إن لم يأذن المستخدم بالدمج، قل له صراحةً إن الشغل **لم يصل للتطبيق بعد**.
@@ -16,10 +16,11 @@
 ## 3. متى يظهر التعديل في التطبيق
 | ما تغيّر | ما المطلوب |
 |---|---|
-| `bundle/src/*` (الشاشات) | `npm install` (أول مرة بس، عشان أدوات البناء)، وبعدين `npm run build`، وبعدين تقفل التطبيق (Cmd+Q) وتفتحه تاني |
-| `bundle/host/egx-portfolio.mjs` (الـ API) | إعادة تشغيل التطبيق |
+| `plugins/*/src/*` أو `plugins/shared/*` (الشاشات) | `npm install` (أول مرة بس)، وبعدين `npm run build`، وبعدين تقفل التطبيق (Cmd+Q) وتفتحه تاني |
+| `plugins/monos-core/host/api.mjs` (الـ API) | إعادة تشغيل التطبيق |
 | `mcp/egx_mcp/*` (Python) | الـ API يقرأ التعديل مباشرة؛ أدوات المحلل (MCP) تحتاج إعادة تشغيل التطبيق |
-| `skills/*`، `bundle/presets/*`، `bundle/cordis.patch.yml` | إعادة تشغيل التطبيق |
+| `skills/*`، `plugins/monos-analyst/*`، أي `cordis.patch.yml` | إعادة تشغيل التطبيق |
+| بلوجن جديد أو اتمسح | تقفل التطبيق، وبعدين `./scripts/install-desktop.sh --plugins-only`، وبعدين تفتحه |
 
 - إعادة تشغيل التطبيق تقطع محادثات المستخدم الجارية: **اطلب منه هو أن يعيد التشغيل**، ولا تغلقه بنفسك إلا إذا طلب ذلك.
 - للتحقق البصري بعد إعادة التشغيل: لقطة شاشة لنافذة «Monos» (أداة computer-use)، وراجع الوضعين الفاتح والداكن من إعدادات التطبيق.
@@ -29,16 +30,25 @@
 - التطبيق يستخدم `data/egx.sqlite`، وهي بيانات المستخدم الحقيقية: محفظته وتقييماته ومتابعته. **لا تكتب فيها بيانات تجريبية ولا تمسح منها شيئًا.**
 - الاختبارات بتشتغل على قواعد بيانات مؤقتة وبيانات صناعية، وما بتلمسش البيانات الحقيقية:
   - `npm run check`: كل حاجة مرة واحدة (محتاج `npm install` أول مرة).
-  - أو كل واحد لوحده: `uv run --project mcp pytest -q` و`node --test bundle/test/*.test.mjs`.
+  - أو كل واحد لوحده: `uv run --project mcp pytest -q` و`npm test`.
 - قبل أي ترقية لشكل القاعدة، بتتعمل نسخة احتياطية تلقائيًا في `data/backups/`. خطوات الترقية مرقّمة في `store/db.py` (`MIGRATIONS`): ضيف خطوة جديدة، وما تعدّلش خطوة قديمة.
 - مفتاح EODHD في `~/.dsh/.env` أو `egx-api.docx`. لا تطبعه ولا تكتبه في أي ملف.
 
 ## 5. قواعد ثابتة
 - تقييم وليس توصية: ممنوع أي كلام عن شراء أو بيع كنصيحة (التفاصيل في `docs/design/CLAUDE_CODE.md` §2).
 - الألوان من توكنز التطبيق فقط (`--dsw-alias-*`)، وكل رقم داخل `<span class="num">`.
-- مصادر الواجهة في `bundle/src/`، و`bundle/client.js` ملف مولَّد: عدّل المصادر وبعدين ابنيها.
-  - كل شاشة module مستقل فيه `import` صريح. نقطة البداية `src/index.js`، والأجزاء المشتركة في `src/runtime.js`، والبناء بـ esbuild.
-  - `npm run lint` بيفشل لو فيه اسم مستخدَم من غير `import`.
-  - `bundle/test/render.test.mjs` بيعرض كل الشاشات في Node ببيانات صناعية (`bundle/test/fixtures/api.json`). لو اتغيّر شكل الـ API، ولّد البيانات من جديد بـ `uv run --project mcp python scripts/make-ui-fixtures.py`.
+- **كل حاجة بلوجن** (`docs/PLUGINS.md`):
+  - `monos-core`: الحسابات والبيانات والـ API.
+  - `monos-analyst`: المحلل.
+  - `monos-identity`: الشعار.
+  - `monos-market` و`monos-analyses` و`monos-portfolio`: الشاشات.
+  - الكود المشترك في `plugins/shared/`، وكل بلوجن بيبني نسخته جوه `client.js`. أي حالة لازم تبقى واحدة بين البلوجنز بتتعمل بـ `pageShared()`.
+- **أي ميزة جديدة = بلوجن جديد:**
+  1. `npm run new-plugin -- <name> "<العنوان>"`
+  2. اكتب `FEATURE.md` الأول، بالأقسام دي: هتعمل إيه، وشكلها، وهتتصرف إزاي، وهنصلّحها إزاي. ونتفق عليه.
+  3. بعد كده الكود، وبعده `npm run check`، وبعده التثبيت.
+  - **الحساب دايمًا في Python** (`mcp/egx_mcp/commands.py`)، والبلوجن بيعرض بس. وما ينفعش بلوجن يعتمد على بلوجن تاني غير `monos-core`.
+- `plugins/*/client.js` ملفات مولَّدة. عدّل المصادر، وبعدين `npm run build`. و`npm run lint` بيفشل لو فيه اسم مستخدَم من غير `import`.
+- `plugins/test/render.test.mjs` بيعرض كل البلوجنز في صفحة واحدة، وكل بلوجن لوحده، ببيانات صناعية (`plugins/test/fixtures/api.json`). لو شكل الـ API اتغيّر: `npm run fixtures`.
 - بعد كل تغيير: شغّل `npm run check`، واعمل commit، ووصّله لـ `main` واعمل push (المستودع: Yassen0-0/egx-tool).
 - جرد المراجعة وحالة كل بند في `docs/AUDIT-2026-10.md`.

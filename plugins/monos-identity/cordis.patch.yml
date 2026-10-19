@@ -1,0 +1,6 @@
+# monos-identity: هوية Monos: الشعار في المحادثة الفاضية. Turn it off without touching the others with a profile patch row
+#   - id: monos-identity
+#     disabled: true
+- insert:
+    - id: monos-identity
+      name: monos-identity

@@ -1,0 +1,6 @@
+# monos-portfolio: شاشة المحفظة: الأسهم اللي بتدخلها بنفسك، وحركة اليوم أولًا. Turn it off without touching the others with a profile patch row
+#   - id: monos-portfolio
+#     disabled: true
+- insert:
+    - id: monos-portfolio
+      name: monos-portfolio

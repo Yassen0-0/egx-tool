@@ -58,7 +58,7 @@
 # scripts/strip-deepseek-profile.py.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-ICNS="$ROOT/bundle/assets/monos/Monos.icns"
+ICNS="$ROOT/plugins/monos-identity/assets/monos/Monos.icns"
 TARGET="${MONOS_APP:-/Applications/Monos.app}"   # override to rebrand a copy elsewhere
 SOURCE="/Applications/DeepSeek Harness.app"
 

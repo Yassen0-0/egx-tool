@@ -62,7 +62,17 @@ echo "→ Linking ${#LINKS[@]} Monos plugins into profile $PROFILE"
 (cd "$PROFILE_DIR" && "$DSH" plugin --profile "$PROFILE" add "${LINKS[@]}")
 
 echo "→ Checking the composed profile"
-DUMP="$(EGX_HOME="$ROOT" DSH_HOME="$DSH_HOME" "$DSH" --profile "$PROFILE" --dump-config 2>&1)" || {
+# dsh refuses --dump-config on "desktop" (the Electron app owns it), so compose a throwaway copy of
+# the profile's manifest and patch layer instead; the real profile is not touched.
+CHECK_HOME="$(mktemp -d)"
+trap 'rm -rf "$CHECK_HOME"' EXIT
+mkdir -p "$CHECK_HOME/profiles/monos-check"
+for f in package.json cordis.patch.yml cordis.yml pnpm-workspace.yaml; do
+  [ -f "$PROFILE_DIR/$f" ] && cp "$PROFILE_DIR/$f" "$CHECK_HOME/profiles/monos-check/"
+done
+sed -i '' 's/"dsh-profile-[^"]*"/"dsh-profile-monos-check"/' "$CHECK_HOME/profiles/monos-check/package.json"
+(cd "$CHECK_HOME/profiles/monos-check" && DSH_HOME="$CHECK_HOME" "$DSH" plugin --profile monos-check install >/dev/null 2>&1)
+DUMP="$(EGX_HOME="$ROOT" DSH_HOME="$CHECK_HOME" "$DSH" --profile monos-check --dump-config 2>&1)" || {
   echo "$DUMP" | tail -20 >&2; echo "The profile does not compose; restore with: cp $PROFILE_DIR/package.json.before-monos-plugins $PROFILE_DIR/package.json && (cd $PROFILE_DIR && $DSH plugin --profile $PROFILE install)" >&2; exit 1; }
 missing=0
 # Rows every install needs, plus one row per plugin that has a host half (index.js or host/).

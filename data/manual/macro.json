@@ -1,9 +1,9 @@
 {
   "_help": "Fill each value as a decimal (0.25 = 25%) with its date and source. Leave value null until known.",
-  "risk_free_rate_egp": {"value": null, "as_of": "", "source": ""},
-  "equity_risk_premium": {"value": null, "as_of": "", "source": ""},
-  "long_run_nominal_growth": {"value": null, "as_of": "", "source": ""},
-  "inflation_yoy": {"value": null, "as_of": "", "source": ""},
-  "usd_egp": {"value": null, "as_of": "", "source": ""},
-  "corporate_tax_rate": {"value": null, "as_of": "", "source": ""}
+  "risk_free_rate_egp": {"value": 0.24019, "as_of": "2026-10-12", "source": "CBE, EGP T-Bonds Fixed Coupon auction 12/10/2026: 3-year bond EGBGR07221F7, accepted weighted average yield 24.019% (https://www.cbe.org.eg/en/auctions/egp-t-bonds-fixed-coupon). Longest tenor the CBE auctioned recently; cross-checks: 357-day T-bill 25.705% on 15/10/2026 (https://www.cbe.org.eg/en/auctions/egp-t-bills), Cbonds Egypt 10Y index 23.06% on 09/09/2026 (indicative). Gross local yield, so it already carries Egypt's sovereign default spread."},
+  "equity_risk_premium": {"value": 0.0757, "as_of": "2026-01-05", "source": "Damodaran, Country Default Spreads and Risk Premiums, January 2026 (https://pages.stern.nyu.edu/~adamodar/New_Home_Page/datafile/ctryprem.html): mature-market ERP 4.23%, Egypt (Caa1) country risk premium 9.71%, adjusted default spread 6.37%. ERP here = 4.23% + (9.71% - 6.37%) = 7.57%, because risk_free_rate_egp is a gross EGP government yield that already includes the 6.37% default spread; adding Damodaran's total 13.94% on top would count that spread twice."},
+  "long_run_nominal_growth": {"value": 0.118, "as_of": "2026-10-13", "source": "Ceiling for terminal growth = (1 + long-run real growth 4.5%) x (1 + CBE inflation target 7%) - 1 = 11.8%. Real growth: IMF October 2026 WEO puts Egypt at 4.4% (2025) to 5.1% (2026) and 4.7% (2027) as reported by Ahram Online 13/10/2026 (https://english.ahram.org.eg/News/578798.aspx); 4.5% taken as the sustained rate. Inflation: CBE target 7% +/- 2pp, expected in H2 2027 (CBE CPI press release September 2026)."},
+  "inflation_yoy": {"value": 0.139, "as_of": "2026-10-10", "source": "CAPMAS via CBE CPI press release September 2026: annual urban headline inflation 13.9% (August 14.5%); core 14.1% (https://www.cbe.org.eg/en/news-publications/news/2026/10/11/11/36/cpi-press-release-september-2026)."},
+  "usd_egp": {"value": 53.5217, "as_of": "2026-10-18", "source": "CBE average market rate 18/10/2026: USD buy 53.4717, sell 53.5717; value is the mid (https://www.cbe.org.eg/en/economic-research/statistics/exchange-rates)."},
+  "corporate_tax_rate": {"value": 0.225, "as_of": "2025-08-13", "source": "Standard Egyptian corporate income tax 22.5% of net taxable profit (oil exploration 40.55%; Suez Canal Authority, EGPC and CBE 40%). PwC Worldwide Tax Summaries, last reviewed 13/08/2025 (https://taxsummaries.pwc.com/egypt/corporate/taxes-on-corporate-income)."}
 }

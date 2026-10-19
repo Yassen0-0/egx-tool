@@ -209,8 +209,9 @@ def market_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict
         "last_sync": last_run,
         # Holdings + «متابعتي» against the daily price budget (the UI warns on overflow).
         "refresh_plan": refresh_plan(conn),
-        # Days in a row with no budget to fetch anything (the UI explains a block that outlasts a day).
-        "price_budget": budget_status(conn),
+        # Days in a row with no budget to fetch anything (the UI explains a block that outlasts a day)
+        # and the calls left today for «حدّث سعر …».
+        "price_budget": budget_status(conn, at),
         "universe_as_of": load_universe()["as_of"],
     }
 

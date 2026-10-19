@@ -143,6 +143,13 @@ async function handleApi(req, res, path, query) {
   if (method === 'POST' && path === '/egx/api/market/sync') {
     return sendJson(res, 200, await syncMarket(Boolean(payload.force_quotes)))
   }
+  // «حدّث سعر …»: one stock, one call (market-sync-symbol), never at the same time as a full sync.
+  const one = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/sync$/.exec(path)
+  if (one) {
+    if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const { status, body } = await exclusive(() => runCli('market-sync-symbol', { symbol: one[1] }))
+    return sendJson(res, status, body)
+  }
   // «متابعتي»: POST {symbol} follows a stock, DELETE /watchlist/{SYMBOL} unfollows it.
   const watch = /^\/egx\/api\/watchlist(?:\/([A-Za-z0-9.]{2,12}))?$/.exec(path)
   if (watch) {
@@ -167,10 +174,18 @@ async function handleApi(req, res, path, query) {
 // (free) and only spends calls when bars or quotes are due, so a short interval is cheap.
 const SYNC_INTERVAL_MS = 5 * 60 * 1000
 let syncing = null
+// Runs that read the budget and then spend it go one after another, or two could both spend the
+// same remaining calls.
+let lock = Promise.resolve()
+function exclusive(task) {
+  const run = lock.then(task, task)
+  lock = run.catch(() => {})
+  return run
+}
 
 function syncMarket(forceQuotes = false) {
   if (!syncing) {
-    syncing = runCli('market-sync', { force_quotes: forceQuotes })
+    syncing = exclusive(() => runCli('market-sync', { force_quotes: forceQuotes }))
       .then(({ body }) => body)
       .finally(() => { syncing = null })
   }

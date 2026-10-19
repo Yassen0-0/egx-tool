@@ -19,6 +19,7 @@ export async function renderClient(clientPaths, { interact, fixtures = {} } = {}
   const { window } = dom
   const errors = []
   const unknownRequests = []
+  const requests = []
   const RealDate = Date
   class FixedDate extends RealDate {
     constructor(...args) { super(...(args.length ? args : [NOW])) }
@@ -48,6 +49,7 @@ export async function renderClient(clientPaths, { interact, fixtures = {} } = {}
   window.Element.prototype.scrollIntoView = () => {}
   window.fetch = globals.fetch = async (path, init = {}) => {
     const method = (init.method || 'GET').toUpperCase()
+    requests.push(`${method} ${path}`)
     // Chart ranges differ by screen; every history request is answered from the 1-year fixture.
     const key = path.replace(/\/history\?days=\d+$/, '/history?days=365')
     const body = method === 'GET' ? (fixtures[key] ?? FIXTURES[key]) : { ok: true, bars_updated: [], skipped_for_budget: [] }
@@ -96,7 +98,7 @@ export async function renderClient(clientPaths, { interact, fixtures = {} } = {}
       await act(async () => root.unmount())
       host.remove()
     }
-    return { html: out, errors, unknownRequests, plugins: factories.map((f) => f.id), slots: slots.map((s) => `${s.options.name}:${s.options.key || s.options.id || s.options.name}`) }
+    return { html: out, errors, unknownRequests, requests, plugins: factories.map((f) => f.id), slots: slots.map((s) => `${s.options.name}:${s.options.key || s.options.id || s.options.name}`) }
   } finally {
     console.error = originalError
     for (const [k, d] of Object.entries(saved)) { if (d) Object.defineProperty(globalThis, k, d); else delete globalThis[k] }

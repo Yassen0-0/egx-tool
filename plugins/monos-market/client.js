@@ -898,7 +898,7 @@ var __monos = (() => {
         "p",
         { className: "m-plan" },
         h(StarGlyph, { on: cover.priority > 0, size: 12 }),
-        cover.overflow ? "الأسهم في متابعتي ومحفظتك لها الأولوية في التحديث، والباقي بالتناوب" : cover.priority ? "الأسهم في متابعتي ومحفظتك تتحدّث يوميًا، والباقي بالتناوب" : "ميّز الأسهم التي تهمك بالنجمة لتتحدّث يوميًا، والباقي بالتناوب"
+        cover.overflow ? "الأسهم في متابعتي ومحفظتك لها الأولوية في التحديث، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم" : cover.priority ? "الأسهم في متابعتي ومحفظتك تتحدّث يوميًا، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم" : "ميّز الأسهم التي تهمك بالنجمة لتتحدّث يوميًا، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم"
       )
     );
   }
@@ -924,7 +924,7 @@ var __monos = (() => {
         " فقط، لذلك سيتحدّث ",
         stockCount(cover.overflow),
         " منها يومًا بعد يوم بالتناوب،",
-        " ولن يبقى رصيد لباقي أسهم المؤشر إلا في عطلة نهاية الأسبوع.",
+        " ولن يبقى رصيد لتحديث باقي أسهم المؤشر عند الطلب.",
         cover.watched ? " لتتحدّث كلها يوميًا أزل النجمة عن بعض أسهم متابعتي." : null
       )
     );
@@ -1008,7 +1008,7 @@ var __monos = (() => {
         why ? h(
           "span",
           { key: "w", className: "q-meta", style: { lineHeight: 1.7 } },
-          "الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فلا يكفي الرصيد اليومي كل أسهم المؤشر. الأولوية لأسهم محفظتك ثم أسهم متابعتي، والباقي بالتناوب."
+          "الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فلا يكفي الرصيد اليومي كل أسهم المؤشر. التحديث التلقائي لأسهم محفظتك ومتابعتي فقط، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم."
         ) : null
       ]));
     }
@@ -1188,7 +1188,7 @@ var __monos = (() => {
           h("path", { d: open ? "M2.5 4.5 6 8l3.5-3.5" : "M7.5 2.5 4 6l3.5 3.5" })
         ),
         h("b", { style: { fontWeight: 600 } }, N(fmtCount(rows.length)), " سهمًا بانتظار السعر"),
-        h("span", { className: "q-sec" }, "— تُستكمل في التحديث القادم"),
+        h("span", { className: "q-sec" }, "— اختر السهم وحدّث سعره، أو ميّزه بالنجمة ليتحدّث يوميًا"),
         open ? null : h("span", { className: "q-ter num", style: { fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", minWidth: 0 } }, preview),
         h("span", { className: "q-grow" }),
         h("span", { className: "q-link", style: { minHeight: 0 } }, open ? "إخفاء" : "عرض الأسماء")
@@ -1452,7 +1452,45 @@ var __monos = (() => {
     );
   }
   var DETAIL_TABS = [["ours", "تقييمنا"], ["chart", "الشارت الفني"], ["financials", "البيانات المالية"], ["technical", "التحليل الفني"]];
-  function SymbolDetail({ row, period, onValue, onWatch }) {
+  var REFRESH_NOTE = {
+    updated: (sym) => `حُدّث سعر ${sym}`,
+    no_new_bars: (sym) => `لا يوجد إغلاق جديد لـ ${sym} عند EODHD بعد`,
+    current: (sym) => `سعر ${sym} محدّث بالفعل`,
+    budget: () => "انتهى رصيد تحديثات اليوم"
+  };
+  function RefreshOne({ row, budget, now, onRefreshed, label }) {
+    const [busy, setBusy] = useState(false);
+    const left = budget && budget.left_today != null ? budget.left_today : null;
+    const current = row.price != null && !row.stale;
+    const empty = left === 0;
+    const reset = empty ? nextLimitReset(now) : null;
+    async function refresh() {
+      setBusy(true);
+      try {
+        const r = await api("POST", `/egx/api/market/${encodeURIComponent(row.symbol)}/sync`, {});
+        onRefreshed((REFRESH_NOTE[r.status] || REFRESH_NOTE.updated)(row.symbol));
+      } catch (e) {
+        onRefreshed(e.message === "no_key" ? "لم يتم العثور على مفتاح EODHD: أضِفه في ~/.dsh/.env أو في ملف egx-api.docx" : `تعذّر تحديث ${row.symbol}: ${e.message}`);
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h(
+      "span",
+      { className: "m-refresh", style: { display: "inline-flex", alignItems: "center", gap: 8, flexWrap: "wrap" } },
+      h(
+        "button",
+        { type: "button", className: "q-btn q-btn-sm", disabled: busy || current || empty, onClick: refresh },
+        busy ? "جارٍ التحديث…" : label || frag("حدّث سعر ", h("span", { className: "q-sym" }, row.symbol))
+      ),
+      h(
+        "span",
+        { className: "q-meta" },
+        current ? frag("محدّث حتى ", row.price_kind === "delayed" ? N(fmtTime(row.as_of)) : frag("إغلاق ", N(fmtDayMonth(row.as_of)))) : empty ? frag("انتهى رصيد اليوم، يتجدد ", reset.when, " ", N(reset.time)) : left == null ? "يستهلك تحديثًا واحدًا" : frag("يستهلك تحديثًا واحدًا · باقي اليوم ", N(fmtCount(left)))
+      )
+    );
+  }
+  function SymbolDetail({ row, period, onValue, onWatch, budget, now, onRefreshed }) {
     const [tab, setTab] = useState("ours");
     const theme = useHostTheme();
     const [history, setHistory] = useState(null);
@@ -1465,7 +1503,7 @@ var __monos = (() => {
       return () => {
         alive = false;
       };
-    }, [row.symbol]);
+    }, [row.symbol, row.as_of]);
     const v = row.valuation;
     const per = (row.returns || {})[period];
     const periodLabel = PERIOD_OPTIONS.find(([k]) => k === period)[1];
@@ -1478,7 +1516,8 @@ var __monos = (() => {
         "div",
         { className: "m-dashed" },
         h("span", { className: "q-h2" }, h("span", { className: "q-sym" }, row.symbol), " بانتظار السعر"),
-        h("span", { className: "q-sec" }, "وصلنا للحد اليومي من التحديثات قبل ما نجيب سعر السهم ده. هيتحدّث في التحديث القادم، وبعدها تقدر تطلب تقييمه.")
+        h("span", { className: "q-sec", style: { lineHeight: 1.7 } }, row.held || row.watched ? "السهم ده في محفظتك أو متابعتي، فهيتحدّث في التحديث التلقائي الجاي. لو مستعجل، حدّث سعره دلوقتي." : "السهم ده مش في محفظتك ولا متابعتي، فمش بيتحدّث لوحده. حدّث سعره بتحديث واحد من رصيد اليوم، أو ميّزه بالنجمة عشان يتحدّث كل يوم."),
+        h(RefreshOne, { row, budget, now, onRefreshed, label: "حدّث سعره" })
       );
       else if (!v) left = h(
         "div",
@@ -1605,7 +1644,7 @@ var __monos = (() => {
             row.change == null ? "—" : N(fmtChange(row.change, row.change_pct), row.stale ? "q-ter" : toneOf(row.change))
           ),
           row.stale ? h(StaleChip, { key: "s" }) : null
-        ] : h("span", { className: "q-chip q-chip-line" }, "لا يوجد سعر بعد · يُستكمل في التحديث القادم"),
+        ] : h("span", { className: "q-chip q-chip-line" }, "لا يوجد سعر بعد"),
         h("span", { className: "q-grow" }),
         v && row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value, size: 14, suffix: isUnder(row) ? " — يحتاج مراجعة" : null }) : null
       ),
@@ -1623,17 +1662,22 @@ var __monos = (() => {
       ) : null,
       h(
         "div",
-        { className: "q-tabs", role: "tablist", "aria-label": `أقسام ${row.symbol}` },
-        DETAIL_TABS.map(([key, label]) => h("button", {
-          key,
-          type: "button",
-          role: "tab",
-          className: "q-tab",
-          "aria-selected": tab === key,
-          tabIndex: tab === key ? 0 : -1,
-          onClick: () => setTab(key),
-          onKeyDown: onTabKey
-        }, label))
+        { style: { display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", borderBottom: "1px solid var(--dsw-alias-border-l2)", paddingInlineEnd: 16 } },
+        h(
+          "div",
+          { className: "q-tabs", role: "tablist", "aria-label": `أقسام ${row.symbol}`, style: { borderBottom: "none", flex: "1 1 auto" } },
+          DETAIL_TABS.map(([key, label]) => h("button", {
+            key,
+            type: "button",
+            role: "tab",
+            className: "q-tab",
+            "aria-selected": tab === key,
+            tabIndex: tab === key ? 0 : -1,
+            onClick: () => setTab(key),
+            onKeyDown: onTabKey
+          }, label))
+        ),
+        h(RefreshOne, { row, budget, now, onRefreshed })
       ),
       h("div", { role: "tabpanel" }, panel)
     );
@@ -1739,6 +1783,11 @@ var __monos = (() => {
       }
     };
     const selectSymbol = (symbol) => setSelected(symbol);
+    const onRefreshed = async (note) => {
+      toast(note);
+      await load();
+      monos.refresh();
+    };
     const noKey = data && !data.last_sync && data.breadth.no_data === all.length;
     let tableBody;
     if (!data && !error) tableBody = Array.from({ length: 8 }, (_, i) => h(
@@ -1766,7 +1815,7 @@ var __monos = (() => {
             { width: 14, height: 14, viewBox: "0 0 16 16", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round", strokeLinejoin: "round" },
             h("path", { d: "M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3" })
           ),
-          syncing ? "جارٍ التحديث…" : "تحديث الأسعار الآن"
+          syncing ? "جارٍ التحديث…" : "تحديث محفظتي ومتابعتي"
         )
       }),
       h(
@@ -1783,7 +1832,7 @@ var __monos = (() => {
           h("code", { dir: "ltr" }, "~/.dsh/.env"),
           " (EODHD_API_KEY) أو في ملف ",
           h("code", { dir: "ltr" }, "egx-api.docx"),
-          " داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن»."
+          " داخل مجلد المشروع، ثم اضغط «تحديث محفظتي ومتابعتي»."
         ) : null,
         h(Digest, { items: digest && digest.items, onSelect: selectSymbol }),
         h(
@@ -1874,7 +1923,16 @@ var __monos = (() => {
             h("span", null, "اضغط على أي صف لعرض تفاصيله أسفل الجدول")
           )
         ),
-        selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue, onWatch }) : null,
+        selectedRow ? h(SymbolDetail, {
+          key: selectedRow.symbol,
+          row: selectedRow,
+          period,
+          onValue,
+          onWatch,
+          budget: data.price_budget,
+          now: data.as_of,
+          onRefreshed
+        }) : null,
         h(Disclaimer, { extra: "الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه." })
       ),
       toastNode

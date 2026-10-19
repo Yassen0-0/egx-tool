@@ -6,7 +6,14 @@ from egx_mcp.market import store
 from egx_mcp.market.calendar import CAIRO, expected_last_bar, is_trading_day, session_open
 from egx_mcp.market.eodhd import EodhdClient, MarketDataError, _key_from_file
 from egx_mcp.market.summary import market_summary, symbol_history
-from egx_mcp.market.sync import RESERVE_CALLS, budget_status, priority_symbols, refresh_plan, sync_market
+from egx_mcp.market.sync import (
+    RESERVE_CALLS,
+    budget_status,
+    priority_symbols,
+    refresh_plan,
+    sync_market,
+    sync_symbol,
+)
 from egx_mcp.store import portfolio, watchlist
 from egx_mcp.store.db import connect
 
@@ -133,15 +140,21 @@ def test_free_budget_refreshes_holdings_and_watchlist_every_day(conn):
             assert store.last_bar_date(conn, symbol) == due.isoformat(), (day, symbol)
 
 
-def test_rest_of_the_index_takes_turns(conn):
+def _follow_all(conn):
+    """Every index stock in «متابعتي», so the background sync covers the whole index."""
+    for symbol in priority_symbols(conn):
+        watchlist.add_to_watchlist(conn, symbol)
+
+
+def test_background_leaves_the_rest_of_the_index_for_requests(conn):
     _seed_all_bars(conn)
     portfolio.add_holding(conn, "EAST", buy_price=10, quantity=1)
     watchlist.add_to_watchlist(conn, "FWRY")
-    days = list(_free_days(conn, date(2026, 10, 18), 2))
-    first_due = days[0][1]
-    # 16 calls a day for the other 29 stocks: within two trading days every one is refreshed.
-    for symbol in priority_symbols(conn):
-        assert store.last_bar_date(conn, symbol) >= first_due.isoformat(), symbol
+    for _, _due, client in _free_days(conn, date(2026, 10, 18), 2):
+        # Only the holding and the followed stock; the other 29 wait for «حدّث سعر …».
+        assert sorted(s for s, _ in client.bar_requests) == ["EAST", "FWRY"]
+        assert store.last_bar_date(conn, "COMI") == "2026-10-14"
+    assert budget_status(conn, datetime(2026, 10, 19, 9, 0, tzinfo=CAIRO))["left_today"] == 20 - 2 - RESERVE_CALLS
 
 
 def test_watchlist_over_budget_falls_back_to_every_other_day(conn):
@@ -172,6 +185,7 @@ def test_market_summary_marks_watched_rows_and_plan(conn):
 
 
 def test_sync_respects_free_budget_and_skips_quotes(conn):
+    _follow_all(conn)
     client = FakeClient(limit=20, used=3)
     result = sync_market(conn, client, at=IN_SESSION)
     assert result["ok"]
@@ -183,6 +197,7 @@ def test_sync_respects_free_budget_and_skips_quotes(conn):
 
 
 def test_second_run_only_fetches_stale_symbols(conn):
+    _follow_all(conn)
     sync_market(conn, FakeClient(limit=20), at=MORNING)
     client = FakeClient(limit=20)
     sync_market(conn, client, at=MORNING)
@@ -288,6 +303,7 @@ def test_account_reads_the_counter_day(monkeypatch):
 
 
 def test_count_from_an_earlier_day_is_a_fresh_budget(conn):
+    _follow_all(conn)
     # The real 2026-10-15..19 freeze: /user kept saying 20 of 20 for 10-15, because EODHD only zeroes
     # the count on the first counted call after midnight GMT and the sync never made one.
     client = FakeClient(limit=20, used=20, counted_on="2026-10-15")
@@ -299,6 +315,7 @@ def test_count_from_an_earlier_day_is_a_fresh_budget(conn):
 
 
 def test_count_from_today_is_respected_in_gmt(conn):
+    _follow_all(conn)
     # 01:00 Cairo on the 19th is still the 18th in GMT, so a count for the 18th is today's count.
     late = datetime(2026, 10, 19, 1, 0, tzinfo=CAIRO)
     client = FakeClient(limit=20, used=20, counted_on="2026-10-18")
@@ -310,6 +327,7 @@ def test_count_from_today_is_respected_in_gmt(conn):
 
 
 def test_limit_refusal_stops_the_run_and_retries_later(conn):
+    _follow_all(conn)
     client = FakeClient(limit=20, refuse_after=3)
     result = sync_market(conn, client, at=MONDAY)
     assert len(client.bar_requests) == 4  # three served, the fourth refused, nothing after it
@@ -324,6 +342,7 @@ def test_limit_refusal_stops_the_run_and_retries_later(conn):
 
 
 def test_budget_status_counts_blocked_days(conn, monkeypatch):
+    _follow_all(conn)
     def run(at, **kw):
         # sync_runs stamps the wall clock; pin it to the simulated moment.
         monkeypatch.setattr("egx_mcp.market.sync.now_iso",
@@ -345,3 +364,34 @@ def test_budget_status_counts_blocked_days(conn, monkeypatch):
     # A run that fetches again ends the streak.
     run(datetime(2026, 10, 22, 8, 0, tzinfo=CAIRO))
     assert budget_status(conn)["blocked_days"] == 0
+
+
+# ── «حدّث سعر …»: one stock on request ──────────────────────────────────────
+
+def test_sync_symbol_spends_one_call_for_one_stock(conn):
+    client = FakeClient(limit=20, used=5, counted_on="2026-10-19")
+    result = sync_symbol(conn, client, "CLHO", at=MONDAY)
+    assert result["status"] == "updated" and client.bar_requests == [("CLHO", "2021-10-20")]
+    assert result["calls_made"] == 1 and result["left_today"] == 20 - 5 - 1 - RESERVE_CALLS
+    assert store.last_bar_date(conn, "CLHO") == "2026-10-14"
+    run = store.last_sync_run(conn)
+    assert (run["used_before"], run["calls_made"]) == (5, 1)
+    assert budget_status(conn, MONDAY)["left_today"] == 20 - 6 - RESERVE_CALLS
+    # Only the missing closes next time.
+    client = FakeClient(limit=20)
+    client.last_day = date(2026, 10, 15)
+    sync_symbol(conn, client, "CLHO", at=datetime(2026, 10, 18, 9, 0, tzinfo=CAIRO))
+    assert client.bar_requests == [("CLHO", "2026-10-15")]
+
+
+def test_sync_symbol_spends_nothing_when_current_or_out_of_budget(conn):
+    store.upsert_bars(conn, "COMI", _bars(date(2026, 10, 18), 30), "test")  # Sunday: current on Monday
+    client = FakeClient(limit=20)
+    assert sync_symbol(conn, client, "COMI", at=MONDAY)["status"] == "current"
+    assert client.calls_made == 0 and store.last_sync_run(conn) is None
+    client = FakeClient(limit=20, used=18, counted_on="2026-10-19")
+    result = sync_symbol(conn, client, "CLHO", at=MONDAY)
+    assert result["status"] == "budget" and client.calls_made == 0
+    client = FakeClient(limit=20, refuse_after=0)
+    assert sync_symbol(conn, client, "CLHO", at=MONDAY)["status"] == "budget"
+    assert store.sync_state(conn, "CLHO")["bars_checked_on"] is None

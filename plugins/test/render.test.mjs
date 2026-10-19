@@ -100,6 +100,35 @@ test('the market screen says so when the price budget has not renewed for days',
   assert.doesNotMatch(normal, /لا يتجدد/)
 })
 
+test('«حدّث سعر …» refreshes one stock through its own route', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const market = harness.FIXTURES['/egx/api/market']
+  // Every price a session old, so the opened stock's button is enabled.
+  const rows = market.rows.map((r) => (r.price != null ? { ...r, stale: true } : r))
+  let symbol = null
+  let before = null
+  let after = null
+  const r = await harness.renderClient([clientPath('monos-market')], {
+    fixtures: { '/egx/api/market': { ...market, rows, price_budget: { ...market.price_budget, left_today: 7 } } },
+    async interact(key, host, { act, settle, window }) {
+      const row = key === 'egx-market' ? host.querySelector('.m-row') : null
+      if (!row) return  // the sidebar slot shares the key
+      await act(async () => { row.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+      await settle()
+      const button = [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('حدّث سعر '))
+      symbol = button.textContent.slice('حدّث سعر '.length)
+      before = { disabled: button.disabled, text: button.parentElement.textContent }
+      await act(async () => { button.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+      await settle()
+      after = host.textContent
+    },
+  })
+  assert.equal(before.disabled, false)
+  assert.match(before.text, /يستهلك تحديثًا واحدًا · باقي اليوم 7/)
+  assert.ok(r.requests.includes(`POST /egx/api/market/${symbol}/sync`), r.requests.join('\n'))
+  assert.ok(!r.requests.includes('POST /egx/api/market/sync'), 'never the whole index')
+  assert.match(after, new RegExp(`حُدّث سعر ${symbol}`))
+})
+
 test('npm run new-plugin scaffolds a plugin that builds and renders', { skip: !harness && 'run npm install at the repo root' }, async () => {
   const root = join(here, '..', '..')
   const dir = join(here, '..', 'monos-scaffold-check')

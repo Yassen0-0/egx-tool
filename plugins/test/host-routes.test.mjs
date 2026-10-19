@@ -101,6 +101,8 @@ test('each route maps to its egx-cli command and arguments', async () => {
   const edit = await call('PATCH', '/egx/api/holdings/3', { body: { quantity: 6 }, headers: SAME_ORIGIN })
   assert.deepEqual(edit.body, { command: 'portfolio-update', payload: { quantity: 6, holding_id: 3 } })
   const remove = await call('DELETE', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })
+  const one = await call('POST', '/egx/api/market/CLHO/sync', { body: {}, headers: SAME_ORIGIN })
+  assert.deepEqual(one.body, { command: 'market-sync-symbol', payload: { symbol: 'CLHO' } })
   assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
   assert.equal((await call('GET', '/egx/api/nothing')).status, 405)
   assert.equal((await call('POST', '/egx/api/nothing', { body: {}, headers: SAME_ORIGIN })).status, 404)

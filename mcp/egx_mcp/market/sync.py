@@ -1,11 +1,12 @@
 """Budget-aware refresh of the market cache.
 
 Each run asks EODHD how many calls remain today (the account call is free; its count is for
-apiRequestsDate, so a count from an earlier GMT day means a fresh budget), keeps a small reserve, then spends the rest in priority order: holdings first, then the user's «متابعتي»
-watchlist, then everything else. Inside each tier the stalest cache goes first (index weight breaks
-ties), so when the budget cannot cover a tier its symbols take turns instead of the same ones
-always winning. On the free plan (20 calls, 18 after the reserve) holdings + watchlist up to 18
-refresh every trading day and the rest rotate through what is left.
+apiRequestsDate, so a count from an earlier GMT day means a fresh budget), keeps a small reserve, then spends the rest on the holdings first and the user's «متابعتي» watchlist next. The
+rest of the index is fetched only when the user asks for one stock (`sync_symbol`, one call), so
+what the background leaves stays for those requests; only a plan whose daily limit covers the
+whole index refreshes everything in the background. Inside each tier the stalest cache goes first
+(index weight breaks ties), so when the budget cannot cover a tier its symbols take turns instead
+of the same ones always winning.
 Daily bars come first because they are the history the user reads; delayed intraday quotes
 are fetched only while the session is open and only on plans with a real daily budget,
 since one quote costs one call per symbol.
@@ -41,7 +42,7 @@ def calls_used_today(account: dict, at: datetime) -> int:
     return account["used_today"]
 
 
-def budget_status(conn: sqlite3.Connection) -> dict:
+def budget_status(conn: sqlite3.Connection, at: datetime | None = None) -> dict:
     """Since when the latest syncs have fetched nothing for lack of budget. `blocked_days` counts
     the GMT days (EODHD's reset) in that streak: one is the normal daily limit, two or more means
     the budget is not coming back and the UI says so."""
@@ -55,11 +56,34 @@ def budget_status(conn: sqlite3.Connection) -> dict:
         since = started_at
         days.add(started_at[:10])
     last_fetch = conn.execute("SELECT MAX(finished_at) FROM sync_runs WHERE calls_made > 0").fetchone()[0]
-    return {"blocked_since": since, "blocked_days": len(days), "last_fetch_at": last_fetch}
+    return {"blocked_since": since, "blocked_days": len(days), "last_fetch_at": last_fetch,
+            "left_today": left_today(conn, at or now_cairo())}
+
+
+def left_today(conn: sqlite3.Connection, at: datetime) -> int:
+    """Calls a one-stock refresh can still spend today (GMT day, after the reserve), from the last
+    run that read the account; a run from an earlier GMT day means a fresh budget."""
+    row = conn.execute("SELECT started_at, daily_limit, used_before, calls_made FROM sync_runs"
+                       " WHERE daily_limit IS NOT NULL ORDER BY id DESC LIMIT 1").fetchone()
+    limit = row[1] if row and row[1] else FREE_DAILY_LIMIT
+    used = 0
+    if row and row[0][:10] == at.astimezone(timezone.utc).date().isoformat():
+        used = (row[2] or 0) + (row[3] or 0)
+    return max(0, limit - used - RESERVE_CALLS)
 
 
 def held_symbols(conn: sqlite3.Connection) -> set[str]:
     return {r[0] for r in conn.execute("SELECT DISTINCT symbol FROM holdings")}
+
+
+def background_symbols(conn: sqlite3.Connection, daily_limit: int) -> list[str]:
+    """What the 5-minute sync refreshes: holdings + «متابعتي», or the whole index when the plan's
+    daily limit covers it."""
+    order = priority_symbols(conn)
+    if daily_limit - RESERVE_CALLS >= len(order):
+        return order
+    mine = held_symbols(conn) | watched_symbols(conn)
+    return [s for s in order if s in mine]
 
 
 def priority_symbols(conn: sqlite3.Connection) -> list[str]:
@@ -120,7 +144,7 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
             summary["counted_on"] = account["counted_on"]
         account["used_today"] = calls_used_today(account, at)
         budget = account["daily_limit"] - account["used_today"] - RESERVE_CALLS
-        symbols = priority_symbols(conn)
+        symbols = background_symbols(conn, account["daily_limit"])
 
         for symbol in symbols:
             date_from = _needs_bars(conn, symbol, due, today)
@@ -180,7 +204,12 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
         conn.commit()
         raise
 
-    calls = client.calls_made
+    _finish(conn, run_id, account, client.calls_made, summary)
+    return {"ok": True, "plan": account["plan"], "daily_limit": account["daily_limit"],
+            "used_today": account["used_today"] + client.calls_made, "calls_made": client.calls_made, **summary}
+
+
+def _finish(conn: sqlite3.Connection, run_id: int, account: dict, calls: int, summary: dict) -> None:
     conn.execute("DELETE FROM sync_runs WHERE id <= ?", (run_id - KEEP_SYNC_RUNS,))
     conn.execute(
         "UPDATE sync_runs SET finished_at=?, plan=?, daily_limit=?, used_before=?, calls_made=?, summary=? WHERE id=?",
@@ -188,5 +217,58 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
          json.dumps(summary, ensure_ascii=False), run_id),
     )
     conn.commit()
-    return {"ok": True, "plan": account["plan"], "daily_limit": account["daily_limit"],
-            "used_today": account["used_today"] + calls, "calls_made": calls, **summary}
+
+
+def sync_symbol(conn: sqlite3.Connection, client: EodhdClient, symbol: str, at: datetime | None = None) -> dict:
+    """The user's «حدّث سعر …»: one call for one stock, fetching every close it is missing. Spends
+    nothing when its close is already current, or when today's budget (after the reserve) is gone.
+    Recorded as a sync run, so the screens' «N من 20» counts it."""
+    at = at or now_cairo()
+    today = at.date()
+    due = expected_last_bar(at)
+    last = store.last_bar_date(conn, symbol)
+    if last is not None and date.fromisoformat(last) >= due:
+        return {"ok": True, "status": "current", "symbol": symbol, "last_bar": last, "calls_made": 0}
+    run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (now_iso(),)).lastrowid
+    conn.commit()
+    summary = {"on_demand": symbol, "bars_updated": [], "bars_current": 0, "quotes": 0,
+               "skipped_for_budget": [], "errors": {}}
+    try:
+        account = client.account()
+        if account.get("counted_on"):
+            summary["counted_on"] = account["counted_on"]
+        account["used_today"] = calls_used_today(account, at)
+        if account["daily_limit"] - account["used_today"] - RESERVE_CALLS < 1:
+            summary["skipped_for_budget"].append(symbol)
+            status = "budget"
+        else:
+            date_from = (date.fromisoformat(last) + timedelta(days=1)).isoformat() if last else \
+                (today - timedelta(days=HISTORY_DAYS)).isoformat()
+            try:
+                rows = client.daily_bars(symbol, date_from)
+                store.upsert_bars(conn, symbol, rows, SOURCE)
+                store.mark_checked(conn, symbol, bars_on=today)
+                if rows:
+                    summary["bars_updated"].append(symbol)
+                status = "updated" if rows else "no_new_bars"
+            except MarketDataError as exc:
+                if exc.status not in LIMIT_STATUSES:
+                    raise
+                summary["limit_refused"] = str(exc)
+                summary["skipped_for_budget"].append(symbol)
+                status = "budget"
+    except MarketDataError as exc:
+        conn.rollback()
+        conn.execute("UPDATE sync_runs SET finished_at=?, error=? WHERE id=?", (now_iso(), str(exc), run_id))
+        conn.commit()
+        return {"ok": False, "status": "error", "symbol": symbol, "error": str(exc), "calls_made": client.calls_made}
+    except Exception as exc:
+        conn.rollback()
+        conn.execute("UPDATE sync_runs SET finished_at=?, error=? WHERE id=?",
+                     (now_iso(), f"{type(exc).__name__}: {exc}", run_id))
+        conn.commit()
+        raise
+    _finish(conn, run_id, account, client.calls_made, summary)
+    return {"ok": True, "status": status, "symbol": symbol, "last_bar": store.last_bar_date(conn, symbol),
+            "calls_made": client.calls_made,
+            "left_today": max(0, account["daily_limit"] - account["used_today"] - client.calls_made - RESERVE_CALLS)}

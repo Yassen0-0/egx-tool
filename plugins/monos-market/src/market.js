@@ -145,9 +145,9 @@ export function StatusStrip({ data, portfolio }) {
         ? h('b', null, N(fmtChange(totals.today_change, totals.today_change_pct), toneOf(totals.today_change)))
         : h('b', { className: 'q-sec', title: 'لا يوجد سعر جديد اليوم لأي سهم في محفظتك' }, 'لا تغيّر محسوب اليوم')) : null,
     cover.allDaily ? null : h('p', { className: 'm-plan' }, h(StarGlyph, { on: cover.priority > 0, size: 12 }),
-      cover.overflow ? 'الأسهم في متابعتي ومحفظتك لها الأولوية في التحديث، والباقي بالتناوب'
-        : cover.priority ? 'الأسهم في متابعتي ومحفظتك تتحدّث يوميًا، والباقي بالتناوب'
-        : 'ميّز الأسهم التي تهمك بالنجمة لتتحدّث يوميًا، والباقي بالتناوب'))
+      cover.overflow ? 'الأسهم في متابعتي ومحفظتك لها الأولوية في التحديث، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم'
+        : cover.priority ? 'الأسهم في متابعتي ومحفظتك تتحدّث يوميًا، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم'
+        : 'ميّز الأسهم التي تهمك بالنجمة لتتحدّث يوميًا، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم'))
 }
 
 /** Holdings + «متابعتي» larger than the daily budget: say how many fall back to every other day. */
@@ -161,7 +161,7 @@ export function WatchBudgetNote({ data }) {
   h('span', { className: 'q-sec', style: { lineHeight: 1.7 } },
     cover.watched ? 'فيهما ' : 'فيها ', stockCount(cover.priority), '، والرصيد اليومي يكفي ', stockCount(cover.budget),
     ' فقط، لذلك سيتحدّث ', stockCount(cover.overflow), ' منها يومًا بعد يوم بالتناوب،',
-    ' ولن يبقى رصيد لباقي أسهم المؤشر إلا في عطلة نهاية الأسبوع.',
+    ' ولن يبقى رصيد لتحديث باقي أسهم المؤشر عند الطلب.',
     cover.watched ? ' لتتحدّث كلها يوميًا أزل النجمة عن بعض أسهم متابعتي.' : null))
 }
 
@@ -213,7 +213,7 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
         h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: true }, 'إعادة المحاولة'),
         h('button', { type: 'button', className: 'q-link', 'aria-expanded': why, onClick: () => setWhy(!why) }, 'لماذا هناك حد؟')),
       why ? h('span', { key: 'w', className: 'q-meta', style: { lineHeight: 1.7 } },
-        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فلا يكفي الرصيد اليومي كل أسهم المؤشر. الأولوية لأسهم محفظتك ثم أسهم متابعتي، والباقي بالتناوب.') : null]))
+        'الأسعار تأتي من EODHD على الخطة المجانية: كل سهم يستهلك تحديثًا واحدًا، فلا يكفي الرصيد اليومي كل أسهم المؤشر. التحديث التلقائي لأسهم محفظتك ومتابعتي فقط، وباقي الأسهم تحدّثها عند الطلب من تفاصيل السهم.') : null]))
   }
   const b = data.breadth
   const priced = data.rows.some((r) => r.price != null)
@@ -324,7 +324,7 @@ export function NoPriceGroup({ rows, open, onToggle, selected, onSelect, onWatch
       h('svg', { width: 12, height: 12, viewBox: '0 0 12 12', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round', style: { flex: 'none' } },
         h('path', { d: open ? 'M2.5 4.5 6 8l3.5-3.5' : 'M7.5 2.5 4 6l3.5 3.5' })),
       h('b', { style: { fontWeight: 600 } }, N(fmtCount(rows.length)), ' سهمًا بانتظار السعر'),
-      h('span', { className: 'q-sec' }, '— تُستكمل في التحديث القادم'),
+      h('span', { className: 'q-sec' }, '— اختر السهم وحدّث سعره، أو ميّزه بالنجمة ليتحدّث يوميًا'),
       open ? null : h('span', { className: 'q-ter num', style: { fontSize: 12, overflow: 'hidden', textOverflow: 'ellipsis', minWidth: 0 } }, preview),
       h('span', { className: 'q-grow' }),
       h('span', { className: 'q-link', style: { minHeight: 0 } }, open ? 'إخفاء' : 'عرض الأسماء')),
@@ -512,7 +512,44 @@ export function TvFrame({ title, symbol, children }) {
 
 export const DETAIL_TABS = [['ours', 'تقييمنا'], ['chart', 'الشارت الفني'], ['financials', 'البيانات المالية'], ['technical', 'التحليل الفني']]
 
-export function SymbolDetail({ row, period, onValue, onWatch }) {
+const REFRESH_NOTE = {
+  updated: (sym) => `حُدّث سعر ${sym}`,
+  no_new_bars: (sym) => `لا يوجد إغلاق جديد لـ ${sym} عند EODHD بعد`,
+  current: (sym) => `سعر ${sym} محدّث بالفعل`,
+  budget: () => 'انتهى رصيد تحديثات اليوم',
+}
+
+/** «حدّث سعر …»: one stock, one call from today's budget (POST /market/<SYM>/sync). Disabled when
+ *  its close is current or the budget is gone; Python decides both, this only shows them. */
+export function RefreshOne({ row, budget, now, onRefreshed, label }) {
+  const [busy, setBusy] = useState(false)
+  const left = budget && budget.left_today != null ? budget.left_today : null
+  const current = row.price != null && !row.stale
+  const empty = left === 0
+  const reset = empty ? nextLimitReset(now) : null
+  async function refresh() {
+    setBusy(true)
+    try {
+      const r = await api('POST', `/egx/api/market/${encodeURIComponent(row.symbol)}/sync`, {})
+      onRefreshed((REFRESH_NOTE[r.status] || REFRESH_NOTE.updated)(row.symbol))
+    } catch (e) {
+      onRefreshed(e.message === 'no_key' ? 'لم يتم العثور على مفتاح EODHD: أضِفه في ~/.dsh/.env أو في ملف egx-api.docx'
+        : `تعذّر تحديث ${row.symbol}: ${e.message}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return h('span', { className: 'm-refresh', style: { display: 'inline-flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' } },
+    h('button', { type: 'button', className: 'q-btn q-btn-sm', disabled: busy || current || empty, onClick: refresh },
+      busy ? 'جارٍ التحديث…' : label || frag('حدّث سعر ', h('span', { className: 'q-sym' }, row.symbol))),
+    h('span', { className: 'q-meta' },
+      current ? frag('محدّث حتى ', row.price_kind === 'delayed' ? N(fmtTime(row.as_of)) : frag('إغلاق ', N(fmtDayMonth(row.as_of))))
+        : empty ? frag('انتهى رصيد اليوم، يتجدد ', reset.when, ' ', N(reset.time))
+        : left == null ? 'يستهلك تحديثًا واحدًا'
+        : frag('يستهلك تحديثًا واحدًا · باقي اليوم ', N(fmtCount(left)))))
+}
+
+export function SymbolDetail({ row, period, onValue, onWatch, budget, now, onRefreshed }) {
   const [tab, setTab] = useState('ours')
   const theme = useHostTheme()
   const [history, setHistory] = useState(null)
@@ -523,7 +560,7 @@ export function SymbolDetail({ row, period, onValue, onWatch }) {
     api('GET', `/egx/api/market/${encodeURIComponent(row.symbol)}/history?days=130`)
       .then((d) => alive && setHistory(d)).catch((e) => alive && setError(e.message))
     return () => { alive = false }
-  }, [row.symbol])
+  }, [row.symbol, row.as_of])
 
   const v = row.valuation
   const per = (row.returns || {})[period]
@@ -536,7 +573,10 @@ export function SymbolDetail({ row, period, onValue, onWatch }) {
     let left
     if (row.price == null) left = h('div', { className: 'm-dashed' },
       h('span', { className: 'q-h2' }, h('span', { className: 'q-sym' }, row.symbol), ' بانتظار السعر'),
-      h('span', { className: 'q-sec' }, 'وصلنا للحد اليومي من التحديثات قبل ما نجيب سعر السهم ده. هيتحدّث في التحديث القادم، وبعدها تقدر تطلب تقييمه.'))
+      h('span', { className: 'q-sec', style: { lineHeight: 1.7 } }, row.held || row.watched
+        ? 'السهم ده في محفظتك أو متابعتي، فهيتحدّث في التحديث التلقائي الجاي. لو مستعجل، حدّث سعره دلوقتي.'
+        : 'السهم ده مش في محفظتك ولا متابعتي، فمش بيتحدّث لوحده. حدّث سعره بتحديث واحد من رصيد اليوم، أو ميّزه بالنجمة عشان يتحدّث كل يوم.'),
+      h(RefreshOne, { row, budget, now, onRefreshed, label: 'حدّث سعره' }))
     else if (!v) left = h('div', { className: 'm-dashed' },
       h('span', { className: 'q-h2' }, 'لم يُقيَّم ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
       h('span', { className: 'q-sec' }, 'لا يوجد سعر عادل ولا سعر حماية. اكتب في المحادثة: ', h('b', { style: { fontWeight: 500 } }, 'قيّم سهم ', h('span', { className: 'q-sym' }, row.symbol))),
@@ -594,7 +634,7 @@ export function SymbolDetail({ row, period, onValue, onWatch }) {
         h('div', { key: 'c', className: 'q-kv' }, h('small', null, row.stale ? frag('جلسة ', N(fmtDayMonth(row.as_of))) : 'التغير اليوم'),
           row.change == null ? '—' : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : toneOf(row.change))),
         row.stale ? h(StaleChip, { key: 's' }) : null]
-        : h('span', { className: 'q-chip q-chip-line' }, 'لا يوجد سعر بعد · يُستكمل في التحديث القادم'),
+        : h('span', { className: 'q-chip q-chip-line' }, 'لا يوجد سعر بعد'),
       h('span', { className: 'q-grow' }),
       v && row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value, size: 14, suffix: isUnder(row) ? ' — يحتاج مراجعة' : null }) : null),
     row.price != null ? h('div', { className: 'm-dstrip' },
@@ -602,11 +642,13 @@ export function SymbolDetail({ row, period, onValue, onWatch }) {
         h(Range52, { low: row.low_52w, high: row.high_52w, price: row.price })),
       h('div', { className: 'q-kv' }, h('small', null, 'حجم تداول آخر جلسة'), N(fmtCompact(row.volume), 'q-strong')),
       h('div', { className: 'q-kv' }, h('small', null, `أداء ${periodLabel}`), per == null ? '—' : N(fmtPct(per, { signed: true }), toneOf(per)))) : null,
-    h('div', { className: 'q-tabs', role: 'tablist', 'aria-label': `أقسام ${row.symbol}` },
-      DETAIL_TABS.map(([key, label]) => h('button', {
-        key, type: 'button', role: 'tab', className: 'q-tab', 'aria-selected': tab === key, tabIndex: tab === key ? 0 : -1,
-        onClick: () => setTab(key), onKeyDown: onTabKey,
-      }, label))),
+    h('div', { style: { display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', borderBottom: '1px solid var(--dsw-alias-border-l2)', paddingInlineEnd: 16 } },
+      h('div', { className: 'q-tabs', role: 'tablist', 'aria-label': `أقسام ${row.symbol}`, style: { borderBottom: 'none', flex: '1 1 auto' } },
+        DETAIL_TABS.map(([key, label]) => h('button', {
+          key, type: 'button', role: 'tab', className: 'q-tab', 'aria-selected': tab === key, tabIndex: tab === key ? 0 : -1,
+          onClick: () => setTab(key), onKeyDown: onTabKey,
+        }, label))),
+      h(RefreshOne, { row, budget, now, onRefreshed })),
     h('div', { role: 'tabpanel' }, panel))
 }
 
@@ -716,6 +758,11 @@ export function MarketPage() {
     }
   }
   const selectSymbol = (symbol) => setSelected(symbol)
+  const onRefreshed = async (note) => {
+    toast(note)
+    await load()
+    monos.refresh()
+  }
 
   const noKey = data && !data.last_sync && data.breadth.no_data === all.length
   let tableBody
@@ -735,7 +782,7 @@ export function MarketPage() {
       actions: h('button', { type: 'button', className: 'q-btn q-btn-p', disabled: syncing, onClick: sync },
         h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round', strokeLinejoin: 'round' },
           h('path', { d: 'M13.5 8a5.5 5.5 0 1 1-1.6-3.9M13.5 2.5v3h-3' })),
-        syncing ? 'جارٍ التحديث…' : 'تحديث الأسعار الآن'),
+        syncing ? 'جارٍ التحديث…' : 'تحديث محفظتي ومتابعتي'),
     }),
     h('div', { className: 'q-wrap', style: { paddingTop: 8, gap: 8 } },
       data ? h(StatusStrip, { data, portfolio }) : null,
@@ -745,7 +792,7 @@ export function MarketPage() {
         h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'لا توجد أسعار بعد. '),
         'التطبيق يجلب الأسعار تلقائيًا من EODHD كل بضع دقائق. تأكد من وجود المفتاح في ',
         h('code', { dir: 'ltr' }, '~/.dsh/.env'), ' (EODHD_API_KEY) أو في ملف ', h('code', { dir: 'ltr' }, 'egx-api.docx'),
-        ' داخل مجلد المشروع، ثم اضغط «تحديث الأسعار الآن».') : null,
+        ' داخل مجلد المشروع، ثم اضغط «تحديث محفظتي ومتابعتي».') : null,
       h(Digest, { items: digest && digest.items, onSelect: selectSymbol }),
       h('div', { className: 'm-toolbar' },
         h('label', { className: 'q-field' },
@@ -780,7 +827,8 @@ export function MarketPage() {
           h(RulerLegend),
           h('span', { className: 'q-grow' }),
           h('span', null, 'اضغط على أي صف لعرض تفاصيله أسفل الجدول'))),
-      selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue, onWatch }) : null,
+      selectedRow ? h(SymbolDetail, { key: selectedRow.symbol, row: selectedRow, period, onValue, onWatch,
+        budget: data.price_budget, now: data.as_of, onRefreshed }) : null,
       h(Disclaimer, { extra: 'الأسعار من EODHD (مزوّد بيانات أسعار نهاية اليوم) ومتأخرة، وليست لحظية. كل سعر يظهر بتاريخ إغلاقه.' })),
     toastNode)
 }

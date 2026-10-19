@@ -19,7 +19,7 @@ from .errors import ValuationInputError
 from .market.eodhd import EodhdClient, resolve_api_key
 from .market.summary import market_digest as _market_digest
 from .market.summary import market_summary, symbol_history
-from .market.sync import refresh_plan, sync_market
+from .market.sync import refresh_plan, sync_market, sync_symbol
 from .store import portfolio, valuations, watchlist
 from .store.db import connect
 from .universe import constituent, load_universe
@@ -84,6 +84,19 @@ def market_sync(force_quotes: bool = False) -> dict:
                 "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
     with _db() as conn:
         return sync_market(conn, EodhdClient(key), force_quotes=force_quotes)
+
+
+def market_sync_symbol(symbol: str) -> dict:
+    """Refresh one EGX30 stock's closes on request: one call, nothing when it is already current."""
+    entry = constituent(symbol)
+    if entry is None:
+        raise ValuationInputError(f"{symbol} is not an EGX30 constituent")
+    key = resolve_api_key()
+    if not key:
+        return {"ok": False, "error": "no_key",
+                "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
+    with _db() as conn:
+        return sync_symbol(conn, EodhdClient(key), entry["symbol"])
 
 
 # ── archive ──────────────────────────────────────────────────────────────────
@@ -174,6 +187,7 @@ CLI_COMMANDS = {
     "market-history": get_price_history,
     "market-digest": market_digest,
     "market-sync": market_sync,
+    "market-sync-symbol": market_sync_symbol,
     "valuations-list": list_valuations,
     "valuation-get": get_valuation,
     "valuation-series": valuation_series,

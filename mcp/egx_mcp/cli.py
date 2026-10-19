@@ -15,6 +15,7 @@
     egx-cli market-digest
     egx-cli market-history '{"symbol": "COMI", "days": 365}'
     egx-cli market-sync '{"force_quotes": false}'
+    egx-cli market-sync-symbol '{"symbol": "CLHO"}'
     egx-cli validate-data
 
 Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.

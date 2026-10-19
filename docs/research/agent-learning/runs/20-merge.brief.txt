@@ -1,0 +1,37 @@
+<task>
+This workspace holds idea.md and note.jpg (a one-page handwritten idea, «تعليم الإجينت»), plus source-corrections.md and four maps of that idea written independently by four agents, each starting from a different lens: map1.md (learning how to learn), map2.md (the free researching agent), map3.md (learning becomes a durable add-on / tool), map4.md (research-analyze-evaluate, through a critic's eye).
+
+Your job: merge them into ONE complete master map of the idea, written into a new file master-map.md. Do not edit any other file. Do not run shell commands. You may search the web only to check a source that two maps contradict on.
+
+How to merge:
+- Start from the page, not from the maps. The skeleton of the master map is the page's own flow: E4/E5 (learning how to learn) → E6 (agent) → E8/E9 (free to research and learn, comes back with information) → E11 (the product of learning becomes an add-on we keep and use) → E12 (tool) → E13 (research / analyze / evaluate). Hang every branch from the element it grows from.
+- Keep every distinct idea from the four maps. Merge duplicates into one branch and record which maps it came from as (م1)(م2)(م3)(م4).
+- Keep each branch's tag from its source map: [الورقة] [استنتاج] [بحث: URL] [تخمين]. If maps disagree on a fact, keep both positions visible under «خلاف».
+- A branch that cannot be traced to a page element goes under «خارج الورقة», not into the main tree.
+- source-corrections.md lists citations in map2 and map4 that the orchestrator checked and found wrong. Apply every correction: use the corrected source, or drop the link and re-tag the branch as stated there. Never carry a wrong link into master-map.md.
+- Do not invent new branches of your own, except connections between branches that the maps missed; tag those [ربط].
+</task>
+
+<structured_output_contract>
+Write master-map.md in Arabic (technical terms may stay in English), in this exact shape:
+
+# الخريطة الكاملة: تعليم الإجينت
+
+## 1. الفكرة في 3 جمل
+## 2. الهيكل الأساسي
+   The page flow as a short numbered spine (E4/E5 → … → E13), one line each.
+## 3. الخريطة الكاملة
+   A deep nested Markdown tree hung on that spine. Every node: text, tag, and source maps (م1..م4).
+## 4. رسم الخريطة
+   One Mermaid `mindmap` block (root = تعليم الإجينت), first level = the spine elements. Keep node text short; no parentheses, quotes or colons inside node text.
+## 5. الروابط بين الفروع
+   Connections across branches, especially ones no single map saw ([ربط]).
+## 6. نقط الاتفاق ونقط الخلاف بين الخرايط
+## 7. أهم 10 اكتشافات
+## 8. أسئلة مفتوحة
+## 9. خارج الورقة
+## 10. المصادر
+   Every URL from the four maps, de-duplicated, with what it supports.
+
+Then end your chat reply with: how many branches came from each map, how many duplicates you merged, and how many items went to «خارج الورقة».
+</structured_output_contract>

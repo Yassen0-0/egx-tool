@@ -1,0 +1,27 @@
+<task>
+You are a blind grader. This workspace holds packet.md (a question and eight sources), key.md (the answer key, with a numbered list of planted items), and six answers: X1.md to X6.md, written independently by six agents. You do not know how the agents differ, and you must not try to guess. Grade each answer against key.md only. Do not edit any file except creating scores.md. Do not run shell commands. Do not search the web.
+
+Scoring, per answer:
+1. Planted items: for EVERY numbered item in key.md, give 1 if the answer clearly identifies it, 0.5 if partially or vaguely, 0 if missed. The answer may use different words; judge the substance.
+2. Ranking (0-2): 2 if the answer's top two and bottom group match the key, 1 if partly, 0 if not.
+3. Final answer (0-3): 1 for the correct direction, 1 for the right magnitude or nuance stated in the key, 1 for a confidence level that matches the key and is justified.
+4. Errors: subtract 1 for every claim the answer states as fact that contradicts packet.md (an invented flaw, a wrong number, a misread date). List each one.
+
+Be strict and consistent: apply the same standard to all six. Quote a few words from the answer to justify every 0.5 and every error.
+</task>
+
+<structured_output_contract>
+Write scores.md in this shape:
+
+# التصحيح
+## جدول البنود
+   A table: rows = key items (by their ID), columns = X1..X6, cells = 1 / 0.5 / 0.
+## الدرجات
+   A table: X1..X6 with columns: البنود (sum), الترتيب, الإجابة, الأخطاء, الإجمالي (= البنود + الترتيب + الإجابة − الأخطاء).
+## الأخطاء
+   Every subtracted error, per answer, with the quote.
+## ملاحظات
+   What separated the strongest answers from the weakest, in 5 lines.
+
+End your chat reply with the totals line: X1=.. X2=.. X3=.. X4=.. X5=.. X6=..
+</structured_output_contract>

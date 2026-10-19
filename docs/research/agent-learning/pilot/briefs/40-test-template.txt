@@ -1,0 +1,20 @@
+<task>
+Read packet.md in this workspace. It contains one question and eight sources. Answer the question by evaluating the sources. Use only what is in packet.md: do not search the web, do not run shell commands.
+__ARM__
+Write your answer into a new file answer.md. Do not edit any other file.
+</task>
+
+<structured_output_contract>
+Write answer.md in Arabic, in this shape:
+
+# الإجابة
+## 1. تقييم كل مصدر
+   For each of the 8 sources: how reliable it is (عالية / متوسطة / منخفضة), and every problem or strength you found in it.
+## 2. العلاقات بين المصادر
+   Which sources depend on which, which agree, which contradict.
+## 3. ترتيب المصادر من الأوثق للأضعف
+## 4. الإجابة على السؤال
+   Your answer, with numbers where the sources allow, and your confidence level with the reason for it.
+
+End your chat reply with one line: your answer to the question.
+</structured_output_contract>

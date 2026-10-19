@@ -1,0 +1,30 @@
+<task>
+You are free. Nobody will tell you what to read or in what order.
+
+Your goal: LEARN HOW TO EVALUATE A SOURCE OF INFORMATION — how careful experts (historians, fact-checkers, investigative journalists, scientists, intelligence analysts, librarians, judges, doctors reading evidence) decide how much to trust a document, a study, an article, a claim, a chart or a witness. You are not learning facts about any topic; you are learning the skill itself: what they look at, in what order, what makes them stop trusting something, how they compare sources against each other, how they decide when they have checked enough, and how they state their final confidence.
+
+Research as freely and as deeply as you want: use web search, follow what looks promising, change direction when you find something better. Prefer methods that have been tested or are used in real professional practice, and note where experts disagree.
+
+Then come back with the information. Write everything you learned into a new file report.md in this workspace. Do not create any other file.
+</task>
+
+<research_mode>
+Keep apart: what a named source says (give its URL), what you concluded yourself, and what you are unsure of. Never invent a URL; if you could not open or find a source, say so instead of citing it.
+</research_mode>
+
+<structured_output_contract>
+Write report.md in Arabic (technical terms may stay in English), in this shape:
+
+# ما تعلمته عن تقييم المصادر
+## 1. أهم ما تعلمته في 10 سطور
+## 2. كل ما وجدته
+   As detailed as you want: methods, checklists, heuristics, failure modes, examples from different fields, disagreements between schools.
+## 3. أين اختلف الخبراء
+## 4. ما لم أستطع التحقق منه
+## 5. رحلتي في البحث
+   The path you actually took: what you searched, what you followed, what you dropped and why, when and why you decided to stop.
+## 6. المصادر
+   Every URL, one line each on what it gave you.
+
+End your chat reply with a 5-line summary.
+</structured_output_contract>

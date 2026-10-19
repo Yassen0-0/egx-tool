@@ -74,6 +74,7 @@ var __egx = (() => {
   var MARKET_ID = "egx-market";
   var nav = { selectPanel: null, pendingAnalysisId: null, pendingSection: null };
   var N = (text, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text);
+  var frag = (...children) => h(import_react.default.Fragment, null, ...children);
   async function api(method, path, body) {
     const init = { method, headers: {} };
     if (body !== void 0) {
@@ -861,7 +862,7 @@ var __egx = (() => {
       "span",
       { className: "q-cell" },
       h("b", { className: "num", style: { fontWeight: 500 } }, fmtPrice(price)),
-      h("small", null, stale ? h(StaleChip) : kind === "delayed" ? ["متأخر ", N(fmtTime(asOf))] : N(fmtDayMonth(asOf)))
+      h("small", null, stale ? h(StaleChip) : kind === "delayed" ? frag("متأخر ", N(fmtTime(asOf))) : N(fmtDayMonth(asOf)))
     );
   }
   function ProtectionHelp({ open, onToggle }) {
@@ -913,7 +914,7 @@ var __egx = (() => {
           "span",
           null,
           "آخر إغلاق",
-          asOf ? [" ", N(fmtDayMonth(asOf))] : null,
+          asOf ? frag(" ", N(fmtDayMonth(asOf))) : null,
           " عند ",
           N(fmtPrice(price)),
           " أقل من سعر الحماية ",
@@ -927,7 +928,7 @@ var __egx = (() => {
       h(
         "div",
         { style: { display: "flex", flexWrap: "wrap", gap: 12 } },
-        box("1", "التقييم فاته شيء", ["عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ", N(fmtPrice(fair)), " جنيه."]),
+        box("1", "التقييم فاته شيء", frag("عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ", N(fmtPrice(fair)), " جنيه.")),
         box("2", "السوق متشائم أكثر من اللازم", "السعر يعكس مخاوف لا تدعمها المعطيات الحالية، فيبقى العادل صحيحًا والسعر دونه.")
       ),
       h(
@@ -1035,7 +1036,7 @@ var __egx = (() => {
       onKeyDown: keep
     }, h(StarGlyph, { on }));
   }
-  var stockCount = (n) => n === 1 ? "سهم واحد" : n === 2 ? "سهمان" : [N(fmtCount(n)), n <= 10 ? " أسهم" : " سهمًا"];
+  var stockCount = (n) => n === 1 ? "سهم واحد" : n === 2 ? "سهمان" : frag(N(fmtCount(n)), n <= 10 ? " أسهم" : " سهمًا");
   function refreshCoverage(data) {
     const plan = data.refresh_plan || {};
     const priority = data.rows.filter((r) => r.held || r.watched).length;
@@ -1172,8 +1173,8 @@ var __egx = (() => {
       "span",
       { className: "q-meta" },
       "آخر بيانات سليمة: ",
-      lastClose ? ["إغلاق ", N(fmtDayMonth(lastClose))] : "لا يوجد",
-      run && run.finished_at && !run.error ? [" · مزامنة ", N(fmtTime(run.finished_at))] : null
+      lastClose ? frag("إغلاق ", N(fmtDayMonth(lastClose))) : "لا يوجد",
+      run && run.finished_at && !run.error ? frag(" · مزامنة ", N(fmtTime(run.finished_at))) : null
     );
     const card = (key, role, edge, children) => h("section", {
       key,
@@ -1260,15 +1261,15 @@ var __egx = (() => {
         if (item.kind === "status") {
           onClick = () => onSelect(item.symbol);
           title = item.name_ar || item.symbol;
-          body = item.to === "below_protection" ? [sym, " ", h("span", { key: "a", className: "q-amber" }, "تحت سعر الحماية بـ ", N(fmtPct(item.below_protection_by)))] : [sym, " ", h("span", { key: "a", className: "q-sec" }, "خرج من تحت سعر الحماية")];
+          body = item.to === "below_protection" ? frag(sym, " ", h("span", { className: "q-amber" }, "تحت سعر الحماية بـ ", N(fmtPct(item.below_protection_by)))) : frag(sym, " ", h("span", { className: "q-sec" }, "خرج من تحت سعر الحماية"));
         } else if (item.kind === "valuation") {
           onClick = () => openAnalysis(item.valuation_id);
           title = item.reason || "";
-          body = ["تقييم ", sym, " ", item.previous_fair_value != null ? N(fmtArrow(item.previous_fair_value, item.fair_value), "q-blue") : [h("span", { key: "n", className: "q-sec" }, "جديد "), N(fmtPrice(item.fair_value), "q-blue")]];
+          body = frag("تقييم ", sym, " ", item.previous_fair_value != null ? N(fmtArrow(item.previous_fair_value, item.fair_value), "q-blue") : frag(h("span", { className: "q-sec" }, "جديد "), N(fmtPrice(item.fair_value), "q-blue")));
         } else {
           onClick = () => onSelect(item.symbol);
           title = item.name_ar || item.symbol;
-          body = ["سهمك ", sym, " ", N(fmtChange(item.change, item.change_pct), toneOf(item.change))];
+          body = frag("سهمك ", sym, " ", N(fmtChange(item.change, item.change_pct), toneOf(item.change)));
         }
         return h(
           "button",
@@ -1492,7 +1493,7 @@ var __egx = (() => {
           { className: "q-meta" },
           "تاريخ التقييم ",
           N(fmtDate(lastFull ? lastFull.date : v.valuation_date)),
-          light ? [" · تحديث خفيف ", N(fmtDayMonth(v.valuation_date))] : null
+          light ? frag(" · تحديث خفيف ", N(fmtDayMonth(v.valuation_date))) : null
         )
       ),
       h(
@@ -1649,7 +1650,7 @@ var __egx = (() => {
       h("span", null, "لا توجد شموع محمّلة لـ ", h("span", { className: "q-sym" }, row.symbol), " بعد"),
       h("span", { className: "q-meta" }, "يُحمَّل تاريخ الأسعار في التحديث القادم حسب حد التحديثات اليومي.")
     );
-    else body = [h(ValuationCandles, { key: "c", bars, steps }), h("div", { key: "x", className: "q-meta", style: { lineHeight: 1.7 } }, chartExplanation(steps, bars))];
+    else body = [h(ValuationCandles, { key: "c", bars, steps }), h("div", { key: "x", className: "q-meta", style: { lineHeight: 1.7 } }, ...chartExplanation(steps, bars))];
     return h(
       "div",
       { className: "m-box", style: { gap: 12 } },
@@ -1846,13 +1847,13 @@ var __egx = (() => {
           h(
             "div",
             { key: "p", className: "q-kv" },
-            h("small", null, row.price_kind === "delayed" ? ["متأخر ", N(fmtTime(row.as_of))] : ["إغلاق ", N(fmtDayMonth(row.as_of)), " · سعر متأخر"]),
+            h("small", null, row.price_kind === "delayed" ? frag("متأخر ", N(fmtTime(row.as_of))) : frag("إغلاق ", N(fmtDayMonth(row.as_of)), " · سعر متأخر")),
             h("span", { className: "num q-strong", style: { fontSize: 20 } }, fmtPrice(row.price))
           ),
           h(
             "div",
             { key: "c", className: "q-kv" },
-            h("small", null, row.stale ? ["جلسة ", N(fmtDayMonth(row.as_of))] : "التغير اليوم"),
+            h("small", null, row.stale ? frag("جلسة ", N(fmtDayMonth(row.as_of))) : "التغير اليوم"),
             row.change == null ? "—" : N(fmtChange(row.change, row.change_pct), row.stale ? "q-ter" : toneOf(row.change))
           ),
           row.stale ? h(StaleChip, { key: "s" }) : null
@@ -2118,7 +2119,7 @@ var __egx = (() => {
               N(fmtCount(shown)),
               " من ",
               N(fmtCount(MARKET_TOTAL)),
-              waiting.length && !groupExpanded ? [" · ", N(fmtCount(waiting.length)), " مطويّة بانتظار السعر"] : null
+              waiting.length && !groupExpanded ? frag(" · ", N(fmtCount(waiting.length)), " مطويّة بانتظار السعر") : null
             ),
             h(RulerLegend),
             h("span", { className: "q-grow" }),
@@ -2229,7 +2230,7 @@ var __egx = (() => {
         ] : [
           h("span", { key: "p" }, "السعر وقتها ", N(fmtPrice(v.price_at_valuation))),
           then ? h("small", { key: "t" }, "وقتها: ", then.text, then.value ? " " : null, then.value ? N(then.value) : null) : null,
-          info.next ? h("small", { key: "n" }, info.next.kind === "light" ? "الأساس الذي بُني عليه التحديث الخفيف" : ["حلّ محلّه تقييم ", N(fmtDayMonth(info.next.created_at))]) : null
+          info.next ? h("small", { key: "n" }, info.next.kind === "light" ? "الأساس الذي بُني عليه التحديث الخفيف" : frag("حلّ محلّه تقييم ", N(fmtDayMonth(info.next.created_at)))) : null
         ]
       ),
       h("span", { className: "a-reason", role: "cell", dir: "auto", title: v.reason || "" }, v.reason === "first valuation" ? "أول تقييم" : v.reason || "—")
@@ -2311,7 +2312,7 @@ var __egx = (() => {
               g.current.stale ? [" ", h(StaleChip, { key: "s" })] : null
             ) : null,
             h("span", { className: "q-grow" }),
-            h("span", { className: "q-sec" }, g.list.length === 1 ? "تقييم واحد" : [N(String(g.list.length)), " تقييمات"])
+            h("span", { className: "q-sec" }, g.list.length === 1 ? "تقييم واحد" : frag(N(String(g.list.length)), " تقييمات"))
           ),
           latest.kind === "light" && lastFull ? h("div", { className: "a-ghead q-meta", style: { background: "transparent" } }, h(
             "span",
@@ -2353,7 +2354,7 @@ var __egx = (() => {
             " تقييمات في ",
             N(String(symbols.length)),
             " أسهم",
-            lastClose ? [" · أسعار إغلاق ", N(fmtDate(lastClose)), " من EODHD (مزوّد بيانات الأسعار) · متأخرة وليست لحظية"] : null
+            lastClose ? frag(" · أسعار إغلاق ", N(fmtDate(lastClose)), " من EODHD (مزوّد بيانات الأسعار) · متأخرة وليست لحظية") : null
           ),
           h("span", { className: "q-meta" }, EXPLAIN_KINDS)
         ),
@@ -2621,7 +2622,7 @@ var __egx = (() => {
       rows: rows.map((r) => [
         r.known ? r.label : h("span", { dir: "ltr", className: "q-sec" }, r.label),
         N(r.value, "q-strong"),
-        h("span", { className: "q-sec", dir: "auto" }, r.source || "—", r.asOf ? [" · ", N(fmtDate(r.asOf))] : null)
+        h("span", { className: "q-sec", dir: "auto" }, r.source || "—", r.asOf ? frag(" · ", N(fmtDate(r.asOf))) : null)
       ])
     });
   }
@@ -3016,7 +3017,7 @@ var __egx = (() => {
         h(
           "div",
           null,
-          h("small", null, h("b", { style: { color: "var(--dsw-alias-label-primary)" } }, "اليوم"), t.today_as_of ? [" · حتى إغلاق ", N(fmtDayMonth(t.today_as_of))] : null),
+          h("small", null, h("b", { style: { color: "var(--dsw-alias-label-primary)" } }, "اليوم"), t.today_as_of ? frag(" · حتى إغلاق ", N(fmtDayMonth(t.today_as_of))) : null),
           t.today_has_fresh ? [
             h("span", { key: "v", className: `num q-hero ${toneOf(t.today_change)}` }, fmtSigned(t.today_change)),
             h("span", { key: "p", className: `num ${toneOf(t.today_change)}`, style: { fontWeight: 600 } }, fmtPct(t.today_change_pct, { digits: 2, signed: true }))
@@ -3047,7 +3048,7 @@ var __egx = (() => {
           "span",
           null,
           "الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية",
-          lastClose ? [" (آخر إغلاق ", N(fmtDate(lastClose)), ")"] : null
+          lastClose ? frag(" (آخر إغلاق ", N(fmtDate(lastClose)), ")") : null
         )
       )
     );
@@ -3184,7 +3185,7 @@ var __egx = (() => {
             "span",
             { className: "p-total", "aria-live": "polite" },
             h("span", { className: "q-sec" }, "الإجمالي: "),
-            valid ? mode === "shares" ? [N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, "q-strong"), " ج.م"] : [N(fmtPrice(total), "q-strong"), " ج.م · الأسهم ", N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 1e4) / 1e4)}`, "q-strong")] : h("span", { className: "q-ter" }, "أدخل السعر والكمية")
+            valid ? mode === "shares" ? frag(N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, "q-strong"), " ج.م") : frag(N(fmtPrice(total), "q-strong"), " ج.م · الأسهم ", N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 1e4) / 1e4)}`, "q-strong")) : h("span", { className: "q-ter" }, "أدخل السعر والكمية")
           ),
           h("span", { className: "q-grow" }),
           error ? h("span", { className: "q-error", role: "alert" }, error) : null,
@@ -3251,7 +3252,7 @@ var __egx = (() => {
       h(
         "span",
         { className: "q-cell", role: "cell" },
-        row.today_change != null ? [N(fmtSigned(row.today_change), toneOf(row.today_change)), h("small", { key: "p" }, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct)))] : row.price_stale ? [N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), "q-ter"), h("small", { key: "s" }, "جلسة ", N(fmtDayMonth(row.price_as_of)))] : h("span", { className: "q-ter" }, "—")
+        row.today_change != null ? frag(N(fmtSigned(row.today_change), toneOf(row.today_change)), h("small", null, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct)))) : row.price_stale ? frag(N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), "q-ter"), h("small", null, "جلسة ", N(fmtDayMonth(row.price_as_of)))) : h("span", { className: "q-ter" }, "—")
       ),
       h("span", { role: "cell" }, N(fmtPrice(row.market_value))),
       h(
@@ -3331,11 +3332,11 @@ var __egx = (() => {
     const headerMeta = market ? h(
       "span",
       { className: "q-meta", style: { marginInlineStart: "auto" } },
-      lastClose ? ["إغلاق ", N(fmtDayMonth(lastClose))] : null,
-      run && run.finished_at ? [" · آخر مزامنة ", N(fmtTime(run.finished_at))] : null,
-      used != null ? [" · تحديثات الأسعار اليوم ", N(fmtCount(used)), " من ", N(fmtCount(run.daily_limit))] : null,
+      lastClose ? frag("إغلاق ", N(fmtDayMonth(lastClose))) : null,
+      run && run.finished_at ? frag(" · آخر مزامنة ", N(fmtTime(run.finished_at))) : null,
+      used != null ? frag(" · تحديثات الأسعار اليوم ", N(fmtCount(used)), " من ", N(fmtCount(run.daily_limit))) : null,
       " · المصدر EODHD (مزوّد الأسعار)",
-      session ? [" · ", session.text, session.time ? " " : null, session.time ? N(session.time) : null] : null
+      session ? frag(" · ", session.text, session.time ? " " : null, session.time ? N(session.time) : null) : null
     ) : null;
     let content;
     if (loading) content = h("div", { className: "q-card q-pad", "aria-busy": true }, h(Skeleton, { width: "30%" }), h("br"), h(Skeleton, { width: "80%" }), h("br"), h(Skeleton, { width: "60%" }));

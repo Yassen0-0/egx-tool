@@ -10,9 +10,9 @@ const here = dirname(fileURLToPath(import.meta.url))
 let harness = null
 try { harness = await import('./harness.mjs') } catch { /* dev dependencies not installed */ }
 
-// React development warnings about list keys, and the chart library finding no <canvas> context in
-// jsdom, are known and harmless; anything else is a regression.
-const KNOWN = [/unique "key" prop/, /Value is null/, /Not implemented: HTMLCanvasElement/]
+// The chart library finding no <canvas> context in jsdom is known and harmless; anything else,
+// a React list-key warning included, is a regression.
+const KNOWN = [/Value is null/, /Not implemented: HTMLCanvasElement/]
 
 test('every screen renders from the built client.js', { skip: !harness && 'run npm install at the repo root' }, async () => {
   const opened = {}

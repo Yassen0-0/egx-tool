@@ -19,6 +19,8 @@ export const nav = { selectPanel: null, pendingAnalysisId: null, pendingSection:
 
 // One LTR-isolated span per number: sign, digits and % never get split by the bidi algorithm.
 export const N = (text, cls) => h('span', { className: cls ? `num ${cls}` : 'num' }, text)
+// Inline run of text and numbers as one child; unlike an array literal it needs no keys.
+export const frag = (...children) => h(React.Fragment, null, ...children)
 
 export async function api(method, path, body) {
   const init = { method, headers: {} }

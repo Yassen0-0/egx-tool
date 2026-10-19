@@ -1,6 +1,6 @@
 // «Monos / السوق»: status strip, «منذ آخر إغلاق» digest, toolbar, the 7-column grid table and the
 // docked detail for the selected stock (docs/design/CLAUDE_CODE.md §7.1). ES module.
-import { ANALYSES_ID, LightweightCharts, N, QM_CSS, React, TvWidget, api, chartTheme, h, nav, useCallback, useEffect, useHostTheme, useState } from './runtime.js'
+import { ANALYSES_ID, LightweightCharts, N, QM_CSS, React, TvWidget, api, chartTheme, frag, h, nav, useCallback, useEffect, useHostTheme, useState } from './runtime.js'
 import { RATING_LEVEL, fmtArrow, fmtChange, fmtCompact, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtTime, lastLimitReset, marginSentence, marginToFair, nextLimitReset, rangePosition, rulerScale, sessionLine, toneOf, weekdayName } from './format.mjs'
 import { Disclaimer, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from './identity.js'
 import { MarginText, MineChip, PORTFOLIO_GLYPH, PriceCell, ProtectionHelp, ProtectionNote, Range52, RatingChip, Ruler, Skeleton, StaleChip, UnderProtectionCard } from './components.js'
@@ -82,7 +82,7 @@ export function WatchToggle({ row, onWatch, withText = false }) {
 }
 
 /** «سهم واحد» · «سهمان» · «5 أسهم» · «18 سهمًا» (Arabic counted-noun agreement). */
-export const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : [N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'])
+export const stockCount = (n) => (n === 1 ? 'سهم واحد' : n === 2 ? 'سهمان' : frag(N(fmtCount(n)), n <= 10 ? ' أسهم' : ' سهمًا'))
 
 /** Holdings + «متابعتي» counted live from the rows, against the plan's daily budget. */
 export function refreshCoverage(data) {
@@ -177,7 +177,7 @@ export function SyncAlerts({ data, failure, syncing, onRetry, lastClose }) {
   const limitReached = sinceReset && used != null && (used >= run.daily_limit || skipped > 0)
   const error = failure || (run && run.error)
   const goodData = h('span', { className: 'q-meta' }, 'آخر بيانات سليمة: ',
-    lastClose ? ['إغلاق ', N(fmtDayMonth(lastClose))] : 'لا يوجد', run && run.finished_at && !run.error ? [' · مزامنة ', N(fmtTime(run.finished_at))] : null)
+    lastClose ? frag('إغلاق ', N(fmtDayMonth(lastClose))) : 'لا يوجد', run && run.finished_at && !run.error ? frag(' · مزامنة ', N(fmtTime(run.finished_at))) : null)
   const card = (key, role, edge, children) => h('section', { key, className: 'q-card q-pad', role,
     style: { borderInlineStart: `3px solid var(${edge})`, display: 'flex', flexDirection: 'column', gap: 6 } }, children)
   const cards = []
@@ -233,18 +233,18 @@ export function Digest({ items, onSelect }) {
         onClick = () => onSelect(item.symbol)
         title = item.name_ar || item.symbol
         body = item.to === 'below_protection'
-          ? [sym, ' ', h('span', { key: 'a', className: 'q-amber' }, 'تحت سعر الحماية بـ ', N(fmtPct(item.below_protection_by)))]
-          : [sym, ' ', h('span', { key: 'a', className: 'q-sec' }, 'خرج من تحت سعر الحماية')]
+          ? frag(sym, ' ', h('span', { className: 'q-amber' }, 'تحت سعر الحماية بـ ', N(fmtPct(item.below_protection_by))))
+          : frag(sym, ' ', h('span', { className: 'q-sec' }, 'خرج من تحت سعر الحماية'))
       } else if (item.kind === 'valuation') {
         onClick = () => openAnalysis(item.valuation_id)
         title = item.reason || ''
-        body = ['تقييم ', sym, ' ', item.previous_fair_value != null
+        body = frag('تقييم ', sym, ' ', item.previous_fair_value != null
           ? N(fmtArrow(item.previous_fair_value, item.fair_value), 'q-blue')
-          : [h('span', { key: 'n', className: 'q-sec' }, 'جديد '), N(fmtPrice(item.fair_value), 'q-blue')]]
+          : frag(h('span', { className: 'q-sec' }, 'جديد '), N(fmtPrice(item.fair_value), 'q-blue')))
       } else {
         onClick = () => onSelect(item.symbol)
         title = item.name_ar || item.symbol
-        body = ['سهمك ', sym, ' ', N(fmtChange(item.change, item.change_pct), toneOf(item.change))]
+        body = frag('سهمك ', sym, ' ', N(fmtChange(item.change, item.change_pct), toneOf(item.change)))
       }
       return h('button', { key: i, type: 'button', className: 'm-di', onClick, title },
         h('span', { className: `m-ic ${tone}` }, glyph), body)
@@ -380,7 +380,7 @@ export function ValuationCard({ row }) {
     h('div', { style: { display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' } },
       h('span', { className: 'q-sec' }, 'السعر العادل'),
       h('span', { className: 'q-meta' }, 'تاريخ التقييم ', N(fmtDate(lastFull ? lastFull.date : v.valuation_date)),
-        light ? [' · تحديث خفيف ', N(fmtDayMonth(v.valuation_date))] : null)),
+        light ? frag(' · تحديث خفيف ', N(fmtDayMonth(v.valuation_date))) : null)),
     h('div', { style: { display: 'flex', alignItems: 'baseline', gap: 12, flexWrap: 'wrap', marginTop: -8 } },
       N(fmtPrice(v.fair_value), 'q-blue q-hero'),
       row.price != null ? h(MarginText, { price: row.price, fair: v.fair_value, prefix: m && m.status !== 'under' ? 'السعر ' : '', size: 14 }) : null),
@@ -493,7 +493,7 @@ export function CandlesPanel({ row, history }) {
   else if (!bars.length) body = h('div', { className: 'q-empty q-sunken', style: { minHeight: 240, borderRadius: 'var(--dsw-radius-sm)' } },
     h('span', null, 'لا توجد شموع محمّلة لـ ', h('span', { className: 'q-sym' }, row.symbol), ' بعد'),
     h('span', { className: 'q-meta' }, 'يُحمَّل تاريخ الأسعار في التحديث القادم حسب حد التحديثات اليومي.'))
-  else body = [h(ValuationCandles, { key: 'c', bars, steps }), h('div', { key: 'x', className: 'q-meta', style: { lineHeight: 1.7 } }, chartExplanation(steps, bars))]
+  else body = [h(ValuationCandles, { key: 'c', bars, steps }), h('div', { key: 'x', className: 'q-meta', style: { lineHeight: 1.7 } }, ...chartExplanation(steps, bars))]
   return h('div', { className: 'm-box', style: { gap: 12 } },
     h('div', { className: 'm-legend' },
       h('b', { style: { fontWeight: 600, fontSize: 14 } }, h('span', { className: 'q-sym' }, row.symbol), ' · شموع يومية'),
@@ -602,9 +602,9 @@ export function SymbolDetail({ row, period, onValue, onWatch }) {
         h('span', { className: 'q-meta' }, row.sector_ar || row.sector, ' · حصته ', N(fmtPct(row.weight_pct / 100, { digits: 2 })), ' من المؤشر')),
       row.price != null ? [
         h('div', { key: 'p', className: 'q-kv' },
-          h('small', null, row.price_kind === 'delayed' ? ['متأخر ', N(fmtTime(row.as_of))] : ['إغلاق ', N(fmtDayMonth(row.as_of)), ' · سعر متأخر']),
+          h('small', null, row.price_kind === 'delayed' ? frag('متأخر ', N(fmtTime(row.as_of))) : frag('إغلاق ', N(fmtDayMonth(row.as_of)), ' · سعر متأخر')),
           h('span', { className: 'num q-strong', style: { fontSize: 20 } }, fmtPrice(row.price))),
-        h('div', { key: 'c', className: 'q-kv' }, h('small', null, row.stale ? ['جلسة ', N(fmtDayMonth(row.as_of))] : 'التغير اليوم'),
+        h('div', { key: 'c', className: 'q-kv' }, h('small', null, row.stale ? frag('جلسة ', N(fmtDayMonth(row.as_of))) : 'التغير اليوم'),
           row.change == null ? '—' : N(fmtChange(row.change, row.change_pct), row.stale ? 'q-ter' : toneOf(row.change))),
         row.stale ? h(StaleChip, { key: 's' }) : null]
         : h('span', { className: 'q-chip q-chip-line' }, 'لا يوجد سعر بعد · يُستكمل في التحديث القادم'),
@@ -789,7 +789,7 @@ export function MarketPage() {
           tableBody),
         h('div', { className: 'm-foot' },
           h('span', null, 'عرض ', N(fmtCount(shown)), ' من ', N(fmtCount(MARKET_TOTAL)),
-            waiting.length && !groupExpanded ? [' · ', N(fmtCount(waiting.length)), ' مطويّة بانتظار السعر'] : null),
+            waiting.length && !groupExpanded ? frag(' · ', N(fmtCount(waiting.length)), ' مطويّة بانتظار السعر') : null),
           h(RulerLegend),
           h('span', { className: 'q-grow' }),
           h('span', null, 'اضغط على أي صف لعرض تفاصيله أسفل الجدول'))),

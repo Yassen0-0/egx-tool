@@ -1,5 +1,5 @@
 // Valuation building blocks shared by Market, Analyses and Portfolio (ES module).
-import { N, React, h } from './runtime.js'
+import { N, React, frag, h } from './runtime.js'
 import { MINUS, RATING_LABEL, RATING_LEVEL, belowProtectionBy, fmtDayMonth, fmtPct, fmtPrice, fmtTime, marginSentence, rangePosition, rulerScale } from './format.mjs'
 
 /** Valuation ruler: bear–bull band, protection tick (amber), fair tick (blue), price dot. */
@@ -62,7 +62,7 @@ export function PriceCell({ price, asOf, stale, kind }) {
   if (price == null) return h('span', { className: 'q-ter' }, 'بانتظار السعر')
   return h('span', { className: 'q-cell' },
     h('b', { className: 'num', style: { fontWeight: 500 } }, fmtPrice(price)),
-    h('small', null, stale ? h(StaleChip) : kind === 'delayed' ? ['متأخر ', N(fmtTime(asOf))] : N(fmtDayMonth(asOf))))
+    h('small', null, stale ? h(StaleChip) : kind === 'delayed' ? frag('متأخر ', N(fmtTime(asOf))) : N(fmtDayMonth(asOf))))
 }
 
 /** The ؟ toggle with the protection definition (open by default where protection is shown large). */
@@ -105,11 +105,11 @@ export function UnderProtectionCard({ price, fair, protection, asOf, onCritic })
   return h('section', { className: 'q-note', role: 'note', 'aria-label': 'تحت سعر الحماية', style: { display: 'flex', flexDirection: 'column', gap: 12 } },
     h('div', null,
       h('b', { className: 'q-amber', style: { display: 'flex', alignItems: 'center', gap: 6 } }, h(StatusMark, { status: 'under', size: 12 }), 'تحت سعر الحماية — يحتاج مراجعة'),
-      h('span', null, 'آخر إغلاق', asOf ? [' ', N(fmtDayMonth(asOf))] : null, ' عند ', N(fmtPrice(price)), ' أقل من سعر الحماية ', N(fmtPrice(protection)),
+      h('span', null, 'آخر إغلاق', asOf ? frag(' ', N(fmtDayMonth(asOf))) : null, ' عند ', N(fmtPrice(price)), ' أقل من سعر الحماية ', N(fmtPrice(protection)),
         ' بنسبة ', N(fmtPct(gap)), ' تقريبًا، فالمحلل يراجع التقييم تلقائيًا.')),
     h('div', null, h('b', null, 'رأي الناقد: احتمالان')),
     h('div', { style: { display: 'flex', flexWrap: 'wrap', gap: 12 } },
-      box('1', 'التقييم فاته شيء', ['عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ', N(fmtPrice(fair)), ' جنيه.']),
+      box('1', 'التقييم فاته شيء', frag('عامل لم يدخل النموذج (نتائج، دين، تغيّر في القطاع) يجعل العادل الصحيح أقل من ', N(fmtPrice(fair)), ' جنيه.')),
       box('2', 'السوق متشائم أكثر من اللازم', 'السعر يعكس مخاوف لا تدعمها المعطيات الحالية، فيبقى العادل صحيحًا والسعر دونه.')),
     h('div', { className: 'q-row' },
       onCritic ? h('button', { type: 'button', className: 'q-link', style: { padding: 0 }, onClick: onCritic }, 'عرض ملاحظات الناقد ←') : null,

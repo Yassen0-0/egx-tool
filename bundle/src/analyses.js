@@ -1,7 +1,7 @@
 // «Monos / التحليلات»: the list grouped by stock and the full analysis page (§7.2–7.3). ES module;
 // every name it uses is imported below. Every number about price vs fair uses the same helpers as Market,
 // with the current price taken from the same /egx/api/market rows.
-import { Markdown, N, QM_CSS, React, api, h, nav, useEffect, useHostTheme, useState } from './runtime.js'
+import { Markdown, N, QM_CSS, React, api, frag, h, nav, useEffect, useHostTheme, useState } from './runtime.js'
 import { PROTECTION_PCT, RATING_LABEL, belowProtectionBy, cairoDay, fmtArrow, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, marginSentence, marginToFair, statusOf } from './format.mjs'
 import { BANK_RISK_ORDER, CHECK_LABEL, RED_FLAG_LABEL, RISK_LABEL, assumptionRows, methodLabel, riskValue } from './labels.mjs'
 import { Disclaimer, PanelHeader, copyValuationPrompt, useToast } from './identity.js'
@@ -94,7 +94,7 @@ export function ListRow({ v, info, current, onOpen }) {
             : h(MarginText, { key: 'm', price, fair: v.fair_value })])
       : [h('span', { key: 'p' }, 'السعر وقتها ', N(fmtPrice(v.price_at_valuation))),
         then ? h('small', { key: 't' }, 'وقتها: ', then.text, then.value ? ' ' : null, then.value ? N(then.value) : null) : null,
-        info.next ? h('small', { key: 'n' }, info.next.kind === 'light' ? 'الأساس الذي بُني عليه التحديث الخفيف' : ['حلّ محلّه تقييم ', N(fmtDayMonth(info.next.created_at))]) : null]),
+        info.next ? h('small', { key: 'n' }, info.next.kind === 'light' ? 'الأساس الذي بُني عليه التحديث الخفيف' : frag('حلّ محلّه تقييم ', N(fmtDayMonth(info.next.created_at)))) : null]),
   h('span', { className: 'a-reason', role: 'cell', dir: 'auto', title: v.reason || '' }, v.reason === 'first valuation' ? 'أول تقييم' : (v.reason || '—')))
 }
 
@@ -150,7 +150,7 @@ export function AnalysesList({ onOpen }) {
           g.current && g.current.price != null ? h('span', { className: 'q-sec' }, 'السعر ', N(fmtPrice(g.current.price)), ' · إغلاق ', N(fmtDayMonth(g.current.as_of)),
             g.current.stale ? [' ', h(StaleChip, { key: 's' })] : null) : null,
           h('span', { className: 'q-grow' }),
-          h('span', { className: 'q-sec' }, g.list.length === 1 ? 'تقييم واحد' : [N(String(g.list.length)), ' تقييمات'])),
+          h('span', { className: 'q-sec' }, g.list.length === 1 ? 'تقييم واحد' : frag(N(String(g.list.length)), ' تقييمات'))),
         latest.kind === 'light' && lastFull ? h('div', { className: 'a-ghead q-meta', style: { background: 'transparent' } }, h('span', null,
           'مقارنة: تقييم كامل يوم ', N(fmtDayMonth(lastFull.created_at)), ' والسعر وقتها ', N(fmtPrice(lastFull.price_at_valuation)), ' ثم تحديث خفيف يوم ',
           N(fmtDayMonth(latest.created_at)), ' والسعر وقتها ', N(fmtPrice(latest.price_at_valuation)), ' بينما العادل لم يتغير وبقي ', N(fmtPrice(latest.fair_value)), ' جنيه.')) : null,
@@ -165,7 +165,7 @@ export function AnalysesList({ onOpen }) {
       h('div', { className: 'a-top' },
         h('span', { className: 'q-meta' },
           N(String(total)), ' تقييمات في ', N(String(symbols.length)), ' أسهم',
-          lastClose ? [' · أسعار إغلاق ', N(fmtDate(lastClose)), ' من EODHD (مزوّد بيانات الأسعار) · متأخرة وليست لحظية'] : null),
+          lastClose ? frag(' · أسعار إغلاق ', N(fmtDate(lastClose)), ' من EODHD (مزوّد بيانات الأسعار) · متأخرة وليست لحظية') : null),
         h('span', { className: 'q-meta' }, EXPLAIN_KINDS)),
       h('div', { className: 'a-filters' },
         select('symbol', 'السهم', [['', 'الكل'], ...symbols.map((s) => [s, s])]),
@@ -349,7 +349,7 @@ export function AssumptionsSection({ item }) {
     cols: 'minmax(200px, 2fr) 110px minmax(160px, 2fr)',
     head: ['الافتراض', 'القيمة', 'المصدر'],
     rows: rows.map((r) => [r.known ? r.label : h('span', { dir: 'ltr', className: 'q-sec' }, r.label), N(r.value, 'q-strong'),
-      h('span', { className: 'q-sec', dir: 'auto' }, r.source || '—', r.asOf ? [' · ', N(fmtDate(r.asOf))] : null)]),
+      h('span', { className: 'q-sec', dir: 'auto' }, r.source || '—', r.asOf ? frag(' · ', N(fmtDate(r.asOf))) : null)]),
   })
 }
 

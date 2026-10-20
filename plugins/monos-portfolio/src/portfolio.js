@@ -56,10 +56,11 @@ export function Search({ catalog, onPick, onCustom }) {
   // of the pound.
   const loading = catalog === null
   const results = text && !loading ? search(catalog, text) : []
-  const options = text && !loading ? (results.length ? results : [{ custom: true, key: 'custom' }]) : []
+  // The «add by name» line has its own marker: catalog entries the user added carry `custom` too.
+  const options = text && !loading ? (results.length ? results : [{ addByName: true, key: '+add' }]) : []
   const pick = (option) => {
     if (!option) return
-    if (option.custom) onCustom(text)
+    if (option.addByName) onCustom(text)
     else onPick(option)
     setQuery('')
     setActive(0)
@@ -83,7 +84,7 @@ export function Search({ catalog, onPick, onCustom }) {
       options.map((o, i) => h('li', {
         key: o.key, id: `l-opt-${i}`, role: 'option', 'aria-selected': i === at, className: 'l-option',
         onMouseDown: (e) => { e.preventDefault(); pick(o) }, onMouseEnter: () => setActive(i),
-      }, o.custom
+      }, o.addByName
         ? [h(Logo, { key: 'l', mark: '+' }), h('span', { key: 't' }, 'إضافة بالاسم ده: ', h('b', null, text))]
         : [h(Logo, { key: 'l', symbol: o.kind === 'stock' ? o.symbol : null, mark: o.mark }),
           h('span', { key: 't', className: 'l-name' }, o.name),

@@ -468,10 +468,10 @@ var __monos = (() => {
     const text = query.trim();
     const loading = catalog === null;
     const results = text && !loading ? search(catalog, text) : [];
-    const options = text && !loading ? results.length ? results : [{ custom: true, key: "custom" }] : [];
+    const options = text && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
     const pick = (option) => {
       if (!option) return;
-      if (option.custom) onCustom(text);
+      if (option.addByName) onCustom(text);
       else onPick(option);
       setQuery("");
       setActive(0);
@@ -527,7 +527,7 @@ var __monos = (() => {
             pick(o);
           },
           onMouseEnter: () => setActive(i)
-        }, o.custom ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text))] : [
+        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text))] : [
           h(Logo, { key: "l", symbol: o.kind === "stock" ? o.symbol : null, mark: o.mark }),
           h("span", { key: "t", className: "l-name" }, o.name),
           h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)

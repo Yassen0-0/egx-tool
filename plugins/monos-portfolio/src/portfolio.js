@@ -7,6 +7,7 @@ import { DASH, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, fmtQty, parseD
 import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Skeleton } from '../../shared/components.js'
 import { Logo } from '../../shared/logo.js'
+import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { search } from './search.mjs'
 import LEDGER_CSS from './ledger.css'
 
@@ -18,6 +19,9 @@ const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' 
 export const money = (v) => fmtNumber(v, 0)
 const sign = (currency) => CURRENCY_SIGN[currency] || currency
 const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
+/** A number span that reads «•••••» while the numbers are hidden (shared/privacy.js); the tone
+ * colour is dropped too, so a red or green figure does not give the sign away. */
+const hid = (hidden, text, cls) => (hidden ? N(MASK) : N(text, cls))
 
 /** «سعر الجرام وقت الشرا», so a gram is never priced as an ounce. */
 function priceLabel(kind, unit, key) {
@@ -204,6 +208,7 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
 
 // ── one asset: its row and, when open, its purchases, price and components ───
 function LotItem({ lot, asset, onChanged }) {
+  const hidden = usePrivacy()
   const [mode, setMode] = useState('view')
   const [qty, setQty] = useState(String(lot.quantity))
   const [price, setPrice] = useState(String(lot.buy_price))
@@ -241,9 +246,9 @@ function LotItem({ lot, asset, onChanged }) {
       error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
   }
   return h('div', { className: 'l-lot' },
-    asset.key === 'EGP' ? h('span', null, N(money(lot.quantity)), ' ج.م')
-      : h('span', null, N(fmtQty(lot.quantity)), ' ', asset.unit, ' × ', priceWithSign(lot.buy_price, lot.currency)),
-    lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, lot.cost_egp == null ? 'التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها' : frag('التكلفة ', N(money(lot.cost_egp)), ' ج.م')) : null,
+    asset.key === 'EGP' ? h('span', null, hid(hidden, money(lot.quantity)), ' ج.م')
+      : h('span', null, hid(hidden, fmtQty(lot.quantity)), ' ', asset.unit, ' × ', hidden ? frag(N(MASK), ' ', sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
+    lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, lot.cost_egp == null ? 'التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها' : frag('التكلفة ', hid(hidden, money(lot.cost_egp)), ' ج.م')) : null,
     h('span', { className: 'q-sec' }, lot.buy_date ? N(fmtDate(lot.buy_date)) : 'من غير تاريخ'),
     lot.note ? h('span', { className: 'q-sec' }, lot.note) : null,
     h('span', { className: 'l-lot-actions' },
@@ -278,6 +283,7 @@ function PriceForm({ asset, onChanged }) {
 }
 
 function Components({ asset, catalog, onChanged }) {
+  const hidden = usePrivacy()
   const stocks = (catalog || []).filter((e) => e.kind === 'stock')
   const [pick, setPick] = useState('')
   const [weight, setWeight] = useState('')
@@ -300,7 +306,7 @@ function Components({ asset, catalog, onChanged }) {
     h('h3', null, 'مكونات الصندوق (للعرض، مش داخلة في الإجمالي)'),
     asset.components.map((c) => h('div', { key: c.asset, className: 'l-part' },
       h(Logo, { symbol: c.symbol, mark: c.mark, size: 24 }), h('span', null, c.name),
-      h('span', { className: 'q-sec' }, N(fmtPct(c.weight)), ' من الصندوق'),
+      h('span', { className: 'q-sec' }, hid(hidden, fmtPct(c.weight)), ' من الصندوق'),
       h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', 'aria-label': `شيل ${c.name}`, onClick: () => send(current.filter((x) => x.asset !== c.asset)) }, 'شيل'))),
     h('form', { className: 'l-inline', onSubmit: add, noValidate: true },
       h('select', { className: 'q-input', style: { width: 220 }, value: pick, 'aria-label': 'السهم', onChange: (e) => setPick(e.target.value) },
@@ -311,6 +317,7 @@ function Components({ asset, catalog, onChanged }) {
 }
 
 export function AssetRow({ asset, catalog, fresh, onChanged }) {
+  const hidden = usePrivacy()
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
   const [error, setError] = useState('')
@@ -325,12 +332,12 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
       h('span', { className: 'q-stack' },
         h('span', { className: 'l-name' }, asset.name),
         h('span', { className: 'l-sub' },
-          asset.key === 'EGP' ? null : h('span', null, quantityText(asset)),
+          asset.key === 'EGP' ? null : h('span', null, hidden ? frag(N(MASK), ' ', asset.unit) : quantityText(asset)),
           asset.kind === 'stock' && asset.symbol ? h('span', { className: 'q-sym' }, asset.symbol) : null,
           !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
       h('span', { className: 'l-value' },
-        priced ? N(money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
-        priced && asset.growth != null ? N(fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
+        priced ? hid(hidden, money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
+        priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
     open ? h('div', { className: 'l-detail' },
       h('div', null,
         h('h3', null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : 'العملية'),
@@ -338,9 +345,9 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
       asset.key === 'EGP' ? null : h('div', null,
         h('h3', null, 'السعر'),
         priced || asset.price != null
-          ? h('p', { className: 'l-hint' }, 'آخر سعر ', priceWithSign(asset.price, asset.price_currency),
+          ? h('p', { className: 'l-hint' }, 'آخر سعر ', hidden ? frag(N(MASK), ' ', sign(asset.price_currency)) : priceWithSign(asset.price, asset.price_currency),
             asset.price_as_of ? frag(' · ', N(fmtDate(asset.price_as_of.slice(0, 10)))) : null, sourceText ? ` · ${sourceText}` : null,
-            asset.price_currency !== 'EGP' && asset.price_egp != null ? frag(' · ', N(fmtPrice(asset.price_egp)), ' ج.م') : null)
+            asset.price_currency !== 'EGP' && asset.price_egp != null ? frag(' · ', hid(hidden, fmtPrice(asset.price_egp)), ' ج.م') : null)
           : h('p', { className: 'l-hint' }, asset.price != null ? 'مفيش سعر دولار معروف للتحويل.' : 'لسه مفيش سعر للأصل ده.'),
         h(PriceForm, { asset, onChanged })),
       asset.kind === 'fund' ? h(Components, { asset, catalog, onChanged }) : null,
@@ -354,27 +361,29 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
 }
 
 // ── the page ─────────────────────────────────────────────────────────────────
-function UsdLine({ totals }) {
+function UsdLine({ totals, hidden }) {
   if (totals.value_usd == null) return null
   const rate = totals.usd_rate != null ? `سعر الدولار ${fmtPrice(totals.usd_rate)} ج.م` : ''
   const day = totals.usd_rate_as_of ? ` · ${fmtDate(totals.usd_rate_as_of.slice(0, 10))}` : ''
   return h('div', { className: 'l-usd', title: rate + day },
-    '≈ ', N(money(Math.round(totals.value_usd))), ' دولار')
+    '≈ ', hid(hidden, money(Math.round(totals.value_usd))), ' دولار')
 }
 
 export function TotalBlock({ totals }) {
+  const hidden = usePrivacy()
   const unpriced = totals.unpriced.length
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
-    h('span', null, N(money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
-    h(UsdLine, { totals }),
+    h('span', null, hid(hidden, money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
+    h(UsdLine, { totals, hidden }),
     totals.assets ? h('div', { className: 'l-line' },
-      h('span', null, 'التكلفة ', N(money(totals.cost))),
-      totals.growth != null ? h('span', null, 'النمو ', N(fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+      h('span', null, 'التكلفة ', hid(hidden, money(totals.cost))),
+      totals.growth != null ? h('span', null, 'النمو ', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
       unpriced ? h('span', null, N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي') : null) : null)
 }
 
 export function PortfolioPage() {
   const ledger = useMonos()
+  const hidden = usePrivacy()
   const [catalog, reloadCatalog] = useCatalog()
   const [picked, setPicked] = useState(null)
   const [fresh, setFresh] = useState(null)
@@ -391,7 +400,7 @@ export function PortfolioPage() {
   const totals = ledger && ledger.totals
   const today = totals && totals.today_has_fresh
     ? h('span', { className: 'l-today', title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : undefined },
-      'اليوم', N(fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change)))
+      'اليوم', hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change)))
     : null
 
   let body
@@ -420,6 +429,6 @@ export function PortfolioPage() {
   }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + LEDGER_CSS),
-    h(PanelHeader, { here: 'السجل' }, today),
+    h(PanelHeader, { here: 'السجل', actions: frag(today, h(PrivacyToggle)) }),
     body)
 }

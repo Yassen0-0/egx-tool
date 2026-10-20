@@ -170,6 +170,83 @@ var __monos = (() => {
     return `${y}-${two(m)}-${two(d)}`;
   }
 
+  // plugins/shared/privacy.js
+  var MASK = "•••••";
+  var STORAGE_KEY = "monos.privacy.hidden";
+  function readStored() {
+    try {
+      return globalThis.localStorage.getItem(STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function writeStored(hidden) {
+    try {
+      globalThis.localStorage.setItem(STORAGE_KEY, hidden ? "1" : "0");
+    } catch {
+    }
+  }
+  var privacy = pageShared("privacy", () => ({
+    hidden: readStored(),
+    listeners: /* @__PURE__ */ new Set(),
+    set(next) {
+      const hidden = Boolean(next);
+      if (hidden === this.hidden) return;
+      this.hidden = hidden;
+      writeStored(hidden);
+      this.listeners.forEach((listener) => listener());
+    },
+    toggle() {
+      this.set(!this.hidden);
+    }
+  }));
+  function usePrivacy() {
+    const [, bump] = useState(0);
+    useEffect(() => {
+      const listener = () => bump((n) => n + 1);
+      privacy.listeners.add(listener);
+      return () => {
+        privacy.listeners.delete(listener);
+      };
+    }, []);
+    return privacy.hidden;
+  }
+  var EYE = "M2 12s3.6-6.5 10-6.5S22 12 22 12s-3.6 6.5-10 6.5S2 12 2 12z";
+  function PrivacyToggle() {
+    const hidden = usePrivacy();
+    const label = hidden ? "إظهار الأرقام" : "إخفاء الأرقام";
+    return h(
+      "button",
+      {
+        type: "button",
+        className: "q-btn q-btn-quiet",
+        "aria-pressed": hidden,
+        "aria-label": label,
+        title: label,
+        style: { width: 32, padding: 0, display: "inline-grid", placeItems: "center" },
+        onClick: () => privacy.toggle()
+      },
+      h(
+        "svg",
+        {
+          width: 18,
+          height: 18,
+          viewBox: "0 0 24 24",
+          "aria-hidden": true,
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: 1.8,
+          strokeLinecap: "round",
+          strokeLinejoin: "round",
+          style: { display: "block" }
+        },
+        h("path", { d: EYE }),
+        h("circle", { cx: 12, cy: 12, r: 3 }),
+        hidden ? h("path", { d: "M4 4l16 16" }) : null
+      )
+    );
+  }
+
   // plugins/shared/identity.js
   var monos = pageShared("portfolio-store", () => ({
     portfolio: void 0,
@@ -237,6 +314,7 @@ var __monos = (() => {
     const portfolio = useMonos();
     const ref = import_react.default.useRef(null);
     const { state, pct } = todayOf(portfolio);
+    const hidden = usePrivacy();
     useEffect(() => {
       const timer = setInterval(() => monos.refresh(), MONOS_REFRESH_MS);
       return () => clearInterval(timer);
@@ -244,7 +322,8 @@ var __monos = (() => {
     useEffect(() => {
       const row = ref.current && ref.current.closest("button");
       if (!row) return void 0;
-      const name = state === "neutral" || pct == null ? "Monos — السجل" : `Monos — السجل، اليوم ${fmtPct(pct, { digits: 2, signed: true })}`;
+      const shownPct = hidden ? MASK : fmtPct(pct, { digits: 2, signed: true });
+      const name = state === "neutral" || pct == null ? "Monos — السجل" : `Monos — السجل، اليوم ${shownPct}`;
       row.setAttribute("title", "Monos — السجل");
       row.setAttribute("aria-label", name);
       const wide = size <= 16;
@@ -252,7 +331,7 @@ var __monos = (() => {
       const tag = document.createElement("span");
       tag.className = SIDEBAR_PCT_CLASS;
       tag.setAttribute("aria-hidden", "true");
-      tag.textContent = fmtPct(pct, { digits: 2, signed: true });
+      tag.textContent = shownPct;
       Object.assign(tag.style, {
         marginInlineStart: "8px",
         direction: "ltr",
@@ -265,7 +344,7 @@ var __monos = (() => {
       });
       row.append(tag);
       return () => tag.remove();
-    }, [state, pct, size]);
+    }, [state, pct, size, hidden]);
     return h("span", { ref, style: { display: "inline-flex" } }, h(MonosIcon, { size }));
   }
   function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
@@ -441,6 +520,7 @@ var __monos = (() => {
   var money = (v) => fmtNumber(v, 0);
   var sign = (currency) => CURRENCY_SIGN[currency] || currency;
   var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
+  var hid = (hidden, text, cls) => hidden ? N(MASK) : N(text, cls);
   function priceLabel(kind, unit, key) {
     if (kind === "currency") return `سعر ${key} بالجنيه وقت الشرا`;
     if (kind === "gold") return `سعر ال${unit} وقت الشرا`;
@@ -696,6 +776,7 @@ var __monos = (() => {
     );
   }
   function LotItem({ lot, asset, onChanged }) {
+    const hidden = usePrivacy();
     const [mode, setMode] = useState("view");
     const [qty, setQty] = useState(String(lot.quantity));
     const [price, setPrice] = useState(String(lot.buy_price));
@@ -758,8 +839,8 @@ var __monos = (() => {
     return h(
       "div",
       { className: "l-lot" },
-      asset.key === "EGP" ? h("span", null, N(money(lot.quantity)), " ج.م") : h("span", null, N(fmtQty(lot.quantity)), " ", asset.unit, " × ", priceWithSign(lot.buy_price, lot.currency)),
-      lot.currency !== "EGP" ? h("span", { className: "q-sec" }, lot.cost_egp == null ? "التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها" : frag("التكلفة ", N(money(lot.cost_egp)), " ج.م")) : null,
+      asset.key === "EGP" ? h("span", null, hid(hidden, money(lot.quantity)), " ج.م") : h("span", null, hid(hidden, fmtQty(lot.quantity)), " ", asset.unit, " × ", hidden ? frag(N(MASK), " ", sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
+      lot.currency !== "EGP" ? h("span", { className: "q-sec" }, lot.cost_egp == null ? "التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها" : frag("التكلفة ", hid(hidden, money(lot.cost_egp)), " ج.م")) : null,
       h("span", { className: "q-sec" }, lot.buy_date ? N(fmtDate(lot.buy_date)) : "من غير تاريخ"),
       lot.note ? h("span", { className: "q-sec" }, lot.note) : null,
       h(
@@ -813,6 +894,7 @@ var __monos = (() => {
     );
   }
   function Components({ asset, catalog, onChanged }) {
+    const hidden = usePrivacy();
     const stocks = (catalog || []).filter((e) => e.kind === "stock");
     const [pick, setPick] = useState("");
     const [weight, setWeight] = useState("");
@@ -844,7 +926,7 @@ var __monos = (() => {
         { key: c.asset, className: "l-part" },
         h(Logo, { symbol: c.symbol, mark: c.mark, size: 24 }),
         h("span", null, c.name),
-        h("span", { className: "q-sec" }, N(fmtPct(c.weight)), " من الصندوق"),
+        h("span", { className: "q-sec" }, hid(hidden, fmtPct(c.weight)), " من الصندوق"),
         h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", "aria-label": `شيل ${c.name}`, onClick: () => send(current.filter((x) => x.asset !== c.asset)) }, "شيل")
       )),
       h(
@@ -863,6 +945,7 @@ var __monos = (() => {
     );
   }
   function AssetRow({ asset, catalog, fresh, onChanged }) {
+    const hidden = usePrivacy();
     const [open, setOpen] = useState(false);
     const [confirm, setConfirm] = useState(false);
     const [error, setError] = useState("");
@@ -890,7 +973,7 @@ var __monos = (() => {
           h(
             "span",
             { className: "l-sub" },
-            asset.key === "EGP" ? null : h("span", null, quantityText(asset)),
+            asset.key === "EGP" ? null : h("span", null, hidden ? frag(N(MASK), " ", asset.unit) : quantityText(asset)),
             asset.kind === "stock" && asset.symbol ? h("span", { className: "q-sym" }, asset.symbol) : null,
             !priced ? h("span", null, "من غير سعر") : asset.stale && asset.price_as_of ? h("span", null, "سعر ", N(fmtDayMonth(asset.price_as_of))) : null
           )
@@ -898,8 +981,8 @@ var __monos = (() => {
         h(
           "span",
           { className: "l-value" },
-          priced ? N(money(asset.value_egp)) : h("span", { className: "num q-ter" }, DASH),
-          priced && asset.growth != null ? N(fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null
+          priced ? hid(hidden, money(asset.value_egp)) : h("span", { className: "num q-ter" }, DASH),
+          priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null
         )
       ),
       open ? h(
@@ -919,10 +1002,10 @@ var __monos = (() => {
             "p",
             { className: "l-hint" },
             "آخر سعر ",
-            priceWithSign(asset.price, asset.price_currency),
+            hidden ? frag(N(MASK), " ", sign(asset.price_currency)) : priceWithSign(asset.price, asset.price_currency),
             asset.price_as_of ? frag(" · ", N(fmtDate(asset.price_as_of.slice(0, 10)))) : null,
             sourceText ? ` · ${sourceText}` : null,
-            asset.price_currency !== "EGP" && asset.price_egp != null ? frag(" · ", N(fmtPrice(asset.price_egp)), " ج.م") : null
+            asset.price_currency !== "EGP" && asset.price_egp != null ? frag(" · ", hid(hidden, fmtPrice(asset.price_egp)), " ج.م") : null
           ) : h("p", { className: "l-hint" }, asset.price != null ? "مفيش سعر دولار معروف للتحويل." : "لسه مفيش سعر للأصل ده."),
           h(PriceForm, { asset, onChanged })
         ),
@@ -940,7 +1023,7 @@ var __monos = (() => {
       ) : null
     );
   }
-  function UsdLine({ totals }) {
+  function UsdLine({ totals, hidden }) {
     if (totals.value_usd == null) return null;
     const rate = totals.usd_rate != null ? `سعر الدولار ${fmtPrice(totals.usd_rate)} ج.م` : "";
     const day = totals.usd_rate_as_of ? ` · ${fmtDate(totals.usd_rate_as_of.slice(0, 10))}` : "";
@@ -948,28 +1031,30 @@ var __monos = (() => {
       "div",
       { className: "l-usd", title: rate + day },
       "≈ ",
-      N(money(Math.round(totals.value_usd))),
+      hid(hidden, money(Math.round(totals.value_usd))),
       " دولار"
     );
   }
   function TotalBlock({ totals }) {
+    const hidden = usePrivacy();
     const unpriced = totals.unpriced.length;
     return h(
       "section",
       { className: "l-total", "aria-label": "الإجمالي" },
-      h("span", null, N(money(totals.value || 0), "l-big"), " ", h("span", { className: "l-unit" }, "جنيه")),
-      h(UsdLine, { totals }),
+      h("span", null, hid(hidden, money(totals.value || 0), "l-big"), " ", h("span", { className: "l-unit" }, "جنيه")),
+      h(UsdLine, { totals, hidden }),
       totals.assets ? h(
         "div",
         { className: "l-line" },
-        h("span", null, "التكلفة ", N(money(totals.cost))),
-        totals.growth != null ? h("span", null, "النمو ", N(fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+        h("span", null, "التكلفة ", hid(hidden, money(totals.cost))),
+        totals.growth != null ? h("span", null, "النمو ", hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
         unpriced ? h("span", null, N(String(unpriced)), unpriced === 1 ? " أصل من غير سعر، خارج الإجمالي" : " أصول من غير سعر، خارج الإجمالي") : null
       ) : null
     );
   }
   function PortfolioPage() {
     const ledger = useMonos();
+    const hidden = usePrivacy();
     const [catalog, reloadCatalog] = useCatalog();
     const [picked, setPicked] = useState(null);
     const [fresh, setFresh] = useState(null);
@@ -990,7 +1075,7 @@ var __monos = (() => {
       "span",
       { className: "l-today", title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : void 0 },
       "اليوم",
-      N(fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change))
+      hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change))
     ) : null;
     let body;
     if (loading) {
@@ -1044,7 +1129,7 @@ var __monos = (() => {
       "div",
       { className: "qm", dir: "rtl", lang: "ar" },
       h("style", null, styles_default + ledger_default),
-      h(PanelHeader, { here: "السجل" }, today),
+      h(PanelHeader, { here: "السجل", actions: frag(today, h(PrivacyToggle)) }),
       body
     );
   }

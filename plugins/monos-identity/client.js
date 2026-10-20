@@ -68,6 +68,36 @@ var __monos = (() => {
   // plugins/shared/format.mjs
   var cairoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" });
 
+  // plugins/shared/privacy.js
+  var STORAGE_KEY = "monos.privacy.hidden";
+  function readStored() {
+    try {
+      return globalThis.localStorage.getItem(STORAGE_KEY) === "1";
+    } catch {
+      return false;
+    }
+  }
+  function writeStored(hidden) {
+    try {
+      globalThis.localStorage.setItem(STORAGE_KEY, hidden ? "1" : "0");
+    } catch {
+    }
+  }
+  var privacy = pageShared("privacy", () => ({
+    hidden: readStored(),
+    listeners: /* @__PURE__ */ new Set(),
+    set(next) {
+      const hidden = Boolean(next);
+      if (hidden === this.hidden) return;
+      this.hidden = hidden;
+      writeStored(hidden);
+      this.listeners.forEach((listener) => listener());
+    },
+    toggle() {
+      this.set(!this.hidden);
+    }
+  }));
+
   // plugins/shared/identity.js
   var monos = pageShared("portfolio-store", () => ({
     portfolio: void 0,

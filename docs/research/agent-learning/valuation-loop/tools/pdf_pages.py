@@ -26,7 +26,13 @@ def main() -> None:
         if text.strip():
             print(f"\n===== page {n} (text) =====\n{text}")
             continue
-        for j, img in enumerate(page.images):
+        try:
+            images = list(page.images)
+        except Exception as exc:  # e.g. JBIG2 scans pypdf cannot decode
+            print(f"\n===== page {n}: no text layer and the image could not be decoded ({exc}). "
+                  f"Look for the same statement in the company's earnings release or an LSE/RNS copy =====")
+            continue
+        for j, img in enumerate(images):
             image = img.image
             image.thumbnail((1200, 1700))
             path = out / f"page-{n}-{j}.png"

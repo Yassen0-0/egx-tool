@@ -8,6 +8,7 @@ import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Skeleton } from '../../shared/components.js'
 import { Logo } from '../../shared/logo.js'
 import { search } from './search.mjs'
+import { ExportButton } from './export.js'
 import LEDGER_CSS from './ledger.css'
 
 export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
@@ -411,6 +412,6 @@ export function PortfolioPage() {
   }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + LEDGER_CSS),
-    h(PanelHeader, { here: 'السجل' }, today),
+    h(PanelHeader, { here: 'السجل', actions: h(ExportButton) }, today),
     body)
 }

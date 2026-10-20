@@ -25,6 +25,7 @@ def main() -> None:
     from egx_mcp.market import store
     from egx_mcp.market.calendar import CAIRO
     from egx_mcp.store import portfolio
+    from egx_mcp.store.export import ledger_csv
     from egx_mcp.store.db import connect
 
     at = datetime(2026, 10, 15, 8, 0, tzinfo=CAIRO)  # Thursday before the session
@@ -63,6 +64,7 @@ def main() -> None:
         "/egx/api/portfolio": portfolio.portfolio_summary(conn, at=at),
         "/egx/api/catalog": {"assets": portfolio.priced_catalog(conn, at)},
         "/egx/api/fx?currency=USD&date=": portfolio.fx_rate(conn, "USD", "2026-10-15"),
+        "/egx/api/export": ledger_csv(conn, at),
     }
     conn.close()
 

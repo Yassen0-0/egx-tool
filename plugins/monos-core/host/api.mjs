@@ -92,6 +92,11 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('portfolio-summary')
     return sendJson(res, status, body)
   }
+  // «تصدير CSV»: the ledger as CSV text and a file name, which the screen saves.
+  if (method === 'GET' && path === '/egx/api/export') {
+    const { status, body } = await runCli('ledger-export')
+    return sendJson(res, status, body)
+  }
   // «السجل»: the catalog the search filters on the screen, and the EGP rate a purchase would use.
   if (method === 'GET' && path === '/egx/api/catalog') {
     const { status, body } = await runCli('catalog')

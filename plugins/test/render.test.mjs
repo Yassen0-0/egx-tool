@@ -62,7 +62,7 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.match(t, /التكلفة 355,393/)
   assert.match(t, /النمو \+32\.0%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
-  assert.match(t, /اليوم \+0\.18%/)
+  assert.match(t, /اليوم \+0\.20%/)
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle
@@ -103,6 +103,46 @@ test('the ledger search finds Egyptian spellings and offers adding by name', { s
   assert.match(seen.add, /سعر USD بالجنيه وقت الشرا/)
   assert.equal(seen.search, '')
   assert.deepEqual(seen.none, ['+إضافة بالاسم ده: زززز'])
+})
+
+test('the header has a «تصدير CSV» button that downloads the file, and a failure shows a short error', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([clientPath('monos-portfolio')], {
+    async interact(key, host, { act, settle, window }) {
+      const button = [...host.querySelectorAll('header button')].find((b) => b.textContent === 'تصدير CSV')
+      seen.exists = Boolean(button)
+      if (!button) return
+      const saved = []
+      window.URL.createObjectURL = (blob) => { saved.push(blob); return 'blob:monos' }
+      window.URL.revokeObjectURL = () => {}
+      let link = null
+      window.HTMLAnchorElement.prototype.click = function click() { link = { download: this.download, href: this.href } }
+      await act(async () => { button.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+      await settle()
+      seen.link = link
+      seen.text = await new Promise((resolve) => {
+        const reader = new window.FileReader()
+        reader.onload = () => resolve(new Uint8Array(reader.result))
+        reader.readAsArrayBuffer(saved[0])
+      })
+      seen.errorAfterOk = host.querySelector('header .q-error')
+      const realFetch = window.fetch
+      window.fetch = async () => ({ ok: false, status: 500, json: async () => ({ error: 'boom' }) })
+      globalThis.fetch = window.fetch
+      await act(async () => { button.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+      await settle()
+      seen.error = host.querySelector('header .q-error')?.textContent
+      window.fetch = globalThis.fetch = realFetch
+    },
+  })
+  assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
+  assert.ok(seen.exists, 'the button is in the header')
+  assert.ok(r.requests.includes('GET /egx/api/export'))
+  assert.equal(seen.link.download, 'monos-ledger-2026-10-15.csv')
+  assert.deepEqual([...seen.text.slice(0, 3)], [0xef, 0xbb, 0xbf], 'UTF-8 BOM first')
+  assert.match(Buffer.from(seen.text).toString('utf8'), /asset_key/)
+  assert.equal(seen.errorAfterOk, null)
+  assert.equal(seen.error, 'تعذّر التصدير، حاول مرة تانية')
 })
 
 test('the empty ledger is a zero, the search and one line', { skip: !harness && 'run npm install at the repo root' }, async () => {

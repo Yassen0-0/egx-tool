@@ -107,3 +107,38 @@ def find(conn: sqlite3.Connection, key: str) -> dict | None:
         if entry["key"] == key or (entry["kind"] == "stock" and entry["key"] == ticker):
             return entry
     return None
+
+
+# ── search (the assistant's; the screen runs the same rules in monos-portfolio/src/search.mjs) ─
+
+_FOLD = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ة": "ه", "ؤ": "و", "ئ": "ي"})
+_MARKS = dict.fromkeys([*range(0x064B, 0x0660), 0x0670, 0x0640])
+_KIND_ORDER = {"currency": 0, "gold": 1, "bitcoin": 2, "stock": 3, "fund": 4}
+
+
+def normalize(text: str | None) -> str:
+    """Lower case; Arabic without diacritics or tatweel, one alef/ya/ha spelling, «ال» dropped."""
+    folded = str(text or "").lower().translate(_MARKS).translate(_FOLD)
+    return " ".join(w[2:] if w.startswith("ال") and len(w) > 3 else w for w in folded.split())
+
+
+def _rank(entry: dict, query: str) -> int | None:
+    exact = [normalize(t) for t in (entry.get("symbol"), entry["key"], *entry["aliases"]) if t]
+    if query in exact:
+        return 0
+    texts = [normalize(t) for t in (entry["name"], entry["name_en"], *entry["aliases"]) if t]
+    if any(t.startswith(query) or any(w.startswith(query) for w in t.split()) for t in texts):
+        return 1
+    if any(query in t for t in texts):
+        return 2
+    return None
+
+
+def search(conn: sqlite3.Connection, query: str, limit: int = 6) -> list[dict]:
+    q = normalize(query)
+    if not q:
+        return []
+    hits = [(r, i, e) for i, e in enumerate(catalog(conn)) if (r := _rank(e, q)) is not None]
+    # Ties keep the catalog's order, which puts the usual choice first (gold by the gram).
+    hits.sort(key=lambda h: (h[0], _KIND_ORDER.get(h[2]["kind"], 9), h[1]))
+    return [e for _, _, e in hits[:limit]]

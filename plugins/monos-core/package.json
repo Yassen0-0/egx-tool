@@ -1,7 +1,7 @@
 {
   "name": "monos-core",
   "version": "1.0.0",
-  "description": "Monos core: the egx MCP server (valuation, risk, storage) and the /egx/api routes every screen plugin reads",
+  "description": "Monos core: the egx MCP server (the ledger tools) and the /egx/api routes «السجل» reads, with the 5-minute price refresh",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",

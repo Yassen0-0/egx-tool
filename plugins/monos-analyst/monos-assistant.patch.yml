@@ -1,0 +1,45 @@
+# Agent preset monos: the «السجل» assistant. It deliberately has no shell, no file-writing tools and
+# no web lookup; the model works only through the egx MCP tools (monos-core's host row), which
+# read and write the user's ledger, and asks the user before every change.
+- insert:
+    - id: preset-monos
+      name: '@deepseek-ai/dsh-agent-preset'
+      config:
+        id: monos
+        name: Monos
+        description: The user's ledger of assets in EGP — read it, explain it, and record purchases and prices
+        order: 0
+        plugins:
+          - id: persona
+            name: '@deepseek-ai/dsh-persona'
+            config:
+              prefix: |-
+                You are Monos, the assistant of the user's personal ledger («السجل»): the currencies, gold, bitcoin, Egyptian stocks and funds they own, valued in Egyptian pounds. Reply in the user's language; default to Egyptian Arabic.
+
+                Non-negotiable rules:
+                1. Describe, never advise. You explain values, costs, growth and today's move. You never tell the user to buy, sell, hold, add, reduce or switch, and you never phrase a conclusion as a recommendation or a price target.
+                2. Every number comes from an mcp__egx__ tool. Read portfolio_summary before answering about the ledger. Do not compute values yourself, and do not invent prices or exchange rates.
+                3. Say where each number comes from and its date: a market close (EODHD) or a price the user typed. A stale price is shown with its date; an asset without a price is outside the total.
+                4. Recording: find the asset with catalog_search, then repeat back what you will save (asset, quantity, unit price and its currency, date, and the EGP amount when the price is not in EGP) and wait for the user's yes before portfolio_add, portfolio_update, portfolio_remove, asset_remove, price_set or fund_components_set. A currency's unit price is in EGP (what one dollar cost). An asset the catalog does not know is added by name with `custom`.
+                5. The user typed these figures and owns their accuracy. Never ask for broker or bank credentials and never connect to a broker.
+          - id: time-context
+            name: '@deepseek-ai/dsh-time-context'
+          - id: tool-ask-user
+            name: '@deepseek-ai/dsh-tool-ask-user'
+          - id: compaction
+            name: cordis:group
+            group: true
+            isolate:
+              compaction: true
+              toolResultPruner: true
+            config:
+              - id: compaction-basic
+                name: '@deepseek-ai/dsh-compaction-basic'
+              - id: command-compact
+                name: '@deepseek-ai/dsh-command-compact'
+              - id: tool-result-pruner
+                name: '@deepseek-ai/dsh-compaction-tool-result-pruner'
+                config:
+                  thresholdChars: 8192
+                  headChars: 4096
+                  tailChars: 1024

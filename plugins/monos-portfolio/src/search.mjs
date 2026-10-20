@@ -36,10 +36,11 @@ const KIND_ORDER = { currency: 0, gold: 1, bitcoin: 2, stock: 3, fund: 4 }
 /** Up to MAX_RESULTS matches, best first; nothing for an empty query (the list is not a browser). */
 export function search(entries, query, limit = MAX_RESULTS) {
   const hits = []
-  for (const entry of entries || []) {
+  ;(entries || []).forEach((entry, index) => {
     const r = rank(entry, query)
-    if (r !== null) hits.push([r, entry])
-  }
-  hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[1].kind] ?? 9) - (KIND_ORDER[b[1].kind] ?? 9) || a[1].name.localeCompare(b[1].name, 'ar'))
-  return hits.slice(0, limit).map(([, entry]) => entry)
+    if (r !== null) hits.push([r, index, entry])
+  })
+  // Ties keep the catalog's order, which puts the usual choice first (gold by the gram, then the ounce).
+  hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b[2].kind] ?? 9) || a[1] - b[1])
+  return hits.slice(0, limit).map(([, , entry]) => entry)
 }

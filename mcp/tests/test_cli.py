@@ -30,10 +30,10 @@ def test_portfolio_round_trip_with_form_values():
     assert cli.run("portfolio-remove", json.dumps({"holding_id": added["id"]}))["removed"]["id"] == added["id"]
 
 
-def test_watchlist_and_archive_commands():
-    assert cli.run("watchlist-add", '{"symbol": "fwry"}')["watchlist"][0]["symbol"] == "FWRY"
-    assert cli.run("valuations-list", '{"kind": "", "limit": 10}')["total"] == 0
-    assert cli.run("validate-data", None)["ok"] is True
+def test_catalog_search_and_price_commands():
+    assert cli.run("catalog-search", '{"query": "دهب"}')["results"][0]["kind"] == "gold"
+    assert cli.run("price-set", '{"asset": "USD", "price": "48.5", "date": "2026-10-15"}')["price"] == 48.5
+    assert cli.run("fx-rate", '{"currency": "usd", "date": "2026-10-16"}')["rate"] == 48.5
 
 
 def test_unknown_command_and_bad_arguments():
@@ -52,11 +52,11 @@ def test_main_reports_validation_errors_as_exit_2(tmp_path):
 
 def test_market_sync_without_key_says_so(monkeypatch):
     monkeypatch.setattr(commands, "resolve_api_key", lambda: None)
-    assert cli.run("market-sync", None)["error"] == "no_key"
+    assert cli.run("prices-sync", None)["error"] == "no_key"
 
 
 def test_shared_commands_are_the_mcp_tools():
     from egx_mcp import server
     names = {t.name for t in asyncio.run(server.server.list_tools())}
     assert {fn.__name__ for fn in commands.MCP_TOOLS} <= names
-    assert len(names) == 32
+    assert names == {fn.__name__ for fn in commands.MCP_TOOLS}  # the ledger tools only

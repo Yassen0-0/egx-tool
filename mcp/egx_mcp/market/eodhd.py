@@ -1,4 +1,5 @@
-"""Minimal EODHD client for EGX tickers (<SYMBOL>.EGX).
+"""Minimal EODHD client: EGX stocks (<SYMBOL>.EGX) and the full tickers of the ledger's other
+feeds (USDEGP.FOREX, XAUUSD.FOREX, BTC-USD.CC, ...).
 
 The API key comes from EODHD_API_KEY, or from the file the user keeps it in
 (EODHD_KEY_FILE, default <EGX_HOME>/egx-api.docx; plain text or .docx). The key
@@ -60,7 +61,8 @@ def resolve_api_key() -> str | None:
 
 
 def ticker(symbol: str) -> str:
-    return f"{symbol.upper()}.EGX"
+    """An EGX symbol gets .EGX; a feed is already a full ticker."""
+    return symbol if "." in symbol else f"{symbol.upper()}.EGX"
 
 
 class EodhdClient:

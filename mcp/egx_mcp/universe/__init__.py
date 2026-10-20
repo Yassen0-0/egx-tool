@@ -1,17 +1,10 @@
+"""EGX30 constituents (egx30.json): the stocks the ledger's search knows by name, logo and line currency."""
+
 import json
 from functools import cache
 from pathlib import Path
 
 UNIVERSE_FILE = Path(__file__).with_name("egx30.json")
-# Every constituent's valuation_model is one of these; each maps to one sector skill
-# (skills/egx-valuation/SKILL.md §3). tests/test_rules_in_sync.py keeps the three in step.
-VALUATION_MODEL_SKILLS = {
-    "bank": "egx-sector-banks",
-    "holding": "egx-sector-holding",
-    "nonbank_financial": "egx-sector-holding",
-    "real_estate": "egx-sector-realestate",
-    "operating": "egx-sector-operating",
-}
 
 
 @cache

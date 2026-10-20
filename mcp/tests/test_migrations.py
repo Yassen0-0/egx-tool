@@ -64,5 +64,5 @@ def test_old_holding_becomes_a_ledger_stock(tmp_path):
     assert row["cost_egp"] == 120 * 61.25 and row["name"] == "طلعت مصطفى القابضة"
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"custom_assets", "manual_prices", "fund_components"} <= tables
-    assert len(list((tmp_path / "backups").glob("egx-*-before-v2.sqlite"))) == 1
+    assert len(list((tmp_path / "backups").glob("egx-*-before-v*.sqlite"))) == 1
     conn.close()

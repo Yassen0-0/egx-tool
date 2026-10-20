@@ -1,5 +1,5 @@
 // Monos identity pieces every screen plugin uses: the brand icon, the shared portfolio store the
-// icon and the screens read, the sidebar entry, the panel header, the disclaimer and the toast.
+// icon and the screens read, the sidebar entry, the panel header and the disclaimer.
 import { React, api, h, pageShared, useEffect, useState } from './runtime.js'
 import { fmtPct, iconState } from './format.mjs'
 
@@ -125,31 +125,7 @@ export function PanelHeader({ here, crumbs = [], actions = null, children = null
       actions ? h('div', { className: 'q-head-actions' }, actions) : null))
 }
 
-export const DISCLAIMER = 'تقييم وليس توصية بالشراء أو البيع.'
+export const DISCLAIMER = 'وصف للأرقام، وليس توصية بالشراء أو البيع.'
 export function Disclaimer({ extra }) {
   return h('p', { className: 'q-foot' }, extra || null, extra ? ' ' : null, h('b', { style: { fontWeight: 600 } }, DISCLAIMER))
-}
-
-// ── «قيّم سهم X» ──────────────────────────────────────────────────────────────
-// The host exposes the composer's draft only to components rendered inside the chat, and our
-// panels replace the chat while open, so the message is copied for the user to paste there.
-export function useToast() {
-  const [text, setText] = useState('')
-  useEffect(() => {
-    if (!text) return undefined
-    const timer = setTimeout(() => setText(''), 4000)
-    return () => clearTimeout(timer)
-  }, [text])
-  const node = text ? h('div', { className: 'q-toast', role: 'status' }, text) : null
-  return [node, setText]
-}
-
-export async function copyValuationPrompt(symbol, toast) {
-  const message = `قيّم سهم ${symbol}`
-  try {
-    await navigator.clipboard.writeText(message)
-    toast(`اتنسخت الرسالة «${message}» — الصقها في المحادثة`)
-  } catch {
-    toast(`اكتب في المحادثة: «${message}»`)
-  }
 }

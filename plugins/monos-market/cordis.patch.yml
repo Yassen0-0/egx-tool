@@ -1,9 +1,0 @@
-# monos-market: شاشة السوق: قائمة EGX30 وملخص «منذ آخر إغلاق» و«متابعتي» وتفاصيل السهم. Turn it off without touching the others with a profile patch row
-#   - id: monos-market
-#     disabled: true
-# Off since «السجل» (docs/تحول.md): the code stays until the deletion phase. Delete the
-# `disabled` line to bring the screen back.
-- insert:
-    - id: monos-market
-      name: monos-market
-      disabled: true

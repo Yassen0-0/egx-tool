@@ -43,69 +43,38 @@ function call(method, url, { body, headers = {} } = {}) {
 
 const SAME_ORIGIN = { 'x-egx-request': '1', 'content-type': 'application/json' }
 
-test('GET lists the watchlist', async () => {
-  const r = await call('GET', '/egx/api/watchlist')
-  assert.equal(r.status, 200)
-  assert.equal(r.body.command, 'watchlist-list')
-})
-
-test('POST follows a stock, DELETE unfollows it', async () => {
-  const add = await call('POST', '/egx/api/watchlist', { body: { symbol: 'FWRY' }, headers: SAME_ORIGIN })
-  assert.equal(add.status, 200)
-  assert.deepEqual(add.body, { command: 'watchlist-add', payload: { symbol: 'FWRY' } })
-  const remove = await call('DELETE', '/egx/api/watchlist/FWRY', { body: {}, headers: SAME_ORIGIN })
-  assert.deepEqual(remove.body, { command: 'watchlist-remove', payload: { symbol: 'FWRY' } })
-})
-
 test('mutations need the same-origin headers, a loopback host and a matching origin', async () => {
-  const bare = await call('POST', '/egx/api/watchlist', { body: { symbol: 'FWRY' }, headers: { 'content-type': 'application/json' } })
+  const body = { asset: 'USD', price: 48.5 }
+  const bare = await call('POST', '/egx/api/prices', { body, headers: { 'content-type': 'application/json' } })
   assert.equal(bare.status, 403)
-  const form = await call('DELETE', '/egx/api/watchlist/FWRY', { headers: { 'x-egx-request': '1', 'content-type': 'text/plain' } })
+  const form = await call('DELETE', '/egx/api/holdings/3', { headers: { 'x-egx-request': '1', 'content-type': 'text/plain' } })
   assert.equal(form.status, 403)
-  const foreign = await call('POST', '/egx/api/watchlist', { body: { symbol: 'FWRY' }, headers: { ...SAME_ORIGIN, origin: 'https://evil.example' } })
+  const foreign = await call('POST', '/egx/api/prices', { body, headers: { ...SAME_ORIGIN, origin: 'https://evil.example' } })
   assert.equal(foreign.status, 403)
-  const rebound = await call('GET', '/egx/api/watchlist', { headers: { host: 'evil.example' } })
+  const rebound = await call('GET', '/egx/api/portfolio', { headers: { host: 'evil.example' } })
   assert.equal(rebound.status, 403)
 })
 
-test('wrong method or shape is refused', async () => {
-  assert.equal((await call('DELETE', '/egx/api/watchlist', { body: {}, headers: SAME_ORIGIN })).status, 405)
-  assert.equal((await call('POST', '/egx/api/watchlist/FWRY', { body: {}, headers: SAME_ORIGIN })).status, 405)
-  assert.equal((await call('PATCH', '/egx/api/watchlist', { body: {}, headers: SAME_ORIGIN })).status, 405)
-})
-
-test('a body that is not a JSON object is a 400, never a hung request', async () => {
-  for (const body of [null, 5, ['FWRY']]) {
-    const r = await call('POST', '/egx/api/watchlist', { body, headers: SAME_ORIGIN })
-    assert.equal(r.status, 400)
+test('wrong method or shape is refused, and a body that is not a JSON object is a 400', async () => {
+  assert.equal((await call('DELETE', '/egx/api/holdings', { body: {}, headers: SAME_ORIGIN })).status, 405)
+  assert.equal((await call('POST', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })).status, 405)
+  for (const body of [null, 5, ['USD']]) {
+    assert.equal((await call('POST', '/egx/api/holdings', { body, headers: SAME_ORIGIN })).status, 400)
   }
-  const sync = await call('POST', '/egx/api/market/sync', { body: null, headers: SAME_ORIGIN })
-  assert.equal(sync.status, 400)
 })
 
-// Every /egx/api route reaches the egx-cli command (commands.py) the screens rely on.
-test('each route maps to its egx-cli command and arguments', async () => {
-  const get = async (url) => (await call('GET', url)).body
-  assert.equal((await get('/egx/api/portfolio')).command, 'portfolio-summary')
-  assert.equal((await get('/egx/api/universe')).command, 'universe')
-  assert.equal((await get('/egx/api/market')).command, 'market-summary')
-  assert.equal((await get('/egx/api/market/digest')).command, 'market-digest')
-  assert.deepEqual(await get('/egx/api/market/COMI/history?days=90'), { command: 'market-history', payload: { symbol: 'COMI', days: 90 } })
-  assert.deepEqual(await get('/egx/api/valuations/series/COMI'), { command: 'valuation-series', payload: { symbol: 'COMI' } })
-  assert.deepEqual(await get('/egx/api/valuations/7'), { command: 'valuation-get', payload: { valuation_id: 7 } })
-  const list = await get('/egx/api/valuations?kind=&limit=200&offset=200')
-  assert.equal(list.command, 'valuations-list')
-  assert.deepEqual([list.payload.kind, list.payload.limit, list.payload.offset], [null, 200, 200])
+test('each holdings route maps to its egx-cli command, and the old screens\' routes are gone', async () => {
+  assert.equal((await call('GET', '/egx/api/portfolio')).body.command, 'portfolio-summary')
   const add = await call('POST', '/egx/api/holdings', { body: { asset: 'COMI', buy_price: 80, quantity: 5 }, headers: SAME_ORIGIN })
   assert.deepEqual(add.body, { command: 'portfolio-add', payload: { asset: 'COMI', buy_price: 80, quantity: 5 } })
   const edit = await call('PATCH', '/egx/api/holdings/3', { body: { quantity: 6 }, headers: SAME_ORIGIN })
   assert.deepEqual(edit.body, { command: 'portfolio-update', payload: { quantity: 6, holding_id: 3 } })
   const remove = await call('DELETE', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })
-  const one = await call('POST', '/egx/api/market/CLHO/sync', { body: {}, headers: SAME_ORIGIN })
-  assert.deepEqual(one.body, { command: 'market-sync-symbol', payload: { symbol: 'CLHO' } })
   assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
-  assert.equal((await call('GET', '/egx/api/nothing')).status, 405)
-  assert.equal((await call('POST', '/egx/api/nothing', { body: {}, headers: SAME_ORIGIN })).status, 404)
+  for (const url of ['/egx/api/market', '/egx/api/watchlist', '/egx/api/valuations', '/egx/api/universe']) {
+    assert.equal((await call('GET', url)).status, 405, url)
+  }
+  assert.equal((await call('POST', '/egx/api/market/sync', { body: {}, headers: SAME_ORIGIN })).status, 404)
 })
 
 test('ledger routes: catalog, rate, manual price, fund components and removing an asset', async () => {

@@ -1,4 +1,4 @@
-// Formatting and valuation helpers shared by every «Monos» screen. Pure functions only:
+// Formatting helpers for the «Monos» screens. Pure functions only:
 // the build inlines this file into client.js (dropping the `export` keywords) and
 // plugins/test/format.test.mjs imports it directly.
 //
@@ -8,10 +8,6 @@
 
 export const MINUS = '−'
 export const DASH = '—'
-// Mirror of mcp/egx_mcp/pricing.py (protection = fair × (1 − PROTECTION_DISCOUNT)); the Python value
-// is the rule and mcp/tests/test_rules_in_sync.py fails when this copy, the skills or the preset differ.
-export const PROTECTION_RATIO = 0.8
-export const PROTECTION_PCT = `${Math.round(PROTECTION_RATIO * 100)}%`
 
 const formatters = new Map()
 function fixed(digits) {
@@ -70,98 +66,9 @@ export function fmtPct(fraction, { digits = 1, signed = false } = {}) {
   return (signed ? sign : sign === MINUS ? MINUS : '') + body + '%'
 }
 
-/** Day change as one string for one `.num` span: +1.00 (+0.83%). */
-export function fmtChange(change, changePct) {
-  if (missing(change)) return DASH
-  if (missing(changePct)) return fmtSigned(change)
-  return `${fmtSigned(change)} (${fmtPct(changePct, { digits: 2, signed: true })})`
-}
-
-/** Old → new value pair for one `.num` span: 118.00 → 131.00. */
-export function fmtArrow(from, to) {
-  return `${fmtPrice(from)} → ${fmtPrice(to)}`
-}
-
-// ── Valuation (docs/design/CLAUDE_CODE.md §4) ─────────────────────────────────
-
-// Prices are quoted to the piaster, so compare at that precision: 131 × 0.8 is
-// 104.80000000000001 in floating point, and a price of 104.80 is not under it.
-const EPS = 1e-6
-
-export function protectionOf(fair) {
-  return missing(fair) ? null : fair * PROTECTION_RATIO
-}
-
-/** Difference from fair as a share of fair: (fair − price) / fair. Positive = price under fair. */
-export function marginToFair(fair, price) {
-  if (missing(fair) || missing(price) || fair <= 0) return null
-  return (fair - price) / fair
-}
-
-/** How far the price is under protection, as a share of protection; null when it is not under. */
-export function belowProtectionBy(fair, price) {
-  const protection = protectionOf(fair)
-  if (protection == null || missing(price) || price >= protection - EPS) return null
-  return (protection - price) / protection
-}
-
-/** 'above' (price ≥ fair), 'between' (protection ≤ price < fair), 'under' (price < protection). */
-export function statusOf(price, fair) {
-  if (missing(price) || missing(fair) || fair <= 0) return null
-  if (price >= fair - EPS) return 'above'
-  if (price >= protectionOf(fair) - EPS) return 'between'
-  return 'under'
-}
-
-export const STATUS_LABEL = {
-  above: 'أعلى من العادل',
-  between: 'بين الحماية والعادل',
-  under: 'تحت سعر الحماية — يحتاج مراجعة',
-}
-
-/** Maps the API's pricing status names onto statusOf()'s. */
-export const API_STATUS = { above_fair_value: 'above', at_or_below_fair_value: 'between', below_protection: 'under' }
-
-/**
- * The neutral sentence about price vs fair value, split so the number can sit in its own
- * `.num` span and the sentence ends on it (never on punctuation after a number).
- * Returns { status, mark, text, value } or null when either input is missing.
- */
-export function marginSentence(price, fair) {
-  const status = statusOf(price, fair)
-  if (!status) return null
-  if (status === 'under') {
-    return { status, mark: '◆', text: 'تحت سعر الحماية بـ', value: fmtPct(belowProtectionBy(fair, price)) }
-  }
-  const margin = marginToFair(fair, price)
-  if (Math.round(Math.abs(margin) * 1000) === 0) return { status, mark: '○', text: 'عند السعر العادل', value: null }
-  return status === 'between'
-    ? { status, mark: '○', text: 'أقل من العادل بـ', value: fmtPct(margin) }
-    : { status, mark: '○', text: 'أعلى من العادل بـ', value: fmtPct(-margin) }
-}
-
-/**
- * Positions (0–100, left to right) for the valuation ruler. The scale spans the bear–bull band,
- * protection, fair and price with a little padding, so every mark stays on the track.
- */
-export function rulerScale({ bear, bull, fair, price }) {
-  const protection = protectionOf(fair)
-  const values = [bear, bull, fair, protection, price].filter((v) => !missing(v))
-  if (!values.length) return null
-  let lo = Math.min(...values), hi = Math.max(...values)
-  if (hi === lo) { lo -= 1; hi += 1 }
-  const pad = (hi - lo) * 0.06
-  lo -= pad; hi += pad
-  const at = (v) => (missing(v) ? null : ((v - lo) / (hi - lo)) * 100)
-  return { at, bear: at(bear), bull: at(bull), fair: at(fair), protection: at(protection), price: at(price) }
-}
-
 // ── Dates (Africa/Cairo) ──────────────────────────────────────────────────────
 
-const WEEKDAYS = ['الأحد', 'الاثنين', 'الثلاثاء', 'الأربعاء', 'الخميس', 'الجمعة', 'السبت']
-const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
 const cairoDate = new Intl.DateTimeFormat('en-CA', { timeZone: 'Africa/Cairo', year: 'numeric', month: '2-digit', day: '2-digit' })
-const cairoTime = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Cairo', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' })
 
 /** 'YYYY-MM-DD' in Cairo. A bare date stays as it is; a timestamp is converted. */
 export function cairoDay(iso) {
@@ -192,34 +99,15 @@ export function fmtDate(iso) {
   return p ? `${two(p.d)}/${two(p.m)}/${p.y}` : DASH
 }
 
-/** الأربعاء 14 أكتوبر (digits stay Latin; callers wrap the number part if they split it). */
-export function fmtLongDay(iso) {
-  const p = parts(iso)
-  return p ? `${WEEKDAYS[p.weekday]} ${p.d} ${MONTHS[p.m - 1]}` : DASH
-}
-
-export function weekdayName(iso) {
-  const p = parts(iso)
-  return p ? WEEKDAYS[p.weekday] : DASH
-}
-
-/** 09:02 (Cairo, 24h). */
-export function fmtTime(iso) {
-  if (!iso) return DASH
-  const d = new Date(iso)
-  return Number.isNaN(d.getTime()) ? DASH : cairoTime.format(d)
-}
-
-// ── Portfolio today (tone of the sidebar % next to the label) ────────────────
+// ── Ledger today (tone of the sidebar % next to the label) ───────────────────
 
 /**
- * 'up' | 'down' | 'neutral', in the order the spec fixes: no holdings → neutral; no fresh
- * price for any holding → neutral; today == 0 (at the shown precision) → neutral.
+ * 'up' | 'down' | 'neutral', in the order the spec fixes: no assets → neutral; no fresh
+ * price for any asset → neutral; today == 0 (at the shown precision) → neutral.
  */
 export function iconState(portfolio) {
   const totals = (portfolio && portfolio.totals) || {}
-  // The ledger counts its assets in totals; the older portfolio shape listed holdings.
-  const count = portfolio && portfolio.holdings ? portfolio.holdings.length : totals.assets || 0
+  const count = totals.assets || 0
   if (!count) return 'neutral'
   if (!totals.today_has_fresh || missing(totals.today_change)) return 'neutral'
   const cents = Math.round(totals.today_change * 100)
@@ -234,54 +122,7 @@ export function toneOf(v) {
   return r > 0 ? 'q-up' : r < 0 ? 'q-down' : ''
 }
 
-/** Volume and other large counts: 6.19M, 850K. */
-export function fmtCompact(v) {
-  if (missing(v)) return DASH
-  const abs = Math.abs(v)
-  const [div, unit] = abs >= 1e9 ? [1e9, 'B'] : abs >= 1e6 ? [1e6, 'M'] : abs >= 1e3 ? [1e3, 'K'] : [1, '']
-  const scaled = v / div
-  return fmtNumber(scaled, !unit ? 0 : Math.abs(scaled) < 10 ? 2 : Math.abs(scaled) < 100 ? 1 : 0) + unit
-}
-
-// ── EGX session (Sun–Thu, 10:00–14:30 Cairo) ─────────────────────────────────
-
-// Fallback only: the market API sends next_session from the holiday-aware Python calendar.
-const TRADING = new Set([0, 1, 2, 3, 4]) // Sunday..Thursday (getUTCDay)
-
-/**
- * The session line for the status strip, from the server's Cairo timestamp ("2026-10-15T09:02+03:00"):
- * { text, time } → «الجلسة مغلقة · تفتح اليوم» + «10:00», or «الجلسة مفتوحة · تغلق» + «14:30».
- */
-export function sessionLine(asOf, open, nextSession) {
-  if (open) return { text: 'الجلسة مفتوحة · تغلق', time: '14:30' }
-  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || '')
-  if (!m) return { text: 'الجلسة مغلقة', time: null }
-  const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]))
-  const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextSession || '')
-  if (n) {
-    const next = new Date(Date.UTC(+n[1], +n[2] - 1, +n[3]))
-    const ahead = Math.round((next - day) / 86_400_000)
-    const when = ahead <= 0 ? 'اليوم' : ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
-    return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
-  }
-  const minutes = +m[4] * 60 + +m[5]
-  if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: 'الجلسة مغلقة · تفتح اليوم', time: '10:00' }
-  let ahead = 1
-  const next = new Date(day)
-  next.setUTCDate(next.getUTCDate() + 1)
-  while (!TRADING.has(next.getUTCDay())) { next.setUTCDate(next.getUTCDate() + 1); ahead++ }
-  const when = ahead === 1 ? 'غدًا' : WEEKDAYS[next.getUTCDay()]
-  return { text: `الجلسة مغلقة · تفتح ${when}`, time: '10:00' }
-}
-
-/** Price position (0–100) inside its 52-week range; null when the range is unknown. */
-export function rangePosition(low, high, price) {
-  if (missing(low) || missing(high) || missing(price) || high <= low) return null
-  return Math.min(100, Math.max(0, ((price - low) / (high - low)) * 100))
-}
-
-export const RATING_LEVEL = { safe: 1, balanced: 2, high_risk: 3 }
-export const RATING_LABEL = { safe: 'آمن', balanced: 'متوازن', high_risk: 'مرتفع المخاطر' }
+// ── Input ─────────────────────────────────────────────────────────────────────
 
 /** Parses what the user types as a number: Arabic-Indic digits, «٫»/«,» decimals and spaces allowed. */
 export function parseNumberInput(text) {
@@ -309,33 +150,4 @@ export function parseDayInput(text) {
   const date = new Date(Date.UTC(y, m - 1, d))
   if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return undefined
   return `${y}-${two(m)}-${two(d)}`
-}
-
-// ── EODHD daily limit ────────────────────────────────────────────────────────
-// EODHD resets the daily API-call counter at midnight GMT (eodhd.com/financial-apis/api-limits).
-// The Cairo clock time of that reset moves with Egypt's daylight saving, so it is computed.
-
-/** The last reset before `now` (a Date or ISO string), as a Date. */
-export function lastLimitReset(now) {
-  const t = new Date(now)
-  return new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth(), t.getUTCDate()))
-}
-
-/** { when: 'اليوم' | 'بكره', time: 'HH:MM' } for the next reset, in Cairo time. */
-export function nextLimitReset(now) {
-  const next = new Date(lastLimitReset(now).getTime() + 864e5)
-  const today = cairoDay(new Date(now).toISOString())
-  return { when: cairoDay(next.toISOString()) === today ? 'اليوم' : 'بكره', time: fmtTime(next.toISOString()) }
-}
-
-// ── Market data (/egx/api/market) ─────────────────────────────────────────────
-
-/** Latest close date (YYYY-MM-DD) among the priced rows; '' when none is priced. */
-export function lastCloseOf(rows) {
-  return (rows || []).reduce((m, r) => (r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m), '')
-}
-
-/** Price-provider calls used today by the last sync run (before it + by it); null without a run or limit. */
-export function callsUsed(run) {
-  return run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null
 }

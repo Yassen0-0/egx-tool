@@ -13,9 +13,8 @@ const here = dirname(fileURLToPath(import.meta.url))
 let harness = null
 try { harness = await import('./harness.mjs') } catch { /* dev dependencies not installed */ }
 
-// The chart library finding no <canvas> context in jsdom is known and harmless; anything else,
-// a React list-key warning included, is a regression.
-const KNOWN = [/Value is null/, /Not implemented: HTMLCanvasElement/]
+// Anything logged, a React list-key warning included, is a regression.
+const KNOWN = []
 
 // Every plugin with a screen, found the way the build finds them (a new plugin is tested too).
 const { plugins } = await import('../build.mjs')
@@ -23,58 +22,22 @@ const CLIENTS = plugins().filter((p) => existsSync(join(p.dir, 'client.js'))).ma
 const clientPath = (name) => join(here, '..', name, 'client.js')
 
 test('every screen renders from the built plugin clients', { skip: !harness && 'run npm install at the repo root' }, async () => {
-  const opened = {}
-  const r = await harness.renderClient(CLIENTS.map(clientPath), {
-    async interact(key, host, { act, settle, window }) {
-      const target = key === 'egx-market' ? host.querySelector('.m-row') : null
-      if (target) {
-        await act(async () => { target.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
-        await settle()
-        opened[key] = host.textContent
-        // The TradingView tabs: each is one cross-origin iframe, never TradingView's script in our page.
-        for (const name of ['chart', 'financials', 'technical']) {
-          const tab = [...host.querySelectorAll('[role="tab"]')].find((b) => b.textContent === { chart: 'الشارت الفني', financials: 'البيانات المالية', technical: 'التحليل الفني' }[name])
-          await act(async () => { tab.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
-          await settle()
-          opened[name] = { frames: [...host.querySelectorAll('iframe')].map((f) => f.getAttribute('src')), scripts: host.querySelectorAll('script').length }
-        }
-      }
-    },
-  })
-  for (const slot of [
-    'conversation.hero.brand.mark:conversation.hero.brand.mark',
-    'sidebar.panellist:egx-market', 'main:egx-market',
-    'sidebar.panellist:egx-analyses', 'main:egx-analyses',
-    'sidebar.panellist:egx-portfolio', 'main:egx-portfolio',
-  ]) assert.ok(r.slots.includes(slot), slot)
+  const r = await harness.renderClient(CLIENTS.map(clientPath))
+  assert.deepEqual(r.slots.sort(), [
+    'conversation.hero.brand.mark:conversation.hero.brand.mark', 'main:egx-portfolio', 'sidebar.panellist:egx-portfolio',
+  ])
   assert.deepEqual(r.unknownRequests, [])
-  const unexpected = r.errors.filter((e) => !KNOWN.some((k) => k.test(e)))
-  assert.deepEqual(unexpected, [])
-  const text = (key) => r.html[key].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
-  assert.match(text('main:egx-market'), /Monos \/ السوق/)
-  assert.match(text('main:egx-market'), /COMI/)
-  assert.match(text('main:egx-portfolio'), /Monos \/ السجل/)
-  for (const heading of ['عملات', 'بتكوين', 'أسهم', 'صناديق']) assert.match(text('main:egx-portfolio'), new RegExp(heading))
-  assert.match(text('main:egx-portfolio'), /TMGH/)
-  assert.match(text('main:egx-analyses'), /التحليلات/)
+  assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
+  const text = r.html['main:egx-portfolio'].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+  assert.match(text, /Monos \/ السجل/)
+  for (const heading of ['عملات', 'بتكوين', 'أسهم', 'صناديق']) assert.match(text, new RegExp(heading))
+  assert.match(text, /TMGH/)
   assert.match(r.html['conversation.hero.brand.mark:conversation.hero.brand.mark'], /<svg/)
-  assert.ok(opened['egx-market'], 'clicking a market row opens its detail')
-  for (const [tab, widget] of [['chart', 'advanced-chart'], ['financials', 'financials'], ['technical', 'technical-analysis']]) {
-    assert.equal(opened[tab].scripts, 0, `${tab}: no script injected`)
-    assert.equal(opened[tab].frames.length, 1, `${tab}: one iframe`)
-    const src = new URL(opened[tab].frames[0])
-    assert.equal(`${src.origin}${src.pathname}${src.search}`, `https://www.tradingview-widget.com/embed-widget/${widget}/?locale=ar_AE`)
-    const settings = JSON.parse(decodeURIComponent(src.hash.slice(1)))
-    assert.match(settings.symbol, /^EGX:/)
-    assert.equal(settings.locale, undefined)
-  }
 })
 
 test('each plugin renders on its own and registers only its own slots', { skip: !harness && 'run npm install at the repo root' }, async () => {
   const own = {
     'monos-identity': ['conversation.hero.brand.mark:conversation.hero.brand.mark'],
-    'monos-market': ['sidebar.panellist:egx-market', 'main:egx-market'],
-    'monos-analyses': ['sidebar.panellist:egx-analyses', 'main:egx-analyses'],
     'monos-portfolio': ['sidebar.panellist:egx-portfolio', 'main:egx-portfolio'],
   }
   for (const name of CLIENTS) {
@@ -86,50 +49,6 @@ test('each plugin renders on its own and registers only its own slots', { skip: 
   }
 })
 
-test('the market screen says so when the price budget has not renewed for days', { skip: !harness && 'run npm install at the repo root' }, async () => {
-  const market = harness.FIXTURES['/egx/api/market']
-  const text = async (priceBudget) => {
-    const r = await harness.renderClient([clientPath('monos-market')], { fixtures: { '/egx/api/market': { ...market, price_budget: priceBudget } } })
-    assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
-    return r.html['main:egx-market'].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
-  }
-  const stuck = await text({ blocked_since: '2026-10-12T04:53:48+00:00', blocked_days: 3, last_fetch_at: '2026-10-12T04:49:35+00:00' })
-  assert.match(stuck, /رصيد EODHD اليومي لا يتجدد/)
-  assert.match(stuck, /12\/10/)
-  assert.doesNotMatch(stuck, /بلغنا الحد اليومي/)
-  const normal = await text({ blocked_since: null, blocked_days: 0, last_fetch_at: '2026-10-15T04:49:35+00:00' })
-  assert.doesNotMatch(normal, /لا يتجدد/)
-})
-
-test('«حدّث سعر …» refreshes one stock through its own route', { skip: !harness && 'run npm install at the repo root' }, async () => {
-  const market = harness.FIXTURES['/egx/api/market']
-  // Every price a session old, so the opened stock's button is enabled.
-  const rows = market.rows.map((r) => (r.price != null ? { ...r, stale: true } : r))
-  let symbol = null
-  let before = null
-  let after = null
-  const r = await harness.renderClient([clientPath('monos-market')], {
-    fixtures: { '/egx/api/market': { ...market, rows, price_budget: { ...market.price_budget, left_today: 7 } } },
-    async interact(key, host, { act, settle, window }) {
-      const row = key === 'egx-market' ? host.querySelector('.m-row') : null
-      if (!row) return  // the sidebar slot shares the key
-      await act(async () => { row.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
-      await settle()
-      const button = [...host.querySelectorAll('button')].find((b) => b.textContent.startsWith('حدّث سعر '))
-      symbol = button.textContent.slice('حدّث سعر '.length)
-      before = { disabled: button.disabled, text: button.parentElement.textContent }
-      await act(async () => { button.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
-      await settle()
-      after = host.textContent
-    },
-  })
-  assert.equal(before.disabled, false)
-  assert.match(before.text, /يستهلك تحديثًا واحدًا · باقي اليوم 7/)
-  assert.ok(r.requests.includes(`POST /egx/api/market/${symbol}/sync`), r.requests.join('\n'))
-  assert.ok(!r.requests.includes('POST /egx/api/market/sync'), 'never the whole index')
-  assert.match(after, new RegExp(`حُدّث سعر ${symbol}`))
-})
-
 // ── «السجل» ──────────────────────────────────────────────────────────────────
 const ledgerText = (html) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
 
@@ -139,11 +58,11 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.deepEqual(r.unknownRequests, [])
   const html = r.html['main:egx-portfolio']
   const t = ledgerText(html)
-  assert.match(t, /444,710 جنيه/)
-  assert.match(t, /التكلفة 353,650/)
-  assert.match(t, /النمو \+27\.2%/)
+  assert.match(t, /463,837 جنيه/)
+  assert.match(t, /التكلفة 355,393/)
+  assert.match(t, /النمو \+32\.0%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
-  assert.match(t, /اليوم \+0\.20%/)
+  assert.match(t, /اليوم \+0\.18%/)
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle
@@ -178,7 +97,7 @@ test('the ledger search finds Egyptian spellings and offers adding by name', { s
     },
   })
   assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
-  assert.ok(seen.gold.some((o) => o.includes('الذهب (جرام)')) && seen.gold.some((o) => o.includes('الذهب (أونصة)')))
+  assert.ok(seen.gold[0].includes('الذهب (جرام)') && seen.gold[1].includes('الذهب (أونصة)'))  // the gram first
   assert.ok(seen.bank[0].includes('البنك التجاري الدولي'))
   assert.match(seen.add, /الدولار الأمريكي/)
   assert.match(seen.add, /سعر USD بالجنيه وقت الشرا/)

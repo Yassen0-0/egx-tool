@@ -19,6 +19,16 @@ export const money = (v) => fmtNumber(v, 0)
 const sign = (currency) => CURRENCY_SIGN[currency] || currency
 const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
 
+/** «سعر الجرام وقت الشرا», so a gram is never priced as an ounce. */
+function priceLabel(kind, unit, key) {
+  if (kind === 'currency') return `سعر ${key} بالجنيه وقت الشرا`
+  if (kind === 'gold') return `سعر ال${unit} وقت الشرا`
+  return { stock: 'سعر السهم وقت الشرا', fund: 'سعر الوثيقة وقت الشرا', bitcoin: 'سعر البتكوين وقت الشرا' }[kind] || 'سعر الوحدة وقت الشرا'
+}
+
+// A buy price more than 3× away from the latest known price is most likely the wrong unit.
+export const UNIT_MISMATCH = 3
+
 function quantityLabel(kind, unit, key) {
   if (kind === 'currency') return `المبلغ (${key})`
   return QTY_LABEL[kind] || `الكمية (${unit})`
@@ -42,8 +52,11 @@ export function Search({ catalog, onPick, onCustom }) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const text = query.trim()
-  const results = text ? search(catalog || [], text) : []
-  const options = text ? (results.length ? results : [{ custom: true, key: 'custom' }]) : []
+  // Until the catalog arrives nothing is offered: «إضافة بالاسم ده» for «جنيه» would make a copy
+  // of the pound.
+  const loading = catalog === null
+  const results = text && !loading ? search(catalog, text) : []
+  const options = text && !loading ? (results.length ? results : [{ custom: true, key: 'custom' }]) : []
   const pick = (option) => {
     if (!option) return
     if (option.custom) onCustom(text)
@@ -74,7 +87,8 @@ export function Search({ catalog, onPick, onCustom }) {
         ? [h(Logo, { key: 'l', mark: '+' }), h('span', { key: 't' }, 'إضافة بالاسم ده: ', h('b', null, text))]
         : [h(Logo, { key: 'l', symbol: o.kind === 'stock' ? o.symbol : null, mark: o.mark }),
           h('span', { key: 't', className: 'l-name' }, o.name),
-          h('span', { key: 'k', className: 'l-kind' }, o.kind_label, o.symbol ? h('span', { className: 'q-sym' }, o.symbol) : null)]))) : null)
+          h('span', { key: 'k', className: 'l-kind' }, o.kind_label, o.symbol ? h('span', { className: 'q-sym' }, o.symbol) : null)]))) : null,
+    text && loading ? h('p', { className: 'l-hint', role: 'status', style: { marginTop: 6 } }, 'جارٍ تحميل القائمة…') : null)
 }
 
 // ── the add line ─────────────────────────────────────────────────────────────
@@ -115,6 +129,9 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   const paid = quantity != null ? quantity * p : null
   const suggested = cur !== 'EGP' && rate && paid != null ? Math.round(paid * rate * 100) / 100 : null
   const costShown = costTouched ? cost : (suggested != null ? String(suggested) : '')
+  const typedEgp = p > 0 ? (cur === 'EGP' ? p : rate ? p * rate : null) : null
+  const known = entry && entry.price_egp
+  const farOff = typedEgp && known ? typedEgp / known > UNIT_MISMATCH || known / typedEgp > UNIT_MISMATCH : false
 
   async function submit(e) {
     e.preventDefault()
@@ -165,10 +182,13 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
         h('input', { className: 'q-input num', inputMode: 'decimal', value: qty, 'aria-label': 'الكمية أو المبلغ', onChange: (e) => setQty(e.target.value) }),
         isPound ? null : h('button', { type: 'button', className: 'q-link', style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setMode(mode === 'qty' ? 'amount' : 'qty') },
           mode === 'qty' ? 'أو اكتب المبلغ المدفوع' : 'أو اكتب الكمية')),
-      isPound ? null : field(fixedEgp ? `سعر ${entry.key} بالجنيه وقت الشرا` : 'سعر الشرا للوحدة',
+      isPound ? null : h('div', { className: 'q-stack' },
+        h('span', { className: 'q-label' }, priceLabel(kindNow, entry ? entry.unit : '', entry ? entry.key : '')),
         h('div', { className: 'q-row', style: { flexWrap: 'nowrap', gap: 6 } },
           h('input', { className: 'q-input num', inputMode: 'decimal', value: price, style: { flex: 1 }, 'aria-label': 'سعر الشرا', onChange: (e) => setPrice(e.target.value) }),
-          fixedEgp ? h('span', { className: 'q-meta' }, 'ج.م') : currencySelect)),
+          fixedEgp ? h('span', { className: 'q-meta' }, 'ج.م') : currencySelect),
+        entry && entry.price != null ? h('small', { className: 'q-meta' }, 'آخر سعر ', priceWithSign(entry.price, entry.price_currency)) : null,
+        farOff ? h('small', { className: 'q-amber', role: 'status' }, 'السعر ده بعيد جدًا عن آخر سعر: راجع الوحدة والعملة') : null),
       cur !== 'EGP' ? field('المبلغ اللي دفعته بالجنيه',
         h('input', { className: 'q-input num', inputMode: 'decimal', value: costShown, placeholder: 'ج.م', onChange: (e) => { setCost(e.target.value); setCostTouched(true) } })) : null,
       field('التاريخ (اختياري)', input(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),

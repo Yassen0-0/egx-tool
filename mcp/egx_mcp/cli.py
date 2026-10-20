@@ -1,28 +1,16 @@
-"""JSON command line used by the Monos screens («السجل», and the market and analyses until they go),
-sharing the MCP server logic.
+"""JSON command line behind the «السجل» screen's /egx/api routes, sharing the MCP server logic.
 
-    egx-cli universe
     egx-cli portfolio-summary
+    egx-cli catalog
+    egx-cli catalog-search '{"query": "دهب"}'
     egx-cli portfolio-add '{"asset": "USD", "buy_price": 48.5, "quantity": 500}'
     egx-cli portfolio-update '{"holding_id": 3, "quantity": 120}'
     egx-cli portfolio-remove '{"holding_id": 3}'
     egx-cli asset-remove '{"asset": "USD"}'
-    egx-cli catalog
-    egx-cli price-set '{"asset": "USD", "price": 48.6}'
+    egx-cli price-set '{"asset": "custom:1", "price": 12.4}'
     egx-cli fx-rate '{"currency": "USD", "date": "2026-10-01"}'
     egx-cli fund-components-set '{"fund": "custom:1", "components": [{"asset": "COMI", "weight": 0.32}]}'
-    egx-cli watchlist-list
-    egx-cli watchlist-add '{"symbol": "FWRY"}'
-    egx-cli watchlist-remove '{"symbol": "FWRY"}'
-    egx-cli valuations-list '{"symbol": "COMI", "risk_rating": "safe", "limit": 50}'
-    egx-cli valuation-get '{"valuation_id": 7}'
-    egx-cli valuation-series '{"symbol": "COMI"}'
-    egx-cli market-summary
-    egx-cli market-digest
-    egx-cli market-history '{"symbol": "COMI", "days": 365}'
-    egx-cli market-sync '{"force_quotes": false}'
-    egx-cli market-sync-symbol '{"symbol": "CLHO"}'
-    egx-cli validate-data
+    egx-cli prices-sync
 
 Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.
 """

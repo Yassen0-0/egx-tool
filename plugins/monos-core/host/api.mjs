@@ -1,5 +1,5 @@
-// monos-core host plugin: the JSON API at /egx/api/* every Monos screen plugin reads, backed by
-// the same Python logic the MCP tools use (egx-cli → mcp/egx_mcp/commands.py), plus the
+// monos-core host plugin: the JSON API at /egx/api/* the «السجل» screen reads, backed by the same
+// Python logic the assistant's MCP tools use (egx-cli → mcp/egx_mcp/commands.py), plus the
 // 5-minute price refresh.
 // Desktop forwards dsh-app://app requests here after dropping Host and Origin.
 //
@@ -101,50 +101,6 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('fx-rate', { currency: query.get('currency') || '', date: query.get('date') || null })
     return sendJson(res, status, body)
   }
-  if (method === 'GET' && path === '/egx/api/watchlist') {
-    const { status, body } = await runCli('watchlist-list')
-    return sendJson(res, status, body)
-  }
-  if (method === 'GET' && path === '/egx/api/universe') {
-    const { status, body } = await runCli('universe')
-    return sendJson(res, status, body)
-  }
-  if (method === 'GET' && path === '/egx/api/valuations') {
-    const q = query
-    const { status, body } = await runCli('valuations-list', {
-      symbol: q.get('symbol') || null,
-      risk_rating: q.get('risk_rating') || null,
-      kind: q.has('kind') ? (q.get('kind') || null) : 'full',
-      date_from: q.get('date_from') || null,
-      date_to: q.get('date_to') || null,
-      limit: Number(q.get('limit') || 50),
-      offset: Number(q.get('offset') || 0),
-    })
-    return sendJson(res, status, body)
-  }
-  if (method === 'GET' && path === '/egx/api/market') {
-    const { status, body } = await runCli('market-summary')
-    return sendJson(res, status, body)
-  }
-  if (method === 'GET' && path === '/egx/api/market/digest') {
-    const { status, body } = await runCli('market-digest')
-    return sendJson(res, status, body)
-  }
-  const history = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/history$/.exec(path)
-  if (method === 'GET' && history) {
-    const { status, body } = await runCli('market-history', { symbol: history[1], days: Number(query.get('days') || 365) })
-    return sendJson(res, status, body)
-  }
-  const series = /^\/egx\/api\/valuations\/series\/([A-Za-z0-9.]{2,12})$/.exec(path)
-  if (method === 'GET' && series) {
-    const { status, body } = await runCli('valuation-series', { symbol: series[1] })
-    return sendJson(res, status, body)
-  }
-  const single = /^\/egx\/api\/valuations\/(\d+)$/.exec(path)
-  if (method === 'GET' && single) {
-    const { status, body } = await runCli('valuation-get', { valuation_id: Number(single[1]) })
-    return sendJson(res, status, body)
-  }
   const mutating = method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
   if (!mutating) return sendJson(res, 405, { error: 'method not allowed' })
   if (req.headers['x-egx-request'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) {
@@ -155,25 +111,6 @@ async function handleApi(req, res, path, query) {
     payload = await readJson(req)
   } catch (error) {
     return sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
-  }
-  if (method === 'POST' && path === '/egx/api/market/sync') {
-    return sendJson(res, 200, await syncMarket(Boolean(payload.force_quotes)))
-  }
-  // «حدّث سعر …»: one stock, one call (market-sync-symbol), never at the same time as a full sync.
-  const one = /^\/egx\/api\/market\/([A-Za-z0-9.]{2,12})\/sync$/.exec(path)
-  if (one) {
-    if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
-    const { status, body } = await exclusive(() => runCli('market-sync-symbol', { symbol: one[1] }))
-    return sendJson(res, status, body)
-  }
-  // «متابعتي»: POST {symbol} follows a stock, DELETE /watchlist/{SYMBOL} unfollows it.
-  const watch = /^\/egx\/api\/watchlist(?:\/([A-Za-z0-9.]{2,12}))?$/.exec(path)
-  if (watch) {
-    let result
-    if (method === 'POST' && watch[1] === undefined) result = await runCli('watchlist-add', { symbol: String(payload.symbol ?? '') })
-    else if (method === 'DELETE' && watch[1] !== undefined) result = await runCli('watchlist-remove', { symbol: watch[1] })
-    else return sendJson(res, 405, { error: 'method not allowed' })
-    return sendJson(res, result.status, result.body)
   }
   // «السجل»: a price the user typed, a fund's components, and removing an asset with all its purchases.
   if (path === '/egx/api/prices') {
@@ -208,8 +145,8 @@ async function handleApi(req, res, path, query) {
   return sendJson(res, result.status, result.body)
 }
 
-// Market refresh: one run at a time. Each run asks EODHD for the remaining daily budget
-// (free) and only spends calls when bars or quotes are due, so a short interval is cheap.
+// Price refresh for «السجل»: one run at a time. Each run asks EODHD for the remaining daily budget
+// (free) and only spends calls when a close or a feed is due, so a short interval is cheap.
 const SYNC_INTERVAL_MS = 5 * 60 * 1000
 let syncing = null
 // Runs that read the budget and then spend it go one after another, or two could both spend the
@@ -221,9 +158,9 @@ function exclusive(task) {
   return run
 }
 
-function syncMarket(forceQuotes = false) {
+function syncPrices() {
   if (!syncing) {
-    syncing = exclusive(() => runCli('market-sync', { force_quotes: forceQuotes }))
+    syncing = exclusive(() => runCli('prices-sync'))
       .then(({ body }) => body)
       .finally(() => { syncing = null })
   }
@@ -233,8 +170,8 @@ function syncMarket(forceQuotes = false) {
 export function apply(ctx) {
   if (process.env.EGX_AUTO_SYNC !== '0') {
     ctx.effect(() => {
-      const first = setTimeout(() => { void syncMarket() }, 15_000)
-      const every = setInterval(() => { void syncMarket() }, SYNC_INTERVAL_MS)
+      const first = setTimeout(() => { void syncPrices() }, 15_000)
+      const every = setInterval(() => { void syncPrices() }, SYNC_INTERVAL_MS)
       return () => { clearTimeout(first); clearInterval(every) }
     })
   }

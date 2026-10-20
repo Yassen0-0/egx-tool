@@ -58,7 +58,6 @@ var __monos = (() => {
   var { useState, useEffect, useCallback } = import_react.default;
   var h = import_react.default.createElement;
   var PANEL_ID = "egx-portfolio";
-  var nav = pageShared("nav", () => ({ selectPanel: null, pendingAnalysisId: null, pendingSection: null }));
   var N = (text, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text);
   var frag = (...children) => h(import_react.default.Fragment, null, ...children);
   async function api(method, path, body) {
@@ -77,8 +76,6 @@ var __monos = (() => {
   // plugins/shared/format.mjs
   var MINUS = "−";
   var DASH = "—";
-  var PROTECTION_RATIO = 0.8;
-  var PROTECTION_PCT = `${Math.round(PROTECTION_RATIO * 100)}%`;
   var formatters = /* @__PURE__ */ new Map();
   function fixed(digits) {
     if (!formatters.has(digits)) {
@@ -115,7 +112,6 @@ var __monos = (() => {
     return (signed ? sign2 : sign2 === MINUS ? MINUS : "") + body + "%";
   }
   var cairoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" });
-  var cairoTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Cairo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   function cairoDay(iso) {
     if (!iso) return null;
     if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) return iso;
@@ -139,7 +135,7 @@ var __monos = (() => {
   }
   function iconState(portfolio) {
     const totals = portfolio && portfolio.totals || {};
-    const count = portfolio && portfolio.holdings ? portfolio.holdings.length : totals.assets || 0;
+    const count = totals.assets || 0;
     if (!count) return "neutral";
     if (!totals.today_has_fresh || missing(totals.today_change)) return "neutral";
     const cents = Math.round(totals.today_change * 100);
@@ -427,12 +423,12 @@ var __monos = (() => {
   var KIND_ORDER = { currency: 0, gold: 1, bitcoin: 2, stock: 3, fund: 4 };
   function search(entries, query, limit = MAX_RESULTS) {
     const hits = [];
-    for (const entry of entries || []) {
+    (entries || []).forEach((entry, index) => {
       const r = rank(entry, query);
-      if (r !== null) hits.push([r, entry]);
-    }
-    hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[1].kind] ?? 9) - (KIND_ORDER[b[1].kind] ?? 9) || a[1].name.localeCompare(b[1].name, "ar"));
-    return hits.slice(0, limit).map(([, entry]) => entry);
+      if (r !== null) hits.push([r, index, entry]);
+    });
+    hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b[2].kind] ?? 9) || a[1] - b[1]);
+    return hits.slice(0, limit).map(([, , entry]) => entry);
   }
 
   // plugins/monos-portfolio/src/ledger.css
@@ -445,6 +441,12 @@ var __monos = (() => {
   var money = (v) => fmtNumber(v, 0);
   var sign = (currency) => CURRENCY_SIGN[currency] || currency;
   var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
+  function priceLabel(kind, unit, key) {
+    if (kind === "currency") return `سعر ${key} بالجنيه وقت الشرا`;
+    if (kind === "gold") return `سعر ال${unit} وقت الشرا`;
+    return { stock: "سعر السهم وقت الشرا", fund: "سعر الوثيقة وقت الشرا", bitcoin: "سعر البتكوين وقت الشرا" }[kind] || "سعر الوحدة وقت الشرا";
+  }
+  var UNIT_MISMATCH = 3;
   function quantityLabel(kind, unit, key) {
     if (kind === "currency") return `المبلغ (${key})`;
     return QTY_LABEL[kind] || `الكمية (${unit})`;
@@ -464,8 +466,9 @@ var __monos = (() => {
     const [query, setQuery] = useState("");
     const [active, setActive] = useState(0);
     const text = query.trim();
-    const results = text ? search(catalog || [], text) : [];
-    const options = text ? results.length ? results : [{ custom: true, key: "custom" }] : [];
+    const loading = catalog === null;
+    const results = text && !loading ? search(catalog, text) : [];
+    const options = text && !loading ? results.length ? results : [{ custom: true, key: "custom" }] : [];
     const pick = (option) => {
       if (!option) return;
       if (option.custom) onCustom(text);
@@ -529,7 +532,8 @@ var __monos = (() => {
           h("span", { key: "t", className: "l-name" }, o.name),
           h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)
         ]))
-      ) : null
+      ) : null,
+      text && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
     );
   }
   function AddLine({ entry, customName, onDone, onCancel }) {
@@ -575,6 +579,9 @@ var __monos = (() => {
     const paid = quantity != null ? quantity * p : null;
     const suggested = cur !== "EGP" && rate && paid != null ? Math.round(paid * rate * 100) / 100 : null;
     const costShown = costTouched ? cost : suggested != null ? String(suggested) : "";
+    const typedEgp = p > 0 ? cur === "EGP" ? p : rate ? p * rate : null : null;
+    const known = entry && entry.price_egp;
+    const farOff = typedEgp && known ? typedEgp / known > UNIT_MISMATCH || known / typedEgp > UNIT_MISMATCH : false;
     async function submit(e) {
       e.preventDefault();
       setError("");
@@ -647,14 +654,18 @@ var __monos = (() => {
             mode === "qty" ? "أو اكتب المبلغ المدفوع" : "أو اكتب الكمية"
           )
         ),
-        isPound ? null : field(
-          fixedEgp ? `سعر ${entry.key} بالجنيه وقت الشرا` : "سعر الشرا للوحدة",
+        isPound ? null : h(
+          "div",
+          { className: "q-stack" },
+          h("span", { className: "q-label" }, priceLabel(kindNow, entry ? entry.unit : "", entry ? entry.key : "")),
           h(
             "div",
             { className: "q-row", style: { flexWrap: "nowrap", gap: 6 } },
             h("input", { className: "q-input num", inputMode: "decimal", value: price, style: { flex: 1 }, "aria-label": "سعر الشرا", onChange: (e) => setPrice(e.target.value) }),
             fixedEgp ? h("span", { className: "q-meta" }, "ج.م") : currencySelect
-          )
+          ),
+          entry && entry.price != null ? h("small", { className: "q-meta" }, "آخر سعر ", priceWithSign(entry.price, entry.price_currency)) : null,
+          farOff ? h("small", { className: "q-amber", role: "status" }, "السعر ده بعيد جدًا عن آخر سعر: راجع الوحدة والعملة") : null
         ),
         cur !== "EGP" ? field(
           "المبلغ اللي دفعته بالجنيه",

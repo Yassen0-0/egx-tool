@@ -10,6 +10,8 @@ an asset's price, its fund components and its manual prices belong to the asset 
   no price at all is left out of the total and of the growth, and counted.
 - growth = (value − cost) / cost over the priced assets.
 - today = the move of market prices that are fresh; manual prices never count as today's move.
+- prices: EGX closes for stocks; EODHD feeds for currencies, gold and bitcoin (market/prices.py);
+  the user's own price for anything else, or when it is newer than the market's.
 - fund components are shown under the fund and never added to anything.
 """
 
@@ -20,7 +22,7 @@ from ..catalog import CURRENCY_CODES, GROUPS, catalog, custom_key, find
 from ..errors import ValuationInputError
 from ..market import store
 from ..market.calendar import now_cairo
-from ..market.summary import price_state
+from ..market.prices import formula_price, formula_price_on, price_state
 from .db import now_iso
 
 DISCLAIMER = "الأرقام كما أدخلها المستخدم، والأسعار إغلاق متأخر أو سعر كتبه المستخدم. وصف للأرقام، وليس توصية بالشراء أو البيع."
@@ -66,11 +68,13 @@ def resolve_price(conn: sqlite3.Connection, entry: dict, at: datetime) -> dict |
         return {"price": 1.0, "currency": "EGP", "as_of": None, "day": None, "source": "fixed", "stale": False,
                 "change": None}
     market = None
-    if entry["kind"] == "stock":
+    if entry["kind"] == "stock" and ":" not in entry["key"]:
         state = price_state(conn, entry["key"], at, store.last_bars(conn, entry["key"], 2))
         if state["price"] is not None:
             market = {"price": state["price"], "currency": entry["currency"], "as_of": state["as_of"],
                       "day": state["as_of_day"], "source": "EODHD", "stale": state["stale"], "change": state["change"]}
+    else:
+        market = formula_price(conn, entry["key"], at)
     row = _manual_price(conn, entry["key"])
     manual = None if row is None else {
         "price": row["price"], "currency": row["currency"], "as_of": row["date"], "day": row["date"],
@@ -92,14 +96,21 @@ def rate_now(conn: sqlite3.Connection, currency: str, at: datetime) -> dict | No
 
 
 def rate_on(conn: sqlite3.Connection, currency: str, day: str) -> dict | None:
-    """EGP per unit of `currency` on `day`: the latest price on or before it (manual for now;
-    market history joins in the price phase). None when nothing is known that early."""
+    """EGP per unit of `currency` on `day`: the newer of the market's rate (stored bars up to a week
+    before it) and the user's own price on or before it. None when nothing is known that early."""
     if currency == "EGP":
         return {"rate": 1.0, "as_of": day}
+    found = []
+    market = formula_price_on(conn, currency, day)
+    if market and market["currency"] == "EGP":
+        found.append((market["as_of"], 1, market["price"]))
     row = _manual_price(conn, currency, day)
-    if row is None or row["currency"] != "EGP":
+    if row is not None and row["currency"] == "EGP":
+        found.append((row["date"], 0, row["price"]))
+    if not found:
         return None
-    return {"rate": row["price"], "as_of": row["date"]}
+    as_of, _, rate = max(found)
+    return {"rate": rate, "as_of": as_of}
 
 
 def fx_rate(conn: sqlite3.Connection, currency: str, day: str | None = None) -> dict:
@@ -136,6 +147,21 @@ def set_price(conn: sqlite3.Connection, asset: str, price: float, currency: str 
     )
     conn.commit()
     return {"asset": entry["key"], "date": day, "price": price, "currency": currency}
+
+
+def priced_catalog(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
+    """The catalog with each asset's latest known unit price (in its own currency and in EGP), so the
+    add line can show it beside the price field and question a price typed in the wrong unit."""
+    at = at or now_cairo()
+    out = []
+    for entry in catalog(conn):
+        price = resolve_price(conn, entry, at)
+        rate = rate_now(conn, price["currency"], at) if price else None
+        out.append({**entry, "price": price["price"] if price else None,
+                    "price_currency": price["currency"] if price else None,
+                    "price_egp": price["price"] * rate["rate"] if price and rate else None,
+                    "price_as_of": price["as_of"] if price else None})
+    return out
 
 
 # ── holdings ─────────────────────────────────────────────────────────────────
@@ -377,3 +403,20 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         "groups": groups,
         "disclaimer": DISCLAIMER,
     }
+
+
+def record_snapshot(conn: sqlite3.Connection, at: datetime | None = None) -> dict | None:
+    """Today's total and cost (priced assets), one row per Cairo day, the latest run wins. Not shown
+    yet: it lets a «how my wealth moved» line exist later, which the user's own prices could never
+    be rebuilt for."""
+    at = at or now_cairo()
+    totals = portfolio_summary(conn, at)["totals"]
+    if totals["value"] is None:
+        return None
+    row = (at.date().isoformat(), totals["value"], totals["priced_cost"], totals["assets"], now_iso())
+    conn.execute(
+        "INSERT INTO ledger_snapshots (date, value_egp, cost_egp, assets, recorded_at) VALUES (?, ?, ?, ?, ?)"
+        " ON CONFLICT(date) DO UPDATE SET value_egp = excluded.value_egp, cost_egp = excluded.cost_egp,"
+        " assets = excluded.assets, recorded_at = excluded.recorded_at", row)
+    conn.commit()
+    return dict(zip(("date", "value_egp", "cost_egp", "assets", "recorded_at"), row, strict=True))

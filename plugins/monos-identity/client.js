@@ -52,7 +52,6 @@ var __monos = (() => {
   }
   var { useState, useEffect, useCallback } = import_react.default;
   var h = import_react.default.createElement;
-  var nav = pageShared("nav", () => ({ selectPanel: null, pendingAnalysisId: null, pendingSection: null }));
   async function api(method, path, body) {
     const init = { method, headers: {} };
     if (body !== void 0) {
@@ -67,10 +66,7 @@ var __monos = (() => {
   }
 
   // plugins/shared/format.mjs
-  var PROTECTION_RATIO = 0.8;
-  var PROTECTION_PCT = `${Math.round(PROTECTION_RATIO * 100)}%`;
   var cairoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" });
-  var cairoTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Cairo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
 
   // plugins/shared/identity.js
   var monos = pageShared("portfolio-store", () => ({

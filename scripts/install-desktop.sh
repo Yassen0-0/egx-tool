@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Install the Monos plugins (plugins/monos-*) into the «Monos» desktop app's profile.
-# Each plugin is its own package: monos-core (egx MCP server + /egx/api), monos-analyst (the
-# analyst preset), monos-identity, monos-market, monos-analyses, monos-portfolio. The packages are
-# linked, so later edits in this checkout show after an app restart without reinstalling.
+# Each plugin is its own package: monos-core (egx MCP server + /egx/api), monos-analyst (the Monos
+# assistant preset), monos-identity and monos-portfolio («السجل»). The packages are linked, so later
+# edits in this checkout show after an app restart without reinstalling. A monos-* package whose
+# folder is gone from plugins/ (monos-market and monos-analyses since «السجل») is removed from the
+# profile, so the app never looks for a missing link.
 # The single bundle the project used before (dsh-egx-bundle) is removed if it is still installed.
 #
 # Prerequisites: "Monos.app" in /Applications (scripts/rebrand-desktop.sh), launched once (creates
@@ -54,6 +56,23 @@ if grep -q '"dsh-egx-bundle"' "$PROFILE_DIR/package.json"; then
   (cd "$PROFILE_DIR" && "$DSH" plugin --profile "$PROFILE" remove dsh-egx-bundle)
 fi
 
+STALE=()
+for name in $(grep -o '"monos-[a-z0-9-]*": "link:' "$PROFILE_DIR/package.json" | cut -d'"' -f2); do
+  [ -f "$ROOT/plugins/$name/package.json" ] || STALE+=("$name")
+done
+if [ "${#STALE[@]}" -gt 0 ]; then
+  echo "→ Removing plugins that no longer exist: ${STALE[*]}"
+  # Drop them from the profile's bundle list first: `dsh plugin remove` re-reads that list after
+  # unlinking and stops on a bundle it can no longer resolve.
+  STALE_NAMES="${STALE[*]}" ELECTRON_RUN_AS_NODE=1 "$APP/Contents/MacOS/Monos" -e '
+    const fs = require("fs"); const file = process.argv[1]; const gone = new Set(process.env.STALE_NAMES.split(" "))
+    const pkg = JSON.parse(fs.readFileSync(file, "utf8"))
+    pkg.dsh.profile.bundles = pkg.dsh.profile.bundles.filter((b) => !gone.has(b))
+    for (const name of gone) delete pkg.dependencies[name]
+    fs.writeFileSync(file, JSON.stringify(pkg, null, 2) + "\n")' "$PROFILE_DIR/package.json"
+  (cd "$PROFILE_DIR" && "$DSH" plugin --profile "$PROFILE" install >/dev/null)
+fi
+
 LINKS=()
 for dir in "$ROOT"/plugins/monos-*/; do
   [ -f "$dir/package.json" ] && LINKS+=("link:${dir%/}")
@@ -76,15 +95,15 @@ DUMP="$(EGX_HOME="$ROOT" DSH_HOME="$CHECK_HOME" "$DSH" --profile monos-check --d
   echo "$DUMP" | tail -20 >&2; echo "The profile does not compose; restore with: cp $PROFILE_DIR/package.json.before-monos-plugins $PROFILE_DIR/package.json && (cd $PROFILE_DIR && $DSH plugin --profile $PROFILE install)" >&2; exit 1; }
 missing=0
 # Rows every install needs, plus one row per plugin that has a host half (index.js or host/).
-ROWS="egx-mcp preset-egx-analyst"
+ROWS="egx-mcp preset-monos"
 for dir in "$ROOT"/plugins/monos-*/; do
   if [ -f "$dir/index.js" ] || [ -d "$dir/host" ]; then ROWS="$ROWS $(basename "$dir")"; fi
 done
 for row in $ROWS; do
   printf '%s\n' "$DUMP" | grep -q -- "- id: $row\$" || { echo "   missing row: $row" >&2; missing=1; }
 done
-printf '%s\n' "$DUMP" | grep -q 'default: egx-analyst' || { echo "   egx-analyst is not the default preset" >&2; missing=1; }
+printf '%s\n' "$DUMP" | grep -q 'default: monos$' || { echo "   monos is not the default preset" >&2; missing=1; }
 [ "$missing" = 0 ] || exit 1
 echo "   all Monos rows are present"
 
-echo "Done. Open Monos: the sidebar has Monos («السجل»); the market and analyses screens are off; new sessions still use the egx-analyst preset."
+echo "Done. Open Monos: the sidebar has Monos («السجل»), and new sessions start with the Monos assistant."

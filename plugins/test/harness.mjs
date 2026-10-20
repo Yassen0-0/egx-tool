@@ -1,6 +1,7 @@
 // Renders built plugin client.js files in Node, all on one page like the host loads them: jsdom,
 // React 18.3.1 (the host's version) and the synthetic /egx/api answers in fixtures/api.json
-// (scripts/make-ui-fixtures.py; `fixtures` overrides single answers). Used by render.test.mjs, and to prove a refactor renders exactly
+// (scripts/make-ui-fixtures.py; `fixtures` overrides single answers, `fetch` replaces them with a
+// real backend). Used by render.test.mjs, and to prove a refactor renders exactly
 // what the previous build rendered.
 // Needs the root dev dependencies: npm install
 import { readFileSync } from 'node:fs'
@@ -13,7 +14,7 @@ export const FIXTURES = JSON.parse(readFileSync(join(here, 'fixtures', 'api.json
 // The fixtures are frozen at Thursday 2026-10-15 08:00 Cairo; the screens read the clock too.
 const NOW = Date.parse('2026-10-15T08:00:00+03:00')
 
-export async function renderClient(clientPaths, { interact, fixtures = {} } = {}) {
+export async function renderClient(clientPaths, { interact, fixtures = {}, fetch: backend = null, now = NOW } = {}) {
   const paths = Array.isArray(clientPaths) ? clientPaths : [clientPaths]
   const dom = new JSDOM('<!doctype html><html><body></body></html>', { url: 'http://127.0.0.1:3180/', pretendToBeVisual: true, runScripts: 'outside-only' })
   const { window } = dom
@@ -22,8 +23,8 @@ export async function renderClient(clientPaths, { interact, fixtures = {} } = {}
   const requests = []
   const RealDate = Date
   class FixedDate extends RealDate {
-    constructor(...args) { super(...(args.length ? args : [NOW])) }
-    static now() { return NOW }
+    constructor(...args) { super(...(args.length ? args : [now])) }
+    static now() { return now }
   }
   const saved = {}
   const globals = {
@@ -50,6 +51,8 @@ export async function renderClient(clientPaths, { interact, fixtures = {} } = {}
   window.fetch = globals.fetch = async (path, init = {}) => {
     const method = (init.method || 'GET').toUpperCase()
     requests.push(`${method} ${path}`)
+    // A real backend (the end-to-end test) answers instead of the fixtures.
+    if (backend) return backend(path, init)
     // Chart ranges differ by screen; every history request is answered from the 1-year fixture.
     const key = path.replace(/\/history\?days=\d+$/, '/history?days=365')
     const body = method === 'GET' ? (fixtures[key] ?? FIXTURES[key]) : { ok: true, bars_updated: [], skipped_for_budget: [] }

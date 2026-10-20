@@ -103,3 +103,11 @@ def test_manual_price_loses_to_a_market_close_of_the_same_day(conn):
     assert asset(conn, "COMI")["price"] == 120.0
     portfolio.set_price(conn, "COMI", 125, day="2026-10-15")
     assert asset(conn, "COMI")["price"] == 125.0 and asset(conn, "COMI")["price_source"] == "manual"
+
+
+def test_the_assistants_search_follows_the_screens_rules(conn):
+    from egx_mcp.catalog import normalize, search
+    assert normalize("الإسترليني") == "استرليني" and normalize("أُونصة") == "اونصه"
+    assert [e["key"] for e in search(conn, "دهب")] == ["XAU-G", "XAU-OZ"]  # the gram first
+    assert search(conn, "التجاري")[0]["key"] == "COMI"
+    assert search(conn, "comi")[0]["key"] == "COMI" and search(conn, "") == []

@@ -1,4 +1,3 @@
-import json
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -123,6 +122,15 @@ CREATE TABLE IF NOT EXISTS manual_prices (
     PRIMARY KEY (asset, date)
 );
 
+-- One row per Cairo day: the ledger's total and cost when prices were last refreshed.
+CREATE TABLE IF NOT EXISTS ledger_snapshots (
+    date TEXT PRIMARY KEY,
+    value_egp REAL NOT NULL,
+    cost_egp REAL NOT NULL,
+    assets INTEGER NOT NULL,
+    recorded_at TEXT NOT NULL
+);
+
 -- What a fund holds, for display only: never added to any total.
 CREATE TABLE IF NOT EXISTS fund_components (
     fund TEXT NOT NULL,
@@ -137,9 +145,6 @@ CREATE TABLE IF NOT EXISTS watchlist (
     added_at TEXT NOT NULL
 );
 """
-
-JSON_COLUMNS = ("macro_snapshot", "methods", "assumptions", "sources", "risk_details", "sanity")
-
 
 def _add_column(table: str, column: str, decl: str):
     def apply(conn: sqlite3.Connection) -> None:
@@ -172,6 +177,7 @@ def _ledger_holdings(conn: sqlite3.Connection) -> None:
 MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (1, "valuations.report (full Markdown report)", _add_column("valuations", "report", "TEXT")),
     (2, "«السجل»: holdings get kind, name, currency, fx_egp, cost_egp", _ledger_holdings),
+    (3, "ledger_snapshots (created by SCHEMA)", lambda conn: None),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 
@@ -193,7 +199,7 @@ def connect(path: Path) -> sqlite3.Connection:
 
 def migrate(conn: sqlite3.Connection, backup_from: Path | None = None) -> list[int]:
     """Bring the database to SCHEMA_VERSION; returns the steps applied. An existing database is
-    copied to data/backups/ first (the user's portfolio and valuations live in it)."""
+    copied to data/backups/ first (the user's ledger and the old valuations live in it)."""
     version = conn.execute("PRAGMA user_version").fetchone()[0]
     pending = [m for m in MIGRATIONS if m[0] > version]
     if pending and backup_from is not None:
@@ -216,17 +222,3 @@ def backup(conn: sqlite3.Connection, path: Path, label: str) -> Path:
         conn.backup(copy)
     copy.close()
     return target
-
-
-def row_to_dict(row: sqlite3.Row | None) -> dict | None:
-    if row is None:
-        return None
-    result = dict(row)
-    for column in JSON_COLUMNS:
-        if result.get(column) is not None:
-            result[column] = json.loads(result[column])
-    return result
-
-
-def dumps(value) -> str | None:
-    return None if value is None else json.dumps(value, ensure_ascii=False)

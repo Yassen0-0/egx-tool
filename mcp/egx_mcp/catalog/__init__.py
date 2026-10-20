@@ -10,6 +10,7 @@
 """
 
 import json
+import re
 import sqlite3
 from functools import cache
 from pathlib import Path
@@ -80,6 +81,23 @@ def builtin_catalog() -> tuple[dict, ...]:
 
 def custom_key(asset_id: int) -> str:
     return f"custom:{asset_id}"
+
+
+EGX_TICKER = re.compile(r"[A-Z0-9]{2,6}")
+
+
+def egx_ticker(key: str, kind: str, symbol: str | None = None) -> str | None:
+    """The EGX ticker whose daily close prices a stock line: a built-in stock's own key, or the symbol
+    of a stock the user added by name when it looks like an EGX ticker (2-6 letters or digits, no
+    dot). None for anything else: such a line stays on the user's own price."""
+    if kind != "stock":
+        return None
+    if ":" not in key:
+        return key if "." not in key else None
+    if key.startswith("custom:") and symbol:
+        symbol = symbol.strip().upper()
+        return symbol if EGX_TICKER.fullmatch(symbol) else None
+    return None
 
 
 def catalog(conn: sqlite3.Connection) -> list[dict]:

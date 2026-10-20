@@ -15,6 +15,7 @@ import json
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
+from ..catalog import egx_ticker
 from ..store.db import now_iso
 from . import store
 from .calendar import expected_last_bar, now_cairo
@@ -44,9 +45,11 @@ def calls_used_today(account: dict, at: datetime) -> int:
 
 
 def held_stocks(conn: sqlite3.Connection) -> list[str]:
-    """EGX tickers in the ledger, stalest cache first."""
-    symbols = [r[0] for r in conn.execute("SELECT DISTINCT symbol FROM holdings WHERE kind = 'stock'")
-               if ":" not in r[0] and "." not in r[0]]
+    """EGX tickers in the ledger, stalest cache first. A stock added by name counts when its symbol
+    looks like an EGX ticker; its close is cached under that ticker."""
+    rows = conn.execute("SELECT DISTINCT h.symbol, c.symbol FROM holdings h"
+                        " LEFT JOIN custom_assets c ON h.symbol = 'custom:' || c.id WHERE h.kind = 'stock'")
+    symbols = {t for key, own in rows if (t := egx_ticker(key, "stock", own))}
     return sorted(symbols, key=lambda s: (store.last_bar_date(conn, s) or "", s))
 
 

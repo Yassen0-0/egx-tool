@@ -2,6 +2,7 @@
 // icon and the screens read, the sidebar entry, the panel header and the disclaimer.
 import { React, api, h, pageShared, useEffect, useState } from './runtime.js'
 import { fmtPct, iconState } from './format.mjs'
+import { MASK, usePrivacy } from './privacy.js'
 
 // ── Shared portfolio store ─────────────────────────────────────────────────────
 // One fetch of /egx/api/portfolio (the ledger, «السجل») feeds the sidebar badge and every screen,
@@ -79,6 +80,7 @@ export function SidebarMonosIcon({ size }) {
   const portfolio = useMonos()
   const ref = React.useRef(null)
   const { state, pct } = todayOf(portfolio)
+  const hidden = usePrivacy()
   useEffect(() => {
     const timer = setInterval(() => monos.refresh(), MONOS_REFRESH_MS)
     return () => clearInterval(timer)
@@ -86,7 +88,8 @@ export function SidebarMonosIcon({ size }) {
   useEffect(() => {
     const row = ref.current && ref.current.closest('button')
     if (!row) return undefined
-    const name = state === 'neutral' || pct == null ? 'Monos — السجل' : `Monos — السجل، اليوم ${fmtPct(pct, { digits: 2, signed: true })}`
+    const shownPct = hidden ? MASK : fmtPct(pct, { digits: 2, signed: true })
+    const name = state === 'neutral' || pct == null ? 'Monos — السجل' : `Monos — السجل، اليوم ${shownPct}`
     row.setAttribute('title', 'Monos — السجل')
     row.setAttribute('aria-label', name)
     const wide = size <= 16
@@ -94,7 +97,7 @@ export function SidebarMonosIcon({ size }) {
     const tag = document.createElement('span')
     tag.className = SIDEBAR_PCT_CLASS
     tag.setAttribute('aria-hidden', 'true')
-    tag.textContent = fmtPct(pct, { digits: 2, signed: true })
+    tag.textContent = shownPct
     Object.assign(tag.style, {
       marginInlineStart: '8px', direction: 'ltr', unicodeBidi: 'isolate', fontVariantNumeric: 'tabular-nums',
       fontFamily: 'var(--ds-font-family-code)', fontSize: '12px', flex: 'none',
@@ -102,7 +105,7 @@ export function SidebarMonosIcon({ size }) {
     })
     row.append(tag)
     return () => tag.remove()
-  }, [state, pct, size])
+  }, [state, pct, size, hidden])
   return h('span', { ref, style: { display: 'inline-flex' } }, h(MonosIcon, { size }))
 }
 

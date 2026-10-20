@@ -25,6 +25,13 @@ PLUGINS_ONLY=0
 
 [ -x "$DSH" ] || { echo "Monos.app is not installed in /Applications (create it with scripts/rebrand-desktop.sh)" >&2; exit 1; }
 [ -f "$PROFILE_DIR/package.json" ] || { echo "Launch Monos once, quit it, then rerun (no $PROFILE_DIR)" >&2; exit 1; }
+# Monos only changes when we change it: DeepSeek's update feed must stay out of the app bundle
+# (scripts/rebrand-desktop.sh removes it). With it back, the app downloads official builds and
+# installs them on quit, replacing Monos.
+if [ -f "$APP/Contents/Resources/app-update.yml" ]; then
+  echo "Monos still has DeepSeek's update feed (Resources/app-update.yml). Quit the app, run ./scripts/rebrand-desktop.sh, then rerun this." >&2
+  exit 1
+fi
 if [ "$PROFILE" = "desktop" ] && pgrep -f "$(basename "$APP")/Contents/MacOS" >/dev/null; then
   echo "Quit Monos first (the app owns its profile while running)" >&2; exit 1
 fi

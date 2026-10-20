@@ -717,7 +717,13 @@ var __monos = (() => {
           KIND_CHOICES.map(([k, l]) => h("option", { key: k, value: k }, l))
         )),
         field("الاسم", input(name, setName, { maxLength: 80 })),
-        field("الرمز (اختياري)", input(symbol, setSymbol, { maxLength: 16, dir: "ltr" })),
+        h(
+          "label",
+          { className: "q-stack" },
+          h("span", { className: "q-label" }, "الرمز (اختياري)"),
+          input(symbol, setSymbol, { maxLength: 16, dir: "ltr" }),
+          kind === "stock" ? h("small", { className: "q-meta" }, "لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة") : null
+        ),
         field("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
       ) : null,
       h(

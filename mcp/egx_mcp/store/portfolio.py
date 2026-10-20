@@ -18,7 +18,7 @@ an asset's price, its fund components and its manual prices belong to the asset 
 import sqlite3
 from datetime import date, datetime
 
-from ..catalog import CURRENCY_CODES, GROUPS, catalog, custom_key, find
+from ..catalog import CURRENCY_CODES, GROUPS, catalog, custom_key, egx_ticker, find
 from ..errors import ValuationInputError
 from ..market import store
 from ..market.calendar import now_cairo
@@ -68,8 +68,9 @@ def resolve_price(conn: sqlite3.Connection, entry: dict, at: datetime) -> dict |
         return {"price": 1.0, "currency": "EGP", "as_of": None, "day": None, "source": "fixed", "stale": False,
                 "change": None}
     market = None
-    if entry["kind"] == "stock" and ":" not in entry["key"]:
-        state = price_state(conn, entry["key"], at, store.last_bars(conn, entry["key"], 2))
+    ticker = egx_ticker(entry["key"], entry["kind"], entry.get("symbol"))
+    if ticker:
+        state = price_state(conn, ticker, at, store.last_bars(conn, ticker, 2))
         if state["price"] is not None:
             market = {"price": state["price"], "currency": entry["currency"], "as_of": state["as_of"],
                       "day": state["as_of_day"], "source": "EODHD", "stale": state["stale"], "change": state["change"]}

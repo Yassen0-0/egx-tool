@@ -7,6 +7,7 @@ import { DASH, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, fmtQty, parseD
 import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Skeleton } from '../../shared/components.js'
 import { Logo } from '../../shared/logo.js'
+import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
 import LEDGER_CSS from './ledger.css'
 
@@ -397,6 +398,7 @@ export function PortfolioPage() {
   } else {
     body = h('div', { className: 'l-col' },
       h(TotalBlock, { totals }),
+      h(HistoryChart),
       h('div', null,
         h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
         picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,

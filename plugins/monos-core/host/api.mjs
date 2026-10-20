@@ -101,6 +101,12 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('fx-rate', { currency: query.get('currency') || '', date: query.get('date') || null })
     return sendJson(res, status, body)
   }
+  // «تطوّر ثروتي»: the total per day from the daily snapshots; days is a whole number, anything else is the default.
+  if (method === 'GET' && path === '/egx/api/history') {
+    const days = Number(query.get('days'))
+    const { status, body } = await runCli('history', Number.isInteger(days) && days > 0 ? { days: Math.min(days, 3650) } : {})
+    return sendJson(res, status, body)
+  }
   const mutating = method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
   if (!mutating) return sendJson(res, 405, { error: 'method not allowed' })
   if (req.headers['x-egx-request'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) {

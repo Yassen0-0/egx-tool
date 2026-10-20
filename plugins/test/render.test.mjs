@@ -62,11 +62,30 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.match(t, /التكلفة 355,393/)
   assert.match(t, /النمو \+32\.0%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
-  assert.match(t, /اليوم \+0\.18%/)
+  assert.match(t, /اليوم \+0\.20%/)
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle
   assert.ok(r.slots.includes('sidebar.panellist:egx-portfolio'))
+})
+
+test('«تطوّر ثروتي» draws the total and the cost under the total, and only with two days or more', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const r = await harness.renderClient([clientPath('monos-portfolio')])
+  assert.deepEqual(r.unknownRequests, [])
+  const html = r.html['main:egx-portfolio']
+  assert.ok(r.requests.includes('GET /egx/api/history?days=365'))
+  assert.match(html, /<svg class="h-chart"[^>]*viewBox="0 0 720 120"/)
+  assert.match(html, /<polyline class="h-value" points="[\d.]+,[\d.]+ [\d.]+,[\d.]+/)
+  assert.match(html, /<polyline class="h-cost"/)
+  assert.ok(html.indexOf('l-total') < html.indexOf('h-chart'))
+  assert.match(ledgerText(html), /من 08\/10 ?: \+5\.2%/)
+  assert.match(html, /<span class="num">08\/10<\/span>/)
+  const one = { points: [{ date: '2026-10-14', value_egp: 1, cost_egp: 1 }], first: null, last: null, change: 0, change_pct: 0 }
+  for (const body of [one, { points: [], first: null, last: null, change: null, change_pct: null }]) {
+    const quiet = await harness.renderClient([clientPath('monos-portfolio')], { fixtures: { '/egx/api/history?days=365': body } })
+    assert.doesNotMatch(quiet.html['main:egx-portfolio'], /h-chart/)
+    assert.match(ledgerText(quiet.html['main:egx-portfolio']), /463,837 جنيه/)
+  }
 })
 
 test('the ledger search finds Egyptian spellings and offers adding by name', { skip: !harness && 'run npm install at the repo root' }, async () => {

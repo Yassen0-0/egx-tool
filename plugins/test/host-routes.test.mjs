@@ -88,6 +88,7 @@ test('the history route asks for a whole number of days and falls back to the de
 
 test('ledger routes: catalog, rate, manual price, fund components and removing an asset', async () => {
   assert.equal((await call('GET', '/egx/api/catalog')).body.command, 'catalog')
+  assert.deepEqual((await call('GET', '/egx/api/export')).body, { command: 'ledger-export', payload: null })
   assert.deepEqual((await call('GET', '/egx/api/fx?currency=USD&date=2026-10-01')).body,
     { command: 'fx-rate', payload: { currency: 'USD', date: '2026-10-01' } })
   const price = await call('POST', '/egx/api/prices', { body: { asset: 'USD', price: 48.5 }, headers: SAME_ORIGIN })

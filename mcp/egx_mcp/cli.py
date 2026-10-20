@@ -1,6 +1,7 @@
 """JSON command line behind the «السجل» screen's /egx/api routes, sharing the MCP server logic.
 
     egx-cli portfolio-summary
+    egx-cli ledger-export
     egx-cli catalog
     egx-cli catalog-search '{"query": "دهب"}'
     egx-cli portfolio-add '{"asset": "USD", "buy_price": 48.5, "quantity": 500}'

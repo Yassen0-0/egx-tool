@@ -14,6 +14,7 @@ from .market.eodhd import EodhdClient, resolve_api_key
 from .market.sync import sync_market
 from .store import history, portfolio
 from .store.db import connect
+from .store.export import ledger_csv
 
 
 def _db():
@@ -26,6 +27,13 @@ def portfolio_summary() -> dict:
     that price's date and source. Describe these numbers; never turn them into buy or sell advice."""
     with _db() as conn:
         return portfolio.portfolio_summary(conn)
+
+
+def ledger_export() -> dict:
+    """The ledger as CSV text (UTF-8 with BOM, one row per purchase) and a file name, to keep a copy
+    or open it in Excel."""
+    with _db() as conn:
+        return ledger_csv(conn)
 
 
 def catalog_list() -> dict:
@@ -121,6 +129,7 @@ MCP_TOOLS = (
 )
 CLI_COMMANDS = {
     "portfolio-summary": portfolio_summary,
+    "ledger-export": ledger_export,
     "catalog": catalog_list,
     "catalog-search": catalog_search,
     "portfolio-add": portfolio_add,

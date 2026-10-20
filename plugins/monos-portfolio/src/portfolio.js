@@ -10,6 +10,7 @@ import { Logo } from '../../shared/logo.js'
 import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
+import { ExportButton } from './export.js'
 import LEDGER_CSS from './ledger.css'
 
 export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
@@ -433,6 +434,6 @@ export function PortfolioPage() {
   }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + LEDGER_CSS),
-    h(PanelHeader, { here: 'السجل', actions: frag(today, h(PrivacyToggle)) }),
+    h(PanelHeader, { here: 'السجل', actions: frag(today, h(ExportButton), h(PrivacyToggle)) }),
     body)
 }

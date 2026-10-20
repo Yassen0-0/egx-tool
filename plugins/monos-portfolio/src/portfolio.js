@@ -8,10 +8,11 @@ import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Skeleton } from '../../shared/components.js'
 import { Logo } from '../../shared/logo.js'
 import { search } from './search.mjs'
+import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositForm } from './deposit.js'
 import LEDGER_CSS from './ledger.css'
 
 export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
-export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق']]
+export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق'], [DEPOSIT_KIND, 'شهادة/وديعة']]
 const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' }
 
 /** Whole pounds for values and costs: the column reads as amounts, not prices. */
@@ -100,6 +101,8 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   const [symbol, setSymbol] = useState('')
   const [current, setCurrent] = useState('')
   const kindNow = custom ? kind : entry.kind
+  const isDeposit = custom && kind === DEPOSIT_KIND
+  const dep = useDepositForm()
   const isPound = !custom && entry.key === 'EGP'
   const fixedEgp = kindNow === 'currency'
   const [currency, setCurrency] = useState(custom || fixedEgp ? 'EGP' : entry.currency)
@@ -137,6 +140,20 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
+    if (isDeposit) {
+      const built = dep.build()
+      if (built.error) return setError(built.error)
+      setBusy(true)
+      try {
+        const lot = await api('POST', '/egx/api/holdings', built.body)
+        onDone(lot.symbol)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setBusy(false)
+      }
+      return undefined
+    }
     if (custom && !name.trim()) return setError('اكتب اسم الأصل.')
     if (!(q > 0)) return setError(mode === 'qty' ? 'اكتب الكمية.' : 'اكتب المبلغ.')
     if (!isPound && !(p > 0)) return setError('اكتب سعر الشرا.')
@@ -169,15 +186,15 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   return h('form', { className: 'l-add', onSubmit: submit, noValidate: true, 'aria-label': 'إضافة أصل' },
     h('div', { className: 'l-add-head' },
       custom ? h(Logo, { mark: '+' }) : h(Logo, { symbol: entry.kind === 'stock' ? entry.symbol : null, mark: entry.mark }),
-      h('b', null, custom ? 'أصل جديد بالاسم' : entry.name),
+      h('b', null, custom ? (isDeposit ? 'شهادة أو وديعة جديدة' : 'أصل جديد بالاسم') : entry.name),
       custom ? null : h('span', { className: 'q-meta' }, entry.kind_label)),
     custom ? h('div', { className: 'l-fields' },
       field('النوع', h('select', { className: 'q-input', value: kind, onChange: (e) => setKind(e.target.value) },
         KIND_CHOICES.map(([k, l]) => h('option', { key: k, value: k }, l)))),
-      field('الاسم', input(name, setName, { maxLength: 80 })),
-      field('الرمز (اختياري)', input(symbol, setSymbol, { maxLength: 16, dir: 'ltr' })),
-      field('السعر الحالي للوحدة (اختياري)', input(current, setCurrent, { inputMode: 'decimal', className: 'q-input num' }))) : null,
-    h('div', { className: 'l-fields' },
+      isDeposit ? null : field('الاسم', input(name, setName, { maxLength: 80 })),
+      isDeposit ? null : field('الرمز (اختياري)', input(symbol, setSymbol, { maxLength: 16, dir: 'ltr' })),
+      isDeposit ? null : field('السعر الحالي للوحدة (اختياري)', input(current, setCurrent, { inputMode: 'decimal', className: 'q-input num' }))) : null,
+    isDeposit ? dep.fields : h('div', { className: 'l-fields' },
       h('div', { className: 'q-stack' },
         h('span', { className: 'q-label' }, isPound ? 'المبلغ (EGP)' : mode === 'qty' ? quantityLabel(kindNow, entry ? entry.unit : '', entry ? entry.key : '') : `المبلغ المدفوع (${sign(cur)})`),
         h('input', { className: 'q-input num', inputMode: 'decimal', value: qty, 'aria-label': 'الكمية أو المبلغ', onChange: (e) => setQty(e.target.value) }),
@@ -229,8 +246,8 @@ function LotItem({ lot, asset, onChanged }) {
     const box = (label, value, set, extra = {}) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label),
       h('input', { className: 'q-input num', value, onChange: (e) => set(e.target.value), ...extra }))
     return h('div', { className: 'l-lot' },
-      box('الكمية', qty, setQty, { inputMode: 'decimal', style: { width: 110 } }),
-      asset.key === 'EGP' ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: 'decimal', style: { width: 110 } }),
+      box(asset.kind === DEPOSIT_KIND ? 'المبلغ' : 'الكمية', qty, setQty, { inputMode: 'decimal', style: { width: 110 } }),
+      asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: 'decimal', style: { width: 110 } }),
       lot.currency !== 'EGP' ? box('المدفوع بالجنيه', cost, setCost, { inputMode: 'decimal', style: { width: 120 } }) : null,
       box('التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
       h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة'),
@@ -241,7 +258,7 @@ function LotItem({ lot, asset, onChanged }) {
       error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
   }
   return h('div', { className: 'l-lot' },
-    asset.key === 'EGP' ? h('span', null, N(money(lot.quantity)), ' ج.م')
+    asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? h('span', null, N(money(lot.quantity)), ' ج.م')
       : h('span', null, N(fmtQty(lot.quantity)), ' ', asset.unit, ' × ', priceWithSign(lot.buy_price, lot.currency)),
     lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, lot.cost_egp == null ? 'التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها' : frag('التكلفة ', N(money(lot.cost_egp)), ' ج.م')) : null,
     h('span', { className: 'q-sec' }, lot.buy_date ? N(fmtDate(lot.buy_date)) : 'من غير تاريخ'),
@@ -327,6 +344,7 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
         h('span', { className: 'l-sub' },
           asset.key === 'EGP' ? null : h('span', null, quantityText(asset)),
           asset.kind === 'stock' && asset.symbol ? h('span', { className: 'q-sym' }, asset.symbol) : null,
+          asset.kind === DEPOSIT_KIND ? depositSub(asset) : null,
           !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
       h('span', { className: 'l-value' },
         priced ? N(money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
@@ -335,7 +353,8 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
       h('div', null,
         h('h3', null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : 'العملية'),
         asset.lots.map((lot) => h(LotItem, { key: `${lot.id}:${lot.updated_at}`, lot, asset, onChanged }))),
-      asset.key === 'EGP' ? null : h('div', null,
+      asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
+      asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? null : h('div', null,
         h('h3', null, 'السعر'),
         priced || asset.price != null
           ? h('p', { className: 'l-hint' }, 'آخر سعر ', priceWithSign(asset.price, asset.price_currency),

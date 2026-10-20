@@ -4,7 +4,9 @@
 - bitcoin, priced in USD;
 - EGX30 stocks from universe/egx30.json, plus any stock the user still holds after it left the index;
 - funds from funds.json (empty at first);
-- assets the user added by name (custom_assets, key custom:<id>).
+- assets the user added by name (custom_assets, key custom:<id>);
+- bank certificates and deposits (kind deposit, key deposit:<holding id>): one holding each, valued by
+  store/deposits.py and never searched.
 
 `currency` is the asset's own price currency: what a manual price and a buy price default to.
 """
@@ -18,12 +20,16 @@ from ..universe import load_universe, normalize_symbol
 
 FUNDS_FILE = Path(__file__).with_name("funds.json")
 
-KINDS = ("currency", "gold", "bitcoin", "stock", "fund")
-KIND_LABEL = {"currency": "عملة", "gold": "ذهب", "bitcoin": "بتكوين", "stock": "سهم", "fund": "صندوق"}
-# The screen's four headings, in order. Gold sits with the currencies; its kind stays `gold`.
-GROUPS = (("currencies", "عملات"), ("bitcoin", "بتكوين"), ("stocks", "أسهم"), ("funds", "صناديق"))
-GROUP_OF = {"currency": "currencies", "gold": "currencies", "bitcoin": "bitcoin", "stock": "stocks", "fund": "funds"}
-UNIT = {"stock": "سهم", "fund": "وثيقة", "bitcoin": "BTC"}
+KINDS = ("currency", "gold", "bitcoin", "stock", "fund", "deposit")
+KIND_LABEL = {"currency": "عملة", "gold": "ذهب", "bitcoin": "بتكوين", "stock": "سهم", "fund": "صندوق",
+              "deposit": "شهادة/وديعة"}
+# The screen's five headings, in order. Gold sits with the currencies; its kind stays `gold`.
+GROUPS = (("currencies", "عملات"), ("bitcoin", "بتكوين"), ("stocks", "أسهم"), ("funds", "صناديق"),
+          ("deposits", "شهادات وودائع"))
+GROUP_OF = {"currency": "currencies", "gold": "currencies", "bitcoin": "bitcoin", "stock": "stocks", "fund": "funds",
+            "deposit": "deposits"}
+UNIT = {"stock": "سهم", "fund": "وثيقة", "bitcoin": "BTC", "deposit": "جنيه"}
+DEPOSIT_PREFIX = "deposit:"
 
 CURRENCIES = (
     ("EGP", "الجنيه المصري", "Egyptian Pound", ("جنيه", "جنيه مصري", "مصري", "كاش", "نقدي")),
@@ -78,6 +84,12 @@ def builtin_catalog() -> tuple[dict, ...]:
     return tuple(entries)
 
 
+def deposit_entry(key: str, name: str) -> dict:
+    """The ledger's entry for a certificate or deposit (key deposit:<holding id>). Not in `catalog()`:
+    it is not something to search for, it exists only as the holding that made it."""
+    return _entry(key, "deposit", name, name, None, (), "EGP", None, "شه")
+
+
 def custom_key(asset_id: int) -> str:
     return f"custom:{asset_id}"
 
@@ -115,7 +127,7 @@ def find(conn: sqlite3.Connection, key: str) -> dict | None:
 
 _FOLD = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ة": "ه", "ؤ": "و", "ئ": "ي"})
 _MARKS = dict.fromkeys([*range(0x064B, 0x0660), 0x0670, 0x0640])
-_KIND_ORDER = {"currency": 0, "gold": 1, "bitcoin": 2, "stock": 3, "fund": 4}
+_KIND_ORDER = {"currency": 0, "gold": 1, "bitcoin": 2, "stock": 3, "fund": 4, "deposit": 5}
 
 
 def normalize(text: str | None) -> str:

@@ -140,6 +140,17 @@ CREATE TABLE IF NOT EXISTS fund_components (
     PRIMARY KEY (fund, asset)
 );
 
+-- A bank certificate or deposit («شهادات وودائع»). Its holding is the principal in EGP (quantity =
+-- principal, buy_price 1, symbol deposit:<holding id>). rate is the annual rate as a fraction (0.27).
+CREATE TABLE IF NOT EXISTS deposits (
+    holding_id INTEGER PRIMARY KEY REFERENCES holdings (id) ON DELETE CASCADE,
+    rate REAL NOT NULL CHECK (rate > 0),
+    start_date TEXT NOT NULL,
+    maturity_date TEXT NOT NULL,
+    payout TEXT NOT NULL CHECK (payout IN ('monthly', 'quarterly', 'annual', 'maturity')),
+    bank TEXT
+);
+
 CREATE TABLE IF NOT EXISTS watchlist (
     symbol TEXT PRIMARY KEY,
     added_at TEXT NOT NULL
@@ -190,6 +201,7 @@ MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (2, "«السجل»: holdings get kind, name, currency, fx_egp, cost_egp", _ledger_holdings),
     (3, "ledger_snapshots (created by SCHEMA)", lambda conn: None),
     (4, "old purchases of a dollar EGX line are in dollars, their EGP cost unknown", _dollar_lines),
+    (5, "deposits (created by SCHEMA)", lambda conn: None),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

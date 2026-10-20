@@ -46,7 +46,7 @@ def main() -> None:
     bars("XAUUSD.FOREX", 4100.0, n=400, step=0.001, every_day=True)
     bars("BTC-USD.CC", 67000.0, n=400, step=0.003, every_day=True)
 
-    # One asset in every group, a stale fund price, a fund's components and an unpriced stock.
+    # One asset in every group, a stale fund price, a fund's components, an unpriced stock and two certificates.
     portfolio.add_holding(conn, "USD", buy_price=30.9, quantity=2000, buy_date="2023-03-01")
     portfolio.add_holding(conn, "USD", buy_price=49.5, amount=24750, buy_date="2025-01-05")
     portfolio.add_holding(conn, "XAU-G", buy_price=3900, quantity=20, buy_date="2025-06-01")
@@ -58,6 +58,13 @@ def main() -> None:
                                  custom={"kind": "fund", "name": "صندوق الأهلي للأسهم", "currency": "EGP"})
     portfolio.set_price(conn, fund["symbol"], 12.4, day="2026-10-08")
     portfolio.set_fund_components(conn, fund["symbol"], [{"asset": "COMI", "weight": 0.32}, {"asset": "TMGH", "weight": 0.18}])
+
+    # Bank certificates: one paying monthly, one paying at the end.
+    deposit = {"rate": 0.27, "start_date": "2025-10-15", "maturity_date": "2028-10-15", "payout": "monthly",
+               "bank": "البنك الأهلي"}
+    portfolio.add_holding(conn, amount=100000, deposit=deposit)
+    portfolio.add_holding(conn, amount=50000, deposit={**deposit, "rate": 0.25, "bank": "بنك مصر",
+                                                       "start_date": "2026-04-15", "payout": "maturity"})
 
     api = {
         "/egx/api/portfolio": portfolio.portfolio_summary(conn, at=at),

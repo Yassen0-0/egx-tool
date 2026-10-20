@@ -1,0 +1,9 @@
+/* «تطوّر ثروتي»: one small line under the total. Host tokens only (--dsw-alias-*). The page is RTL
+   but time runs left to right, so the svg is its own LTR island. */
+
+.qm .h-wrap { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }
+.qm .h-chart { display: block; width: 100%; height: 120px; direction: ltr; unicode-bidi: isolate; overflow: visible; }
+.qm .h-chart polyline { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }
+.qm .h-cost { stroke: var(--dsw-alias-label-tertiary); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
+.qm .h-value { stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.75; }
+.qm .h-line { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }

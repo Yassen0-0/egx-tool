@@ -484,6 +484,56 @@ var __monos = (() => {
     return h("span", { className: `l-logo l-mark${text.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text);
   }
 
+  // plugins/monos-portfolio/src/history.css
+  var history_default = "/* «تطوّر ثروتي»: one small line under the total. Host tokens only (--dsw-alias-*). The page is RTL\n   but time runs left to right, so the svg is its own LTR island. */\n\n.qm .h-wrap { display: flex; flex-direction: column; gap: 6px; margin-top: 4px; }\n.qm .h-chart { display: block; width: 100%; height: 120px; direction: ltr; unicode-bidi: isolate; overflow: visible; }\n.qm .h-chart polyline { fill: none; stroke-linejoin: round; stroke-linecap: round; vector-effect: non-scaling-stroke; }\n.qm .h-cost { stroke: var(--dsw-alias-label-tertiary); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }\n.qm .h-value { stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.75; }\n.qm .h-line { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n";
+
+  // plugins/monos-portfolio/src/history.js
+  var W = 720;
+  var H = 120;
+  var PAD = 4;
+  var dayMs = (iso) => Date.parse(`${iso}T00:00:00Z`);
+  function chartPaths(points) {
+    const times = points.map((p) => dayMs(p.date));
+    const t0 = times[0];
+    const span = times[times.length - 1] - t0 || 1;
+    const all = points.flatMap((p) => [p.value_egp, p.cost_egp]);
+    const lo = Math.min(...all);
+    const hi = Math.max(...all);
+    const range = hi - lo || Math.abs(hi) || 1;
+    const x = (i) => (PAD + (times[i] - t0) / span * (W - 2 * PAD)).toFixed(1);
+    const y = (v) => (H - PAD - (v - lo) / range * (H - 2 * PAD)).toFixed(1);
+    const line = (pick) => points.map((p, i) => `${x(i)},${y(pick(p))}`).join(" ");
+    return { value: line((p) => p.value_egp), cost: line((p) => p.cost_egp) };
+  }
+  function HistoryChart() {
+    const hidden = usePrivacy();
+    const [data, setData] = useState(null);
+    useEffect(() => {
+      let alive = true;
+      api("GET", "/egx/api/history?days=365").then((d) => {
+        if (alive) setData(d);
+      }).catch(() => {
+      });
+      return () => {
+        alive = false;
+      };
+    }, []);
+    if (!data || !Array.isArray(data.points) || data.points.length < 2) return null;
+    const { value, cost } = chartPaths(data.points);
+    return h(
+      "section",
+      { className: "h-wrap", "aria-label": "تطوّر ثروتي" },
+      h("style", null, history_default),
+      h(
+        "svg",
+        { className: "h-chart", viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: "none", role: "img", "aria-label": "إجمالي السجل يوم بيوم، والتكلفة بخط باهت" },
+        h("polyline", { className: "h-cost", points: cost }),
+        h("polyline", { className: "h-value", points: value })
+      ),
+      data.change_pct != null ? h("p", { className: "h-line" }, "من ", N(fmtDayMonth(data.first.date)), ": ", hidden ? N(MASK) : N(fmtPct(data.change_pct, { signed: true }), toneOf(data.change))) : null
+    );
+  }
+
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
   function normalize(text) {
@@ -1105,6 +1155,7 @@ var __monos = (() => {
         "div",
         { className: "l-col" },
         h(TotalBlock, { totals }),
+        h(HistoryChart),
         h(
           "div",
           null,

@@ -59,7 +59,17 @@ def main() -> None:
     portfolio.set_price(conn, fund["symbol"], 12.4, day="2026-10-08")
     portfolio.set_fund_components(conn, fund["symbol"], [{"asset": "COMI", "weight": 0.32}, {"asset": "TMGH", "weight": 0.18}])
 
+    # A few daily snapshots for «تطوّر ثروتي»: the total grew from 440,000 to the day's 463,837.
+    for day, value, cost in (("2026-10-08", 440000.0, 355393.0), ("2026-10-11", 447500.0, 355393.0),
+                             ("2026-10-13", 452300.0, 355393.0), ("2026-10-14", 463000.0, 355393.0)):
+        conn.execute("INSERT INTO ledger_snapshots (date, value_egp, cost_egp, assets, recorded_at) VALUES (?, ?, ?, 8, ?)",
+                     (day, value, cost, f"{day}T18:00:00+00:00"))
+    conn.commit()
+
+    from egx_mcp.store import history
+
     api = {
+        "/egx/api/history?days=365": history.wealth_history(conn, 365, at=at),
         "/egx/api/portfolio": portfolio.portfolio_summary(conn, at=at),
         "/egx/api/catalog": {"assets": portfolio.priced_catalog(conn, at)},
         "/egx/api/fx?currency=USD&date=": portfolio.fx_rate(conn, "USD", "2026-10-15"),

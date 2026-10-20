@@ -77,6 +77,15 @@ test('each holdings route maps to its egx-cli command, and the old screens\' rou
   assert.equal((await call('POST', '/egx/api/market/sync', { body: {}, headers: SAME_ORIGIN })).status, 404)
 })
 
+test('the history route asks for a whole number of days and falls back to the default', async () => {
+  assert.deepEqual((await call('GET', '/egx/api/history?days=90')).body, { command: 'history', payload: { days: 90 } })
+  assert.deepEqual((await call('GET', '/egx/api/history')).body, { command: 'history', payload: {} })
+  assert.deepEqual((await call('GET', '/egx/api/history?days=x')).body, { command: 'history', payload: {} })
+  assert.deepEqual((await call('GET', '/egx/api/history?days=99999')).body.payload, { days: 3650 })
+  assert.equal((await call('GET', '/egx/api/history', { headers: { host: 'evil.example' } })).status, 403)
+  assert.equal((await call('POST', '/egx/api/history', { body: {}, headers: SAME_ORIGIN })).status, 404)
+})
+
 test('ledger routes: catalog, rate, manual price, fund components and removing an asset', async () => {
   assert.equal((await call('GET', '/egx/api/catalog')).body.command, 'catalog')
   assert.deepEqual((await call('GET', '/egx/api/fx?currency=USD&date=2026-10-01')).body,

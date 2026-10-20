@@ -12,7 +12,7 @@ from .catalog import search as catalog_find
 from .config import db_path
 from .market.eodhd import EodhdClient, resolve_api_key
 from .market.sync import sync_market
-from .store import portfolio
+from .store import history, portfolio
 from .store.db import connect
 
 
@@ -87,6 +87,13 @@ def fx_rate(currency: str, date: str | None = None) -> dict:
         return portfolio.fx_rate(conn, currency, date)
 
 
+def wealth_history(days: int = 365) -> dict:
+    """The ledger's total value and cost in EGP per day (one snapshot a day), oldest first, with how
+    the last day compares with the first in range. Describe the movement; never advise on it."""
+    with _db() as conn:
+        return history.wealth_history(conn, days)
+
+
 def fund_components_set(fund: str, components: list[dict]) -> dict:
     """Replace a fund's components: [{asset, weight 0–1}]. Shown under the fund, never summed.
     Confirm with the user before calling."""
@@ -110,7 +117,7 @@ def prices_sync() -> dict:
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
 MCP_TOOLS = (
     portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
-    price_set, fx_rate, fund_components_set,
+    price_set, fx_rate, fund_components_set, wealth_history,
 )
 CLI_COMMANDS = {
     "portfolio-summary": portfolio_summary,
@@ -122,6 +129,7 @@ CLI_COMMANDS = {
     "asset-remove": asset_remove,
     "price-set": price_set,
     "fx-rate": fx_rate,
+    "history": wealth_history,
     "fund-components-set": fund_components_set,
     "prices-sync": prices_sync,
 }

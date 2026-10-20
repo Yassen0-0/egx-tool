@@ -39,3 +39,30 @@ def test_old_database_is_backed_up_and_upgraded(tmp_path):
     # Reconnecting applies nothing and makes no second backup.
     connect(path).close()
     assert len(list((tmp_path / "backups").glob("*.sqlite"))) == 1
+
+
+OLD_HOLDINGS = """CREATE TABLE holdings (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, symbol TEXT NOT NULL,
+    quantity REAL NOT NULL CHECK (quantity > 0), buy_price REAL NOT NULL CHECK (buy_price > 0),
+    buy_date TEXT, note TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL)"""
+
+
+def test_old_holding_becomes_a_ledger_stock(tmp_path):
+    path = tmp_path / "egx.sqlite"
+    with sqlite3.connect(path) as old:
+        old.execute(OLD_HOLDINGS)
+        old.execute("INSERT INTO holdings (symbol, quantity, buy_price, buy_date, note, created_at, updated_at)"
+                    " VALUES ('TMGH', 120, 61.25, '2026-09-01', 'x', '2026-09-01T10:00:00+00:00',"
+                    " '2026-09-01T10:00:00+00:00')")
+        old.execute("PRAGMA user_version = 1")
+    old.close()
+    conn = connect(path)
+    row = dict(conn.execute("SELECT * FROM holdings").fetchone())
+    assert (row["symbol"], row["quantity"], row["buy_price"], row["buy_date"], row["note"]) == \
+        ("TMGH", 120, 61.25, "2026-09-01", "x")
+    assert row["kind"] == "stock" and row["currency"] == "EGP" and row["fx_egp"] == 1
+    assert row["cost_egp"] == 120 * 61.25 and row["name"] == "طلعت مصطفى القابضة"
+    tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
+    assert {"custom_assets", "manual_prices", "fund_components"} <= tables
+    assert len(list((tmp_path / "backups").glob("egx-*-before-v2.sqlite"))) == 1
+    conn.close()

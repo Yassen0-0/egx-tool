@@ -217,9 +217,10 @@ export function fmtTime(iso) {
  * price for any holding → neutral; today == 0 (at the shown precision) → neutral.
  */
 export function iconState(portfolio) {
-  const holdings = portfolio && portfolio.holdings
-  if (!holdings || !holdings.length) return 'neutral'
-  const totals = portfolio.totals || {}
+  const totals = (portfolio && portfolio.totals) || {}
+  // The ledger counts its assets in totals; the older portfolio shape listed holdings.
+  const count = portfolio && portfolio.holdings ? portfolio.holdings.length : totals.assets || 0
+  if (!count) return 'neutral'
   if (!totals.today_has_fresh || missing(totals.today_change)) return 'neutral'
   const cents = Math.round(totals.today_change * 100)
   if (cents === 0) return 'neutral'

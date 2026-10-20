@@ -87,4 +87,4 @@ printf '%s\n' "$DUMP" | grep -q 'default: egx-analyst' || { echo "   egx-analyst
 [ "$missing" = 0 ] || exit 1
 echo "   all Monos rows are present"
 
-echo "Done. Open Monos: new sessions use the egx-analyst preset; the sidebar has Monos (السوق), التحليلات and المحفظة."
+echo "Done. Open Monos: the sidebar has Monos («السجل»); the market and analyses screens are off; new sessions still use the egx-analyst preset."

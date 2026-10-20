@@ -14,7 +14,8 @@ import {
 const pluginsDir = join(dirname(fileURLToPath(import.meta.url)), '..')
 const sourceDirs = [join(pluginsDir, 'shared'), ...readdirSync(pluginsDir).filter((d) => d.startsWith('monos-'))
   .map((d) => join(pluginsDir, d, 'src')).filter((d) => existsSync(d))]
-const sources = sourceDirs.flatMap((dir) => readdirSync(dir).map((name) => join(dir, name)))
+// Files only: shared/logos/ holds the companies' own brand marks, whose colours are theirs.
+const sources = sourceDirs.flatMap((dir) => readdirSync(dir, { withFileTypes: true }).filter((d) => d.isFile()).map((d) => join(dir, d.name)))
 
 test('prices: two decimals, Latin digits, comma thousands, U+2212', () => {
   assert.equal(fmtPrice(122), '122.00')
@@ -88,6 +89,9 @@ test('icon state follows the §6 check order', () => {
   assert.equal(iconState({ holdings: one, totals: { today_change: 0.001, today_has_fresh: true } }), 'neutral')
   assert.equal(iconState({ holdings: one, totals: { today_change: 50, today_has_fresh: true } }), 'up')
   assert.equal(iconState({ holdings: one, totals: { today_change: -3, today_has_fresh: true } }), 'down')
+  // The ledger shape: assets counted in totals.
+  assert.equal(iconState({ groups: [], totals: { assets: 0, today_change: 5, today_has_fresh: true } }), 'neutral')
+  assert.equal(iconState({ groups: [], totals: { assets: 3, today_change: 5, today_has_fresh: true } }), 'up')
 })
 
 test('tone classes', () => {

@@ -107,24 +107,25 @@ def test_light_update_carries_fair_value(conn):
     assert valuations.latest_valuation(conn, "EAST")["kind"] == "light"
 
 
-def test_portfolio_from_invested_amount(conn, provider):
-    holding = portfolio.add_holding(conn, "east.ca", buy_price=10.0, invested_amount=50.0)
-    assert holding["symbol"] == "EAST"
-    assert holding["quantity"] == pytest.approx(5.0)
-    _save(conn, 10.0)
-    summary = portfolio.portfolio_summary(conn, provider)
-    row = summary["holdings"][0]
-    assert row["market_value"] == pytest.approx(37.5)
-    assert row["pnl"] == pytest.approx(-12.5)
-    assert row["status"] == "below_protection"
-    assert row["weight"] == pytest.approx(1.0)
+def test_portfolio_from_amount_paid(conn):
+    holding = portfolio.add_holding(conn, "east.ca", buy_price=10.0, amount=50.0)
+    assert holding["symbol"] == "EAST" and holding["kind"] == "stock"
+    assert holding["quantity"] == pytest.approx(5.0) and holding["cost_egp"] == pytest.approx(50.0)
+    portfolio.set_price(conn, "EAST", 7.5)
+    east = _asset(portfolio.portfolio_summary(conn), "EAST")
+    assert east["value_egp"] == pytest.approx(37.5)
+    assert east["growth"] == pytest.approx(-0.25) and east["price_source"] == "manual"
 
 
-def test_portfolio_rejects_unknown_symbol_and_ambiguous_input(conn):
+def test_portfolio_rejects_unknown_asset_and_ambiguous_input(conn):
     with pytest.raises(ValuationInputError):
         portfolio.add_holding(conn, "XXXX", buy_price=1, quantity=1)
     with pytest.raises(ValuationInputError):
-        portfolio.add_holding(conn, "EAST", buy_price=1, quantity=1, invested_amount=1)
+        portfolio.add_holding(conn, "EAST", buy_price=1, quantity=1, amount=1)
+
+
+def _asset(summary, key):
+    return next(a for g in summary["groups"] for a in g["assets"] if a["key"] == key)
 
 
 def test_watchlist_add_list_remove(conn):
@@ -148,11 +149,11 @@ def test_watchlist_rejects_symbols_outside_egx30(conn):
     assert watchlist.list_watchlist(conn) == []
 
 
-def test_portfolio_unpriced_holding(conn, provider):
+def test_portfolio_unpriced_holding(conn):
     portfolio.add_holding(conn, "TMGH", buy_price=50, quantity=10)
-    summary = portfolio.portfolio_summary(conn, provider)
-    assert summary["totals"]["unpriced_holdings"] == ["TMGH"]
-    assert summary["totals"]["market_value"] is None
+    totals = portfolio.portfolio_summary(conn)["totals"]
+    assert totals["unpriced"] == ["طلعت مصطفى القابضة"]
+    assert totals["value"] is None and totals["cost"] == 500 and totals["growth"] is None
 
 
 def test_weekly_check_flags_new_period_rate_shift_events_and_protection(conn, provider):

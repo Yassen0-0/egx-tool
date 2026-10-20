@@ -32,6 +32,12 @@ KEEP_SYNC_RUNS = 500
 FREE_DAILY_LIMIT = 20
 
 
+def _stamp(at: datetime) -> str:
+    """A run starts at `at` (now in the app): the day's budget is counted from it, so a run judged
+    at a given time must not be stamped with the wall clock."""
+    return at.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
 def calls_used_today(account: dict, at: datetime) -> int:
     """EODHD's count belongs to `counted_on` and is only zeroed by the first counted call after
     midnight GMT. Trusting a count from an earlier day blocks every call, so the count never
@@ -134,7 +140,7 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
     at = at or now_cairo()
     today = at.date()
     due = expected_last_bar(at)
-    run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (now_iso(),)).lastrowid
+    run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (_stamp(at),)).lastrowid
     conn.commit()
     summary = {"bars_updated": [], "bars_current": 0, "quotes": 0, "skipped_for_budget": [], "errors": {}}
     account = {"plan": None, "used_today": 0, "daily_limit": 0}
@@ -229,7 +235,7 @@ def sync_symbol(conn: sqlite3.Connection, client: EodhdClient, symbol: str, at: 
     last = store.last_bar_date(conn, symbol)
     if last is not None and date.fromisoformat(last) >= due:
         return {"ok": True, "status": "current", "symbol": symbol, "last_bar": last, "calls_made": 0}
-    run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (now_iso(),)).lastrowid
+    run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (_stamp(at),)).lastrowid
     conn.commit()
     summary = {"on_demand": symbol, "bars_updated": [], "bars_current": 0, "quotes": 0,
                "skipped_for_budget": [], "errors": {}}

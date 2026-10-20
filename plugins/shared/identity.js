@@ -4,7 +4,8 @@ import { React, api, h, pageShared, useEffect, useState } from './runtime.js'
 import { fmtPct, iconState } from './format.mjs'
 
 // ── Shared portfolio store ─────────────────────────────────────────────────────
-// One fetch of /egx/api/portfolio feeds the sidebar badge and every screen, so they always agree.
+// One fetch of /egx/api/portfolio (the ledger, «السجل») feeds the sidebar badge and every screen,
+// so they always agree.
 // Refreshed on first use, every few minutes (the desktop app syncs prices every 5), after each
 // market sync and after any holding change.
 // One store for the whole page (pageShared), so the market sidebar icon and the portfolio
@@ -70,8 +71,8 @@ export function todayOf(portfolio) {
 
 // ── Sidebar entry ──────────────────────────────────────────────────────────────
 // The host row renders our icon (16px wide, 18px in the collapsed rail) and the static label
-// «Monos». When the portfolio moved today, the row also shows today's % beside the label, and
-// the row's tooltip and accessible name become «Monos — السوق».
+// «Monos». When the ledger moved today, the row also shows today's % beside the label. The row's
+// tooltip and accessible name say «Monos — السجل».
 export const SIDEBAR_PCT_CLASS = 'monos-sidebar-pct'
 
 export function SidebarMonosIcon({ size }) {
@@ -85,8 +86,8 @@ export function SidebarMonosIcon({ size }) {
   useEffect(() => {
     const row = ref.current && ref.current.closest('button')
     if (!row) return undefined
-    const name = state === 'neutral' || pct == null ? 'Monos — السوق' : `Monos — السوق، محفظتي اليوم ${fmtPct(pct, { digits: 2, signed: true })}`
-    row.setAttribute('title', 'Monos — السوق')
+    const name = state === 'neutral' || pct == null ? 'Monos — السجل' : `Monos — السجل، اليوم ${fmtPct(pct, { digits: 2, signed: true })}`
+    row.setAttribute('title', 'Monos — السجل')
     row.setAttribute('aria-label', name)
     const wide = size <= 16
     if (!wide || state === 'neutral' || pct == null) return undefined

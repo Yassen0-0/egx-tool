@@ -53,7 +53,8 @@ test('every screen renders from the built plugin clients', { skip: !harness && '
   const text = (key) => r.html[key].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   assert.match(text('main:egx-market'), /Monos \/ السوق/)
   assert.match(text('main:egx-market'), /COMI/)
-  assert.match(text('main:egx-portfolio'), /Monos \/ المحفظة/)
+  assert.match(text('main:egx-portfolio'), /Monos \/ السجل/)
+  for (const heading of ['عملات', 'بتكوين', 'أسهم', 'صناديق']) assert.match(text('main:egx-portfolio'), new RegExp(heading))
   assert.match(text('main:egx-portfolio'), /TMGH/)
   assert.match(text('main:egx-analyses'), /التحليلات/)
   assert.match(r.html['conversation.hero.brand.mark:conversation.hero.brand.mark'], /<svg/)
@@ -127,6 +128,72 @@ test('«حدّث سعر …» refreshes one stock through its own route', { skip
   assert.ok(r.requests.includes(`POST /egx/api/market/${symbol}/sync`), r.requests.join('\n'))
   assert.ok(!r.requests.includes('POST /egx/api/market/sync'), 'never the whole index')
   assert.match(after, new RegExp(`حُدّث سعر ${symbol}`))
+})
+
+// ── «السجل» ──────────────────────────────────────────────────────────────────
+const ledgerText = (html) => html.replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
+
+test('the ledger shows the total, a logo per row, a stale price date and the unpriced count', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const r = await harness.renderClient([clientPath('monos-portfolio')])
+  assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
+  assert.deepEqual(r.unknownRequests, [])
+  const html = r.html['main:egx-portfolio']
+  const t = ledgerText(html)
+  assert.match(t, /444,710 جنيه/)
+  assert.match(t, /التكلفة 353,650/)
+  assert.match(t, /النمو \+27\.2%/)
+  assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
+  assert.match(t, /اليوم \+0\.20%/)
+  assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
+  assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
+  assert.match(t, /USD/)  // a currency's letters on the same circle
+  assert.ok(r.slots.includes('sidebar.panellist:egx-portfolio'))
+})
+
+test('the ledger search finds Egyptian spellings and offers adding by name', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([clientPath('monos-portfolio')], {
+    async interact(key, host, { act, settle, window }) {
+      const input = host.querySelector('input[role="combobox"]')
+      if (!input) return
+      const type = async (value) => {
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(input, value)
+          input.dispatchEvent(new window.Event('input', { bubbles: true }))
+        })
+        await settle()
+      }
+      await type('دهب')
+      seen.gold = [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent)
+      await type('التجاري')
+      seen.bank = [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent)
+      await type('دولار')
+      const usd = host.querySelector('[role="option"]')
+      await act(async () => { usd.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      await settle()
+      seen.add = host.querySelector('form.l-add').textContent
+      seen.search = input.value
+      await type('زززز')
+      seen.none = [...host.querySelectorAll('[role="option"]')].map((o) => o.textContent)
+    },
+  })
+  assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
+  assert.ok(seen.gold.some((o) => o.includes('الذهب (جرام)')) && seen.gold.some((o) => o.includes('الذهب (أونصة)')))
+  assert.ok(seen.bank[0].includes('البنك التجاري الدولي'))
+  assert.match(seen.add, /الدولار الأمريكي/)
+  assert.match(seen.add, /سعر USD بالجنيه وقت الشرا/)
+  assert.equal(seen.search, '')
+  assert.deepEqual(seen.none, ['+إضافة بالاسم ده: زززز'])
+})
+
+test('the empty ledger is a zero, the search and one line', { skip: !harness && 'run npm install at the repo root' }, async () => {
+  const empty = { as_of: '2026-10-15T08:00+03:00', groups: [], disclaimer: '',
+    totals: { assets: 0, value: null, cost: 0, priced_cost: 0, growth: null, unpriced: [], today_change: null, today_change_pct: null, today_has_fresh: false, today_as_of: null } }
+  const r = await harness.renderClient([clientPath('monos-portfolio')], { fixtures: { '/egx/api/portfolio': empty } })
+  const t = ledgerText(r.html['main:egx-portfolio'])
+  assert.match(t, /0 جنيه/)
+  assert.match(t, /ابحث عن أصل وأضفه\./)
+  assert.doesNotMatch(t, /التكلفة \d|اليوم/)
 })
 
 test('npm run new-plugin scaffolds a plugin that builds and renders', { skip: !harness && 'run npm install at the repo root' }, async () => {

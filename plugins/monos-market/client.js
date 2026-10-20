@@ -306,9 +306,9 @@ var __monos = (() => {
     return Number.isNaN(d.getTime()) ? DASH : cairoTime.format(d);
   }
   function iconState(portfolio) {
-    const holdings = portfolio && portfolio.holdings;
-    if (!holdings || !holdings.length) return "neutral";
-    const totals = portfolio.totals || {};
+    const totals = portfolio && portfolio.totals || {};
+    const count = portfolio && portfolio.holdings ? portfolio.holdings.length : totals.assets || 0;
+    if (!count) return "neutral";
     if (!totals.today_has_fresh || missing(totals.today_change)) return "neutral";
     const cents = Math.round(totals.today_change * 100);
     if (cents === 0) return "neutral";
@@ -447,8 +447,8 @@ var __monos = (() => {
     useEffect(() => {
       const row = ref.current && ref.current.closest("button");
       if (!row) return void 0;
-      const name = state === "neutral" || pct == null ? "Monos — السوق" : `Monos — السوق، محفظتي اليوم ${fmtPct(pct, { digits: 2, signed: true })}`;
-      row.setAttribute("title", "Monos — السوق");
+      const name = state === "neutral" || pct == null ? "Monos — السجل" : `Monos — السجل، اليوم ${fmtPct(pct, { digits: 2, signed: true })}`;
+      row.setAttribute("title", "Monos — السجل");
       row.setAttribute("aria-label", name);
       const wide = size <= 16;
       if (!wide || state === "neutral" || pct == null) return void 0;

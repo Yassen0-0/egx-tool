@@ -2,6 +2,7 @@
 //   - esbuild bundles the plugin's modules and the shared/ ones it imports into one IIFE; 'react'
 //     stays external and resolves to the host's React through the module loader's require();
 //     .css files are imported as text.
+//     .svg files (the company logos in shared/logos/) are imported as text too.
 //   - the host loads each client.js as a lazy factory whose id must equal the package name.
 //   - a plugin with "monos": { "charts": true } gets the vendored Lightweight Charts build,
 //     evaluated inside its factory: the wrapper captures window.LightweightCharts into
@@ -27,7 +28,7 @@ async function clientFor({ dir, manifest }) {
   const result = await build({
     entryPoints: [join(dir, 'src', 'index.js')],
     bundle: true, format: 'iife', globalName: '__monos', external: ['react'],
-    loader: { '.css': 'text' }, target: 'es2020', charset: 'utf8', legalComments: 'none',
+    loader: { '.css': 'text', '.svg': 'text' }, target: 'es2020', charset: 'utf8', legalComments: 'none',
     write: false, logLevel: 'silent',
   })
   const charts = manifest.monos && manifest.monos.charts

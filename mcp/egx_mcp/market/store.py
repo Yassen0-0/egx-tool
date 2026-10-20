@@ -44,6 +44,13 @@ def bars(conn: sqlite3.Connection, symbol: str, since: str | None = None) -> lis
     return [dict(r) for r in conn.execute(query + " ORDER BY date", params)]
 
 
+def last_bars(conn: sqlite3.Connection, symbol: str, n: int = 2) -> list[dict]:
+    """The newest n bars, oldest first, however old they are (the ledger keeps a stale price)."""
+    rows = conn.execute("SELECT date, open, high, low, close, adjusted_close, volume, source FROM daily_bars"
+                        " WHERE symbol = ? AND close > 0 ORDER BY date DESC LIMIT ?", (symbol, n)).fetchall()
+    return [dict(r) for r in reversed(rows)]
+
+
 def last_bar_date(conn: sqlite3.Connection, symbol: str) -> str | None:
     row = conn.execute("SELECT MAX(date) FROM daily_bars WHERE symbol = ?", (symbol,)).fetchone()
     return row[0] if row else None

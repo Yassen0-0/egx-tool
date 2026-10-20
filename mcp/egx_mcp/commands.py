@@ -12,8 +12,8 @@ Add an operation here, then list it in MCP_TOOLS and/or CLI_COMMANDS. The pure c
 from contextlib import closing
 from typing import Literal
 
+from .catalog import catalog
 from .config import data_dir, db_path
-from .data import default_provider
 from .data.schema import validate_data
 from .errors import ValuationInputError
 from .market.eodhd import EodhdClient, resolve_api_key
@@ -122,33 +122,67 @@ def valuation_series(symbol: str) -> dict:
         return valuations.fair_value_series(conn, symbol)
 
 
-# ── portfolio (user-entered) ─────────────────────────────────────────────────
+# ── «السجل» (user-entered assets) ────────────────────────────────────────────
 
-def portfolio_add(symbol: str, buy_price: float, quantity: float | None = None,
-                  invested_amount: float | None = None, buy_date: str | None = None,
-                  note: str | None = None) -> dict:
-    """Add a holding the user entered: give quantity, or the amount invested in EGP."""
+def portfolio_add(asset: str | None = None, buy_price: float | None = None, quantity: float | None = None,
+                  amount: float | None = None, currency: str | None = None, cost_egp: float | None = None,
+                  buy_date: str | None = None, note: str | None = None, custom: dict | None = None) -> dict:
+    """Add one purchase to the ledger: `asset` is a catalog key (EGX ticker, USD, XAU-G, BTC, ...) or
+    `custom` = {kind, name, symbol, currency, price} for an asset added by name. Give quantity or the
+    amount paid, the unit price in `currency`, and optionally the EGP actually paid (cost_egp)."""
     with _db() as conn:
-        return portfolio.add_holding(conn, symbol, buy_price, quantity, invested_amount, buy_date, note)
+        return portfolio.add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date,
+                                     note, custom)
 
 
 def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,
-                     buy_date: str | None = None, note: str | None = None) -> dict:
-    """Edit a holding the user entered."""
+                     buy_date: str | None = None, note: str | None = None, cost_egp: float | None = None) -> dict:
+    """Edit one purchase; the EGP cost keeps the rate saved at purchase unless cost_egp is given."""
     with _db() as conn:
-        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note)
+        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note, cost_egp)
 
 
 def portfolio_remove(holding_id: int) -> dict:
-    """Remove a holding the user entered."""
+    """Remove one purchase."""
     with _db() as conn:
         return portfolio.remove_holding(conn, holding_id)
 
 
-def portfolio_summary() -> dict:
-    """Holdings with market value, P/L, weight, fair value, risk rating and protection price."""
+def asset_remove(asset: str) -> dict:
+    """Remove every purchase of an asset (and a fund's components)."""
     with _db() as conn:
-        return portfolio.portfolio_summary(conn, default_provider())
+        return portfolio.remove_asset(conn, asset)
+
+
+def portfolio_summary() -> dict:
+    """The ledger in EGP: total, cost, growth, today's move, and the assets by group with their lots."""
+    with _db() as conn:
+        return portfolio.portfolio_summary(conn)
+
+
+def catalog_list() -> dict:
+    """Every asset the ledger search knows: currencies, gold, bitcoin, EGX30 stocks, funds and the
+    user's own assets, with their search aliases."""
+    with _db() as conn:
+        return {"assets": catalog(conn)}
+
+
+def price_set(asset: str, price: float, currency: str | None = None, date: str | None = None) -> dict:
+    """The user's price for an asset (default today); a newer market close wins over it."""
+    with _db() as conn:
+        return portfolio.set_price(conn, asset, price, currency, date)
+
+
+def fx_rate(currency: str, date: str | None = None) -> dict:
+    """The EGP rate a purchase in `currency` on `date` would use (null when none is known)."""
+    with _db() as conn:
+        return portfolio.fx_rate(conn, currency, date)
+
+
+def fund_components_set(fund: str, components: list[dict]) -> dict:
+    """Replace a fund's components: [{asset, weight 0–1}]. Shown under the fund, never summed."""
+    with _db() as conn:
+        return portfolio.set_fund_components(conn, fund, components)
 
 
 # ── «متابعتي» ────────────────────────────────────────────────────────────────
@@ -195,6 +229,11 @@ CLI_COMMANDS = {
     "portfolio-add": portfolio_add,
     "portfolio-update": portfolio_update,
     "portfolio-remove": portfolio_remove,
+    "asset-remove": asset_remove,
+    "catalog": catalog_list,
+    "price-set": price_set,
+    "fx-rate": fx_rate,
+    "fund-components-set": fund_components_set,
     "watchlist-list": watchlist_list,
     "watchlist-add": watchlist_add,
     "watchlist-remove": watchlist_remove,

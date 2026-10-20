@@ -1,10 +1,16 @@
-"""JSON command line used by the EGX panels (portfolio, analyses), sharing the MCP server logic.
+"""JSON command line used by the Monos screens («السجل», and the market and analyses until they go),
+sharing the MCP server logic.
 
     egx-cli universe
     egx-cli portfolio-summary
-    egx-cli portfolio-add '{"symbol": "COMI", "buy_price": 80, "invested_amount": 5000}'
+    egx-cli portfolio-add '{"asset": "USD", "buy_price": 48.5, "quantity": 500}'
     egx-cli portfolio-update '{"holding_id": 3, "quantity": 120}'
     egx-cli portfolio-remove '{"holding_id": 3}'
+    egx-cli asset-remove '{"asset": "USD"}'
+    egx-cli catalog
+    egx-cli price-set '{"asset": "USD", "price": 48.6}'
+    egx-cli fx-rate '{"currency": "USD", "date": "2026-10-01"}'
+    egx-cli fund-components-set '{"fund": "custom:1", "components": [{"asset": "COMI", "weight": 0.32}]}'
     egx-cli watchlist-list
     egx-cli watchlist-add '{"symbol": "FWRY"}'
     egx-cli watchlist-remove '{"symbol": "FWRY"}'

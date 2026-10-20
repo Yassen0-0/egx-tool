@@ -1,78 +1,141 @@
-// «Monos / المحفظة»: today first and biggest, the add form above the holdings with a live total,
-// and the holdings grid tied to each stock's valuation (§7.4). ES module.
-// Data comes from the shared portfolio store (identity.js), so the sidebar icon always agrees.
-import { N, QM_CSS, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
-import { cairoDay, callsUsed, fmtCount, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, fmtTime, lastCloseOf, parseDayInput, parseNumberInput, sessionLine, toneOf } from '../../shared/format.mjs'
-import { Disclaimer, MonosIcon, PanelHeader, copyValuationPrompt, monos, useMonos, useToast } from '../../shared/identity.js'
-import { MarginText, PriceCell, ProtectionHelp, ProtectionNote, Ruler, Skeleton, StatusMark } from '../../shared/components.js'
-import MARKET_CSS from '../../shared/market.css'
-import PORTFOLIO_CSS from './portfolio.css'
+// «Monos / السجل» (docs/تحول.md): the total in EGP first and biggest, the search under it, and the
+// assets in four quiet groups, one row per asset with its logo. Everything is computed in Python
+// (/egx/api/portfolio); this screen only shows it and sends what the user types. ES module.
+// The ledger comes from the shared store (identity.js), so the sidebar's «Monos» row agrees with it.
+import { N, QM_CSS, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
+import { DASH, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, fmtQty, parseDayInput, parseNumberInput, toneOf } from '../../shared/format.mjs'
+import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
+import { Skeleton } from '../../shared/components.js'
+import { Logo } from '../../shared/logo.js'
+import { search } from './search.mjs'
+import LEDGER_CSS from './ledger.css'
 
-export const HOLDING_SORTS = [['pnl', 'مساهمة الربح/الخسارة'], ['value', 'القيمة'], ['share', 'نسبة من المحفظة']]
-export const todayCairo = () => cairoDay(new Date().toISOString())
+export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
+export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق']]
+const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' }
 
-export function SummaryCard({ portfolio, lastClose }) {
-  const t = portfolio.totals
-  const valued = portfolio.holdings.filter((r) => r.fair_value != null)
-  const under = t.below_protection.length
-  const unvalued = portfolio.holdings.length - valued.length
-  return h('section', { className: 'q-card', 'aria-label': 'ملخص المحفظة', style: { overflow: 'hidden' } },
-    h('div', { className: 'p-summary' },
-      h('div', null,
-        h('small', null, h('b', { style: { color: 'var(--dsw-alias-label-primary)' } }, 'اليوم'), t.today_as_of ? frag(' · حتى إغلاق ', N(fmtDayMonth(t.today_as_of))) : null),
-        t.today_has_fresh
-          ? [h('span', { key: 'v', className: `num q-hero ${toneOf(t.today_change)}` }, fmtSigned(t.today_change)),
-            h('span', { key: 'p', className: `num ${toneOf(t.today_change)}`, style: { fontWeight: 600 } }, fmtPct(t.today_change_pct, { digits: 2, signed: true }))]
-          : [h('span', { key: 'v', className: 'num q-hero q-ter' }, '—'), h('small', { key: 'n' }, 'لا يوجد سعر جديد اليوم لأسهمك')]),
-      h('div', null, h('small', null, 'القيمة الحالية'), N(fmtPrice(t.market_value), 'p-big'), h('small', null, 'ج.م')),
-      h('div', null, h('small', null, 'الربح / الخسارة الكلي'), N(fmtSigned(t.pnl), `p-big ${toneOf(t.pnl)}`),
-        t.pnl_pct == null ? null : h('small', null, N(fmtPct(t.pnl_pct, { signed: true })))),
-      h('div', null, h('small', null, 'التكلفة الإجمالية'), N(fmtPrice(t.cost), 'p-big'), h('small', null, 'ج.م')),
-      h('div', null, h('small', null, 'حالة التقييم'),
-        under ? h('span', { className: 'q-amber' }, 'تحت سعر الحماية: ', N(String(under))) : h('span', { className: 'q-sec' }, 'لا يوجد سهم تحت سعر الحماية'),
-        unvalued ? h('small', null, 'لم يُقيَّم بعد: ', N(String(unvalued))) : null,
-        t.unpriced_holdings.length ? h('small', null, 'بانتظار السعر: ', t.unpriced_holdings.join('، ')) : null)),
-    h('div', { className: 'p-strip' },
-      h('span', null,
-        'الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية',
-        lastClose ? frag(' (آخر إغلاق ', N(fmtDate(lastClose)), ')') : null)))
+/** Whole pounds for values and costs: the column reads as amounts, not prices. */
+export const money = (v) => fmtNumber(v, 0)
+const sign = (currency) => CURRENCY_SIGN[currency] || currency
+const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
+
+function quantityLabel(kind, unit, key) {
+  if (kind === 'currency') return `المبلغ (${key})`
+  return QTY_LABEL[kind] || `الكمية (${unit})`
 }
 
-export function AddForm({ universe, onAdded, startOpen }) {
-  const [open, setOpen] = useState(startOpen)
+/** «12 جرام» / «150 سهم» / «1,000 USD». */
+function quantityText(asset) {
+  return frag(N(fmtQty(asset.quantity)), ' ', asset.unit)
+}
+
+// ── catalog (loaded once; search filters it on every keystroke) ──────────────
+function useCatalog() {
+  const [items, setItems] = useState(null)
+  const load = () => api('GET', '/egx/api/catalog').then((d) => setItems(d.assets)).catch(() => setItems((prev) => prev || []))
+  useEffect(() => { load() }, [])
+  return [items, load]
+}
+
+// ── search ───────────────────────────────────────────────────────────────────
+export function Search({ catalog, onPick, onCustom }) {
+  const [query, setQuery] = useState('')
+  const [active, setActive] = useState(0)
+  const text = query.trim()
+  const results = text ? search(catalog || [], text) : []
+  const options = text ? (results.length ? results : [{ custom: true, key: 'custom' }]) : []
+  const pick = (option) => {
+    if (!option) return
+    if (option.custom) onCustom(text)
+    else onPick(option)
+    setQuery('')
+    setActive(0)
+  }
+  const onKeyDown = (e) => {
+    if (!options.length) return
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive((active + 1) % options.length) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive((active - 1 + options.length) % options.length) }
+    else if (e.key === 'Enter') { e.preventDefault(); pick(options[active]) }
+    else if (e.key === 'Escape') { setQuery(''); setActive(0) }
+  }
+  const at = Math.min(active, Math.max(0, options.length - 1))
+  return h('div', { className: 'l-search' },
+    h('input', {
+      type: 'search', value: query, placeholder: 'ابحث عن أصل… دولار، دهب، بتكوين، COMI، أو اسم صندوق',
+      role: 'combobox', 'aria-label': 'ابحث عن أصل', 'aria-autocomplete': 'list', 'aria-expanded': options.length > 0,
+      'aria-controls': 'l-results', 'aria-activedescendant': options.length ? `l-opt-${at}` : undefined, autoComplete: 'off',
+      onChange: (e) => { setQuery(e.target.value); setActive(0) }, onKeyDown,
+    }),
+    options.length ? h('ul', { id: 'l-results', className: 'l-results', role: 'listbox', 'aria-label': 'نتايج البحث' },
+      options.map((o, i) => h('li', {
+        key: o.key, id: `l-opt-${i}`, role: 'option', 'aria-selected': i === at, className: 'l-option',
+        onMouseDown: (e) => { e.preventDefault(); pick(o) }, onMouseEnter: () => setActive(i),
+      }, o.custom
+        ? [h(Logo, { key: 'l', mark: '+' }), h('span', { key: 't' }, 'إضافة بالاسم ده: ', h('b', null, text))]
+        : [h(Logo, { key: 'l', symbol: o.kind === 'stock' ? o.symbol : null, mark: o.mark }),
+          h('span', { key: 't', className: 'l-name' }, o.name),
+          h('span', { key: 'k', className: 'l-kind' }, o.kind_label, o.symbol ? h('span', { className: 'q-sym' }, o.symbol) : null)]))) : null)
+}
+
+// ── the add line ─────────────────────────────────────────────────────────────
+export function AddLine({ entry, customName, onDone, onCancel }) {
+  const custom = !entry
+  const [kind, setKind] = useState('stock')
+  const [name, setName] = useState(customName || '')
   const [symbol, setSymbol] = useState('')
+  const [current, setCurrent] = useState('')
+  const kindNow = custom ? kind : entry.kind
+  const isPound = !custom && entry.key === 'EGP'
+  const fixedEgp = kindNow === 'currency'
+  const [currency, setCurrency] = useState(custom || fixedEgp ? 'EGP' : entry.currency)
+  const [mode, setMode] = useState('qty')
+  const [qty, setQty] = useState('')
   const [price, setPrice] = useState('')
-  const [mode, setMode] = useState('shares')
-  const [amount, setAmount] = useState('')
-  const [date, setDate] = useState('')
+  const [cost, setCost] = useState('')
+  const [costTouched, setCostTouched] = useState(false)
+  const [day, setDay] = useState('')
   const [note, setNote] = useState('')
+  const [rate, setRate] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  useEffect(() => { if (startOpen) setOpen(true) }, [startOpen])
+  const cur = fixedEgp || isPound ? 'EGP' : currency
+  const parsedDay = parseDayInput(day)
 
-  const sym = symbol.trim().toUpperCase().split(/\s/)[0]
-  const known = universe.find((c) => c.symbol === sym)
-  const p = parseNumberInput(price)
-  const a = parseNumberInput(amount)
-  const valid = p > 0 && a > 0
-  const shares = valid ? (mode === 'shares' ? a : a / p) : null
-  const total = valid ? (mode === 'shares' ? a * p : a) : null
+  useEffect(() => {
+    if (cur === 'EGP' || parsedDay === undefined) { setRate(null); return undefined }
+    let live = true
+    api('GET', `/egx/api/fx?currency=${encodeURIComponent(cur)}&date=${parsedDay || ''}`)
+      .then((r) => { if (live) setRate(r.rate) }).catch(() => { if (live) setRate(null) })
+    return () => { live = false }
+  }, [cur, parsedDay])
+
+  const q = parseNumberInput(qty)
+  const p = isPound ? 1 : parseNumberInput(price)
+  const quantity = q > 0 && p > 0 ? (mode === 'qty' ? q : q / p) : null
+  const paid = quantity != null ? quantity * p : null
+  const suggested = cur !== 'EGP' && rate && paid != null ? Math.round(paid * rate * 100) / 100 : null
+  const costShown = costTouched ? cost : (suggested != null ? String(suggested) : '')
 
   async function submit(e) {
     e.preventDefault()
     setError('')
-    const day = parseDayInput(date)
-    if (!known) return setError('اختر سهمًا من قائمة EGX30.')
-    if (!(p > 0)) return setError('أدخل سعر تنفيذ أكبر من صفر.')
-    if (!(a > 0)) return setError(mode === 'shares' ? 'أدخل عدد الأسهم.' : 'أدخل المبلغ بالجنيه.')
-    if (day === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو اتركه فارغًا لليوم.')
-    const body = { symbol: known.symbol, buy_price: p, buy_date: day || todayCairo(), note: note.trim() || null }
-    body[mode === 'shares' ? 'quantity' : 'invested_amount'] = a
+    if (custom && !name.trim()) return setError('اكتب اسم الأصل.')
+    if (!(q > 0)) return setError(mode === 'qty' ? 'اكتب الكمية.' : 'اكتب المبلغ.')
+    if (!isPound && !(p > 0)) return setError('اكتب سعر الشرا.')
+    if (parsedDay === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
+    const costValue = parseNumberInput(costShown)
+    if (cur !== 'EGP' && !(costValue > 0)) return setError('مفيش سعر تحويل معروف لليوم ده: اكتب المبلغ اللي دفعته بالجنيه.')
+    const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null }
+    body[mode === 'qty' ? 'quantity' : 'amount'] = q
+    if (cur !== 'EGP') body.cost_egp = costValue
+    if (custom) {
+      const now = parseNumberInput(current)
+      body.custom = { kind, name: name.trim(), symbol: symbol.trim() || null, currency: cur, price: now > 0 ? now : null }
+    } else body.asset = entry.key
     setBusy(true)
     try {
-      await api('POST', '/egx/api/holdings', body)
-      setSymbol(''); setPrice(''); setAmount(''); setDate(''); setNote('')
-      onAdded(known.symbol)
+      const lot = await api('POST', '/egx/api/holdings', body)
+      onDone(lot.symbol)
     } catch (err) {
       setError(err.message)
     } finally {
@@ -80,54 +143,52 @@ export function AddForm({ universe, onAdded, startOpen }) {
     }
   }
 
-  const plus = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.8, strokeLinecap: 'round' }, h('path', { d: 'M8 3v10M3 8h10' }))
-  return h('section', { className: 'q-card', 'aria-label': 'إضافة سهم' },
-    h('div', { className: 'p-formhead' },
-      h('button', { type: 'button', className: 'q-btn', 'aria-expanded': open, 'aria-controls': 'p-add-form', onClick: () => setOpen(!open) }, plus, 'أضف سهمًا'),
-      h('span', { className: 'q-meta' }, 'إدخال يدوي بالسعر والتاريخ كما نُفّذ فعلًا.'),
-      h('span', { className: 'q-grow' }),
-      h('button', { type: 'button', className: 'q-btn', disabled: true, title: 'قريبًا: رفع ملف جداول فيه الرمز والكمية وسعر التنفيذ والتاريخ لإضافة كل المراكز مرة واحدة' },
-        'استيراد ملف جداول (CSV) · قريبًا')),
-    open ? h('form', { id: 'p-add-form', onSubmit: submit, noValidate: true },
-      h('div', { className: 'p-form' },
-        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'السهم'),
-          h('input', { className: 'q-input', list: 'p-universe', value: symbol, placeholder: 'ابحث بالرمز أو الاسم، مثل COMI أو التجاري', autoComplete: 'off',
-            onChange: (e) => setSymbol(e.target.value) }),
-          h('datalist', { id: 'p-universe' }, universe.map((c) => h('option', { key: c.symbol, value: c.symbol }, `${c.symbol} — ${c.name_ar || c.name}`))),
-          known ? h('small', { className: 'q-sec' }, known.name_ar) : null),
-        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'سعر التنفيذ (ج.م)'),
-          h('input', { className: 'q-input num', inputMode: 'decimal', value: price, placeholder: '80.00', onChange: (e) => setPrice(e.target.value) })),
-        h('div', { className: 'q-stack' }, h('span', { className: 'q-label', id: 'p-qty-l' }, mode === 'shares' ? 'الكمية' : 'المبلغ'),
-          h('div', { className: 'q-row', style: { flexWrap: 'nowrap', gap: 8 } },
-            h('div', { className: 'q-seg', role: 'group', 'aria-label': 'طريقة إدخال الكمية' },
-              h('button', { type: 'button', 'aria-pressed': mode === 'shares', onClick: () => setMode('shares') }, 'عدد الأسهم'),
-              h('button', { type: 'button', 'aria-pressed': mode === 'amount', onClick: () => setMode('amount') }, 'المبلغ بالجنيه')),
-            h('input', { className: 'q-input num', inputMode: 'decimal', value: amount, 'aria-labelledby': 'p-qty-l', style: { width: 110 },
-              placeholder: mode === 'shares' ? '100' : '8000', onChange: (e) => setAmount(e.target.value) }))),
-        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'تاريخ التنفيذ ', h('small', null, '(اختياري، الافتراضي اليوم)')),
-          h('input', { className: 'q-input', value: date, placeholder: 'يوم/شهر/سنة', inputMode: 'numeric', onChange: (e) => setDate(e.target.value) })),
-        h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة ', h('small', null, '(اختياري)')),
-          h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) }))),
-      h('div', { className: 'p-formfoot' },
-        h('span', { className: 'p-total', 'aria-live': 'polite' }, h('span', { className: 'q-sec' }, 'الإجمالي: '),
-          valid ? (mode === 'shares'
-            ? frag(N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, 'q-strong'), ' ج.م')
-            : frag(N(fmtPrice(total), 'q-strong'), ' ج.م · الأسهم ', N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 10000) / 10000)}`, 'q-strong')))
-            : h('span', { className: 'q-ter' }, 'أدخل السعر والكمية')),
-        h('span', { className: 'q-grow' }),
-        error ? h('span', { className: 'q-error', role: 'alert' }, error) : null,
-        h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, plus, busy ? 'جارٍ الإضافة…' : 'أضف إلى المحفظة'))) : null)
+  const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
+  const input = (value, set, extra = {}) => h('input', { className: 'q-input', value, onChange: (e) => set(e.target.value), ...extra })
+  const currencySelect = h('select', { className: 'q-input', value: cur, 'aria-label': 'عملة سعر الشرا', onChange: (e) => { setCurrency(e.target.value); setCostTouched(false) } },
+    ['EGP', 'USD', ...(entry && !['EGP', 'USD'].includes(entry.currency) ? [entry.currency] : [])].map((c) => h('option', { key: c, value: c }, sign(c))))
+
+  return h('form', { className: 'l-add', onSubmit: submit, noValidate: true, 'aria-label': 'إضافة أصل' },
+    h('div', { className: 'l-add-head' },
+      custom ? h(Logo, { mark: '+' }) : h(Logo, { symbol: entry.kind === 'stock' ? entry.symbol : null, mark: entry.mark }),
+      h('b', null, custom ? 'أصل جديد بالاسم' : entry.name),
+      custom ? null : h('span', { className: 'q-meta' }, entry.kind_label)),
+    custom ? h('div', { className: 'l-fields' },
+      field('النوع', h('select', { className: 'q-input', value: kind, onChange: (e) => setKind(e.target.value) },
+        KIND_CHOICES.map(([k, l]) => h('option', { key: k, value: k }, l)))),
+      field('الاسم', input(name, setName, { maxLength: 80 })),
+      field('الرمز (اختياري)', input(symbol, setSymbol, { maxLength: 16, dir: 'ltr' })),
+      field('السعر الحالي للوحدة (اختياري)', input(current, setCurrent, { inputMode: 'decimal', className: 'q-input num' }))) : null,
+    h('div', { className: 'l-fields' },
+      h('div', { className: 'q-stack' },
+        h('span', { className: 'q-label' }, isPound ? 'المبلغ (EGP)' : mode === 'qty' ? quantityLabel(kindNow, entry ? entry.unit : '', entry ? entry.key : '') : `المبلغ المدفوع (${sign(cur)})`),
+        h('input', { className: 'q-input num', inputMode: 'decimal', value: qty, 'aria-label': 'الكمية أو المبلغ', onChange: (e) => setQty(e.target.value) }),
+        isPound ? null : h('button', { type: 'button', className: 'q-link', style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setMode(mode === 'qty' ? 'amount' : 'qty') },
+          mode === 'qty' ? 'أو اكتب المبلغ المدفوع' : 'أو اكتب الكمية')),
+      isPound ? null : field(fixedEgp ? `سعر ${entry.key} بالجنيه وقت الشرا` : 'سعر الشرا للوحدة',
+        h('div', { className: 'q-row', style: { flexWrap: 'nowrap', gap: 6 } },
+          h('input', { className: 'q-input num', inputMode: 'decimal', value: price, style: { flex: 1 }, 'aria-label': 'سعر الشرا', onChange: (e) => setPrice(e.target.value) }),
+          fixedEgp ? h('span', { className: 'q-meta' }, 'ج.م') : currencySelect)),
+      cur !== 'EGP' ? field('المبلغ اللي دفعته بالجنيه',
+        h('input', { className: 'q-input num', inputMode: 'decimal', value: costShown, placeholder: 'ج.م', onChange: (e) => { setCost(e.target.value); setCostTouched(true) } })) : null,
+      field('التاريخ (اختياري)', input(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
+      field('ملاحظة (اختياري)', input(note, setNote, { maxLength: 200 }))),
+    h('div', { className: 'l-actions' },
+      h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ الإضافة…' : 'إضافة'),
+      h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
+      paid != null && !isPound ? h('span', { className: 'q-meta' }, 'الإجمالي ', N(`${fmtQty(Math.round(quantity * 10000) / 10000)} × ${fmtPrice(p)} = ${fmtPrice(paid)}`), ' ', sign(cur),
+        cur !== 'EGP' && rate ? frag(' · سعر التحويل ', N(fmtPrice(rate)), ' ج.م') : null) : null,
+      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
 }
 
-export const EDIT_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinejoin: 'round' },
-  h('path', { d: 'M10.5 2.5l3 3L6 13H3v-3z' }))
-export const TRASH_ICON = h('svg', { width: 14, height: 14, viewBox: '0 0 16 16', 'aria-hidden': true, fill: 'none', stroke: 'currentColor', strokeWidth: 1.5, strokeLinecap: 'round' },
-  h('path', { d: 'M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5' }))
-
-export function HoldingRow({ row, onChanged, onValue }) {
+// ── one asset: its row and, when open, its purchases, price and components ───
+function LotItem({ lot, asset, onChanged }) {
   const [mode, setMode] = useState('view')
-  const [qty, setQty] = useState(String(row.quantity))
-  const [cost, setCost] = useState(String(row.buy_price))
+  const [qty, setQty] = useState(String(lot.quantity))
+  const [price, setPrice] = useState(String(lot.buy_price))
+  const [day, setDay] = useState(lot.buy_date ? fmtDate(lot.buy_date) : '')
+  const [note, setNote] = useState(lot.note || '')
+  const [cost, setCost] = useState(String(Math.round(lot.cost_egp * 100) / 100))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const run = async (action) => {
@@ -135,135 +196,200 @@ export function HoldingRow({ row, onChanged, onValue }) {
     try { await action(); setMode('view'); onChanged() } catch (e) { setError(e.message) } finally { setBusy(false) }
   }
   const save = () => {
-    const q = parseNumberInput(qty), c = parseNumberInput(cost)
-    if (!(q > 0) || !(c > 0)) return setError('الكمية والسعر لازم يكونوا أكبر من صفر')
-    return run(() => api('PATCH', `/egx/api/holdings/${row.id}`, { quantity: q, buy_price: c }))
+    const q = parseNumberInput(qty), p = parseNumberInput(price), d = parseDayInput(day), c = parseNumberInput(cost)
+    if (!(q > 0) || !(p > 0)) return setError('الكمية والسعر لازم يكونوا أكبر من صفر')
+    if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة')
+    const body = { quantity: q, buy_price: p, buy_date: d, note }
+    if (lot.currency !== 'EGP' && c > 0 && Math.abs(c - lot.cost_egp) > 0.005) body.cost_egp = c
+    return run(() => api('PATCH', `/egx/api/holdings/${lot.id}`, body))
   }
-  const remove = () => run(() => api('DELETE', `/egx/api/holdings/${row.id}`, {}))
-  const under = row.status === 'below_protection'
-  const editing = mode === 'edit'
-  const label = `${row.symbol} ${row.name_ar || ''}`.trim()
-  return h('div', { className: `q-grid p-g p-row${under ? ' q-warn' : ''}`, role: 'row' },
-    h('span', { className: 'q-cell', role: 'cell' },
-      h('b', { className: 'q-sym' }, row.symbol), h('span', null, row.name_ar || row.name),
-      editing
-        ? h('span', { className: 'q-row', style: { gap: 6 } },
-          h('input', { className: 'q-input num', value: qty, 'aria-label': `عدد أسهم ${label}`, onChange: (e) => setQty(e.target.value) }),
-          h('small', null, 'سهم @'),
-          h('input', { className: 'q-input num', value: cost, 'aria-label': `سعر التنفيذ لـ ${label}`, onChange: (e) => setCost(e.target.value) }))
-        : h('small', null, N(fmtQty(row.quantity)), ' سهم · متوسط التكلفة ', N(fmtPrice(row.buy_price)))),
-    h('span', { role: 'cell' }, h(PriceCell, { price: row.current_price, asOf: row.price_as_of, stale: row.price_stale, kind: row.price_as_of && row.price_as_of.length > 10 ? 'delayed' : 'close' })),
-    h('span', { className: 'q-cell', role: 'cell' },
-      row.today_change != null
-        ? frag(N(fmtSigned(row.today_change), toneOf(row.today_change)), h('small', null, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct))))
-        : row.price_stale ? frag(N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), 'q-ter'), h('small', null, 'جلسة ', N(fmtDayMonth(row.price_as_of))))
-          : h('span', { className: 'q-ter' }, '—')),
-    h('span', { role: 'cell' }, N(fmtPrice(row.market_value))),
-    h('span', { className: 'q-cell', role: 'cell' }, N(fmtSigned(row.pnl), toneOf(row.pnl)),
-      row.pnl_pct == null ? null : h('small', null, N(fmtPct(row.pnl_pct, { signed: true }), toneOf(row.pnl_pct)))),
-    h('span', { role: 'cell' }, N(fmtPct(row.share_of_portfolio))),
-    h('span', { className: 'q-cell', role: 'cell', style: { alignItems: 'stretch' } },
-      row.fair_value != null
-        ? [h(Ruler, { key: 'r', fair: row.fair_value, bear: row.bear, bull: row.bull, price: row.current_price }),
-          row.current_price != null ? h(MarginText, { key: 'm', price: row.current_price, fair: row.fair_value }) : null,
-          under ? h('small', { key: 'u' }, 'وأقل من العادل بـ ', N(fmtPct(row.margin_to_fair)))
-            : row.current_price != null ? h('small', { key: 'u' }, row.status === 'above_fair_value' ? 'فوق العادل وفوق سعر الحماية' : 'فوق سعر الحماية') : null]
-        : [h('span', { key: 'n', className: 'q-status' }, h(StatusMark, { status: 'between' }), 'لم يُقيَّم بعد'),
-          h('button', { key: 'b', type: 'button', className: 'q-link', style: { padding: 0, minHeight: 28 }, onClick: () => onValue(row.symbol) }, 'اطلب التقييم من المحادثة')]),
-    h('span', { className: 'p-actions', role: 'cell' },
-      editing
-        ? [h('button', { key: 's', type: 'button', className: 'q-btn q-btn-sm q-btn-p', disabled: busy, onClick: save }, 'حفظ'),
-          h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => { setMode('view'); setQty(String(row.quantity)); setCost(String(row.buy_price)) } }, 'إلغاء')]
-        : mode === 'confirm'
-          ? [h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', disabled: busy, onClick: remove }, 'احذف'),
-            h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')]
-          : [h('button', { key: 'e', type: 'button', className: 'q-btn q-icon-btn q-btn-quiet', 'aria-label': `تعديل ${label}`, title: 'تعديل', onClick: () => setMode('edit') }, EDIT_ICON),
-            h('button', { key: 'r', type: 'button', className: 'q-btn q-icon-btn q-btn-quiet q-btn-danger', 'aria-label': `حذف ${label}`, title: 'حذف', onClick: () => setMode('confirm') }, TRASH_ICON)],
-      error ? h('span', { className: 'q-error', role: 'alert', style: { fontSize: 12 } }, error) : null))
+  const remove = () => run(() => api('DELETE', `/egx/api/holdings/${lot.id}`, {}))
+  if (mode === 'edit') {
+    const box = (label, value, set, extra = {}) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label),
+      h('input', { className: 'q-input num', value, onChange: (e) => set(e.target.value), ...extra }))
+    return h('div', { className: 'l-lot' },
+      box('الكمية', qty, setQty, { inputMode: 'decimal', style: { width: 110 } }),
+      asset.key === 'EGP' ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: 'decimal', style: { width: 110 } }),
+      lot.currency !== 'EGP' ? box('المدفوع بالجنيه', cost, setCost, { inputMode: 'decimal', style: { width: 120 } }) : null,
+      box('التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
+      h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة'),
+        h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })),
+      h('span', { className: 'l-lot-actions' },
+        h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-p', disabled: busy, onClick: save }, 'حفظ'),
+        h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')),
+      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
+  }
+  return h('div', { className: 'l-lot' },
+    asset.key === 'EGP' ? h('span', null, N(money(lot.quantity)), ' ج.م')
+      : h('span', null, N(fmtQty(lot.quantity)), ' ', asset.unit, ' × ', priceWithSign(lot.buy_price, lot.currency)),
+    lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, 'التكلفة ', N(money(lot.cost_egp)), ' ج.م') : null,
+    h('span', { className: 'q-sec' }, lot.buy_date ? N(fmtDate(lot.buy_date)) : 'من غير تاريخ'),
+    lot.note ? h('span', { className: 'q-sec' }, lot.note) : null,
+    h('span', { className: 'l-lot-actions' },
+      mode === 'confirm'
+        ? [h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', disabled: busy, onClick: remove }, 'احذف العملية'),
+          h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')]
+        : [h('button', { key: 'e', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
+          h('button', { key: 'r', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: () => setMode('confirm') }, 'حذف')]),
+    error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
 }
 
-export function sortHoldings(rows, key) {
-  const value = { pnl: (r) => r.pnl, value: (r) => r.market_value, share: (r) => r.share_of_portfolio }[key]
-  return rows.slice().sort((a, b) => {
-    const x = value(a), y = value(b)
-    if (x == null && y == null) return 0
-    if (x == null) return 1
-    if (y == null) return -1
-    return y - x
-  })
+function PriceForm({ asset, onChanged }) {
+  const fixed = asset.kind === 'currency'
+  const [value, setValue] = useState('')
+  const [currency, setCurrency] = useState(fixed ? 'EGP' : asset.price_currency || 'EGP')
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function save(e) {
+    e.preventDefault()
+    const v = parseNumberInput(value)
+    if (!(v > 0)) return setError('اكتب السعر')
+    setBusy(true); setError('')
+    try { await api('POST', '/egx/api/prices', { asset: asset.key, price: v, currency }); setValue(''); onChanged() } catch (err) { setError(err.message) } finally { setBusy(false) }
+  }
+  return h('form', { className: 'l-inline', onSubmit: save, noValidate: true },
+    h('span', { className: 'q-sec' }, 'تحديث السعر للوحدة'),
+    h('input', { className: 'q-input num', inputMode: 'decimal', value, 'aria-label': `السعر الحالي لـ ${asset.name}`, onChange: (e) => setValue(e.target.value) }),
+    fixed ? h('span', { className: 'q-meta' }, 'ج.م') : h('select', { className: 'q-input', style: { width: 80 }, value: currency, 'aria-label': 'عملة السعر', onChange: (e) => setCurrency(e.target.value) },
+      ['EGP', 'USD'].map((c) => h('option', { key: c, value: c }, sign(c)))),
+    h('button', { type: 'submit', className: 'q-btn q-btn-sm', disabled: busy }, 'حفظ السعر'),
+    error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
+}
+
+function Components({ asset, catalog, onChanged }) {
+  const stocks = (catalog || []).filter((e) => e.kind === 'stock')
+  const [pick, setPick] = useState('')
+  const [weight, setWeight] = useState('')
+  const [error, setError] = useState('')
+  const send = async (list) => {
+    setError('')
+    try {
+      await api('PUT', `/egx/api/funds/${encodeURIComponent(asset.key)}/components`, { components: list })
+      setPick(''); setWeight(''); onChanged()
+    } catch (err) { setError(err.message) }
+  }
+  const current = asset.components.map((c) => ({ asset: c.asset, weight: c.weight }))
+  const add = (e) => {
+    e.preventDefault()
+    const w = parseNumberInput(weight)
+    if (!pick || !(w > 0)) return setError('اختار السهم واكتب نسبته')
+    return send([...current.filter((c) => c.asset !== pick), { asset: pick, weight: w / 100 }])
+  }
+  return h('div', null,
+    h('h3', null, 'مكونات الصندوق (للعرض، مش داخلة في الإجمالي)'),
+    asset.components.map((c) => h('div', { key: c.asset, className: 'l-part' },
+      h(Logo, { symbol: c.symbol, mark: c.mark, size: 24 }), h('span', null, c.name),
+      h('span', { className: 'q-sec' }, N(fmtPct(c.weight)), ' من الصندوق'),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', 'aria-label': `شيل ${c.name}`, onClick: () => send(current.filter((x) => x.asset !== c.asset)) }, 'شيل'))),
+    h('form', { className: 'l-inline', onSubmit: add, noValidate: true },
+      h('select', { className: 'q-input', style: { width: 220 }, value: pick, 'aria-label': 'السهم', onChange: (e) => setPick(e.target.value) },
+        h('option', { value: '' }, 'اختار سهم'), stocks.map((s) => h('option', { key: s.key, value: s.key }, `${s.symbol} — ${s.name}`))),
+      h('input', { className: 'q-input num', inputMode: 'decimal', value: weight, placeholder: '%', style: { width: 70 }, 'aria-label': 'النسبة من الصندوق', onChange: (e) => setWeight(e.target.value) }),
+      h('button', { type: 'submit', className: 'q-btn q-btn-sm' }, 'إضافة مكون'),
+      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
+}
+
+export function AssetRow({ asset, catalog, fresh, onChanged }) {
+  const [open, setOpen] = useState(false)
+  const [confirm, setConfirm] = useState(false)
+  const [error, setError] = useState('')
+  const priced = asset.value_egp != null
+  const removeAll = async () => {
+    try { await api('DELETE', `/egx/api/assets/${encodeURIComponent(asset.key)}`, {}); onChanged() } catch (e) { setError(e.message) }
+  }
+  const sourceText = asset.price_source === 'manual' ? 'كتبته أنت' : asset.price_source === 'EODHD' ? 'إغلاق EODHD' : null
+  return h(React.Fragment, null,
+    h('button', { type: 'button', className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open, onClick: () => setOpen(!open) },
+      h(Logo, { symbol: asset.kind === 'stock' ? asset.symbol : null, mark: asset.mark }),
+      h('span', { className: 'q-stack' },
+        h('span', { className: 'l-name' }, asset.name),
+        h('span', { className: 'l-sub' },
+          asset.key === 'EGP' ? null : h('span', null, quantityText(asset)),
+          asset.kind === 'stock' && asset.symbol ? h('span', { className: 'q-sym' }, asset.symbol) : null,
+          !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
+      h('span', { className: 'l-value' },
+        priced ? N(money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
+        priced && asset.growth != null ? N(fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
+    open ? h('div', { className: 'l-detail' },
+      h('div', null,
+        h('h3', null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : 'العملية'),
+        asset.lots.map((lot) => h(LotItem, { key: `${lot.id}:${lot.updated_at}`, lot, asset, onChanged }))),
+      asset.key === 'EGP' ? null : h('div', null,
+        h('h3', null, 'السعر'),
+        priced || asset.price != null
+          ? h('p', { className: 'l-hint' }, 'آخر سعر ', priceWithSign(asset.price, asset.price_currency),
+            asset.price_as_of ? frag(' · ', N(fmtDate(asset.price_as_of.slice(0, 10)))) : null, sourceText ? ` · ${sourceText}` : null,
+            asset.price_currency !== 'EGP' && asset.price_egp != null ? frag(' · ', N(fmtPrice(asset.price_egp)), ' ج.م') : null)
+          : h('p', { className: 'l-hint' }, asset.price != null ? 'مفيش سعر دولار معروف للتحويل.' : 'لسه مفيش سعر للأصل ده.'),
+        h(PriceForm, { asset, onChanged })),
+      asset.kind === 'fund' ? h(Components, { asset, catalog, onChanged }) : null,
+      h('div', { className: 'l-inline' },
+        confirm
+          ? [h('span', { key: 't' }, `حذف «${asset.name}» وكل عملياته؟`),
+            h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', onClick: removeAll }, 'احذف'),
+            h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setConfirm(false) }, 'إلغاء')]
+          : h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: () => setConfirm(true) }, 'حذف الأصل'),
+        error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)) : null)
+}
+
+// ── the page ─────────────────────────────────────────────────────────────────
+export function TotalBlock({ totals }) {
+  const unpriced = totals.unpriced.length
+  return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
+    h('span', null, N(money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
+    totals.assets ? h('div', { className: 'l-line' },
+      h('span', null, 'التكلفة ', N(money(totals.cost))),
+      totals.growth != null ? h('span', null, 'النمو ', N(fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+      unpriced ? h('span', null, N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي') : null) : null)
 }
 
 export function PortfolioPage() {
-  const portfolio = useMonos()
-  const [universe, setUniverse] = useState([])
-  const [market, setMarket] = useState(null)
-  const [sort, setSort] = useState('pnl')
-  const [help, setHelp] = useState(false)
-  const [toastNode, toast] = useToast()
-  useEffect(() => {
-    monos.refresh()
-    api('GET', '/egx/api/universe').then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol)))).catch(() => {})
-    api('GET', '/egx/api/market').then(setMarket).catch(() => {})
-  }, [])
+  const ledger = useMonos()
+  const [catalog, reloadCatalog] = useCatalog()
+  const [picked, setPicked] = useState(null)
+  const [fresh, setFresh] = useState(null)
+  useEffect(() => { monos.refresh() }, [])
   const refresh = () => monos.refresh()
-  const onValue = (symbol) => copyValuationPrompt(symbol, toast)
-  const lastClose = lastCloseOf(market && market.rows)
-  const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null
-  const run = market && market.last_sync
-  const used = callsUsed(run)
+  const added = (key) => {
+    setPicked(null)
+    setFresh(key)
+    reloadCatalog()
+    refresh()
+  }
+  const loading = ledger === undefined
+  const failed = ledger === null
+  const totals = ledger && ledger.totals
+  const today = totals && totals.today_has_fresh
+    ? h('span', { className: 'l-today', title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : undefined },
+      'اليوم', N(fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change)))
+    : null
 
-  const holdings = portfolio && portfolio.holdings ? sortHoldings(portfolio.holdings, sort) : []
-  const loading = portfolio === undefined
-  const failed = portfolio === null
-  const empty = portfolio && !portfolio.holdings.length
-
-  const headerMeta = market ? h('span', { className: 'q-meta', style: { marginInlineStart: 'auto' } },
-    lastClose ? frag('إغلاق ', N(fmtDayMonth(lastClose))) : null,
-    run && run.finished_at ? frag(' · آخر مزامنة ', N(fmtTime(run.finished_at))) : null,
-    used != null ? frag(' · تحديثات الأسعار اليوم ', N(fmtCount(used)), ' من ', N(fmtCount(run.daily_limit))) : null,
-    ' · المصدر EODHD (مزوّد الأسعار)',
-    session ? frag(' · ', session.text, session.time ? ' ' : null, session.time ? N(session.time) : null) : null) : null
-
-  let content
-  if (loading) content = h('div', { className: 'q-card q-pad', 'aria-busy': true }, h(Skeleton, { width: '30%' }), h('br'), h(Skeleton, { width: '80%' }), h('br'), h(Skeleton, { width: '60%' }))
-  else if (failed) content = h('div', { className: 'q-card q-empty', role: 'alert' }, h('span', { className: 'q-h2' }, 'تعذّر تحميل المحفظة'),
-    h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة أخرى'))
-  else if (empty) content = [
-    h('div', { key: 'e', className: 'q-card q-empty' },
-      h(MonosIcon, { size: 40 }),
-      h('span', { className: 'q-h2' }, 'محفظتك فاضية'),
-      h('span', null, 'تقدر تستخدم Monos للتحليل بس، أو تضيف الأسهم اللي عندك عشان تشوف حركتها اليومية وموقعها من التقييم.')),
-    h(AddForm, { key: 'f', universe, onAdded: refresh, startOpen: true }),
-  ]
-  else content = [
-    h(SummaryCard, { key: 's', portfolio, lastClose }),
-    h(AddForm, { key: 'f', universe, onAdded: refresh, startOpen: false }),
-    h('section', { key: 'h', className: 'q-card', 'aria-label': 'المراكز', style: { overflow: 'hidden' } },
-      h('div', { className: 'p-formhead' },
-        h('h2', { className: 'q-h2' }, 'المراكز ', h('span', { className: 'q-sec', style: { fontSize: 13, fontWeight: 400 } }, '(', N(String(holdings.length)), ')')),
-        h('span', { className: 'q-grow' }),
-        h('span', { className: 'q-meta' }, 'ترتيب حسب'),
-        h('div', { className: 'q-seg', role: 'group', 'aria-label': 'ترتيب المراكز' },
-          HOLDING_SORTS.map(([key, label]) => h('button', { key, type: 'button', 'aria-pressed': sort === key, onClick: () => setSort(key) }, label)))),
-      h('div', { className: 'q-scroll', role: 'table', 'aria-label': 'المراكز' },
-        h('div', { className: 'q-grid p-g q-th', role: 'row' },
-          ['السهم', 'آخر سعر', 'اليوم', 'القيمة', 'الربح / الخسارة', 'نسبة من المحفظة', 'موضع السعر من التقييم', ''].map((t, i) => h('span', { key: i, role: 'columnheader' }, t))),
-        holdings.map((r) => h(HoldingRow, { key: `${r.id}:${r.updated_at}`, row: r, onChanged: refresh, onValue }))),
-      h('div', { className: 'p-legend' },
-        h('span', { className: 'm-key' }, h('span', { style: { width: 10, height: 10, borderRadius: '50%', background: 'var(--dsw-alias-label-primary)', display: 'inline-block' } }), 'آخر إغلاق'),
-        h('span', { className: 'm-key' }, h('span', { style: { width: 3, height: 14, background: 'var(--dsw-alias-state-warn-primary)', display: 'inline-block' } }), 'سعر الحماية',
-          h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })),
-        h('span', { className: 'm-key' }, h('span', { style: { width: 3, height: 14, background: 'var(--dsw-alias-state-business-primary)', display: 'inline-block' } }), 'السعر العادل'),
-        h('span', { className: 'm-key' }, h('span', { style: { width: 18, height: 6, borderRadius: 3, background: 'var(--dsw-alias-state-business-primary)', opacity: 0.35, display: 'inline-block' } }), 'النطاق (المتشائم – المتفائل)')),
-      h('div', { style: { padding: 16 } }, help ? h(ProtectionNote) : h('p', { className: 'q-meta', style: { margin: 0 } },
-        'سعر الحماية = ', N('80%'), ' من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع.'))),
-  ]
-
+  let body
+  if (loading) {
+    body = h('div', { className: 'l-col', 'aria-busy': true },
+      h('div', { className: 'l-total' }, h(Skeleton, { width: 220 }), h(Skeleton, { width: 160 })),
+      h(Skeleton, { width: '100%' }), h(Skeleton, { width: '90%' }), h(Skeleton, { width: '80%' }))
+  } else if (failed) {
+    body = h('div', { className: 'l-col' }, h('div', { className: 'q-empty', role: 'alert' },
+      h('span', { className: 'q-h2' }, 'تعذّر تحميل السجل'),
+      h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة تانية')))
+  } else {
+    body = h('div', { className: 'l-col' },
+      h(TotalBlock, { totals }),
+      h('div', null,
+        h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
+        picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
+          onDone: added, onCancel: () => setPicked(null) }) : null),
+      ledger.groups.length
+        ? ledger.groups.map((g) => h('section', { key: g.group, className: 'l-group', 'aria-label': g.label },
+          h('h2', null, g.label),
+          g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh }))))
+        : h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
+      h('p', { className: 'l-foot' }, 'الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ',
+        'القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع.'))
+  }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
-    h('style', null, QM_CSS + MARKET_CSS + PORTFOLIO_CSS),
-    h(PanelHeader, { here: 'المحفظة' }, headerMeta),
-    h('div', { className: 'q-wrap', style: { paddingTop: 12 } },
-      content,
-      h(Disclaimer, { extra: 'الأسعار إغلاق يومي متأخر من EODHD (مزوّد بيانات الأسعار)، وكل سعر مؤرّخ بيوم إغلاقه. الربح والخسارة محسوبان على التكلفة المُدخلة يدويًا ولا يشملان رسوم الوساطة أو الضرائب. «نسبة من المحفظة» = قيمة المركز ÷ قيمة المحفظة، وهي غير وزن السهم في المؤشر.' })),
-    toastNode)
+    h('style', null, QM_CSS + LEDGER_CSS),
+    h(PanelHeader, { here: 'السجل' }, today),
+    body)
 }

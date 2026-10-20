@@ -1,7 +1,7 @@
 {
   "name": "monos-portfolio",
   "version": "1.0.0",
-  "description": "Monos portfolio: the holdings the user enters, today first, tied to each valuation",
+  "description": "Monos ledger («السجل»): the assets the user enters, valued in EGP, with the sidebar's Monos row",
   "license": "UNLICENSED",
   "private": true,
   "type": "module",

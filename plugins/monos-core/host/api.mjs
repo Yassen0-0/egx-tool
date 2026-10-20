@@ -79,10 +79,26 @@ async function readJson(req) {
   return body
 }
 
+// Asset keys in a path: a ticker, a currency, XAU-G, BTC, fund:<slug> or custom:<id> (URL-encoded).
+function assetKey(segment) {
+  let key
+  try { key = decodeURIComponent(segment) } catch { return null }
+  return /^[A-Za-z0-9._:-]{1,64}$/.test(key) ? key : null
+}
+
 async function handleApi(req, res, path, query) {
   const method = req.method ?? 'GET'
   if (method === 'GET' && path === '/egx/api/portfolio') {
     const { status, body } = await runCli('portfolio-summary')
+    return sendJson(res, status, body)
+  }
+  // «السجل»: the catalog the search filters on the screen, and the EGP rate a purchase would use.
+  if (method === 'GET' && path === '/egx/api/catalog') {
+    const { status, body } = await runCli('catalog')
+    return sendJson(res, status, body)
+  }
+  if (method === 'GET' && path === '/egx/api/fx') {
+    const { status, body } = await runCli('fx-rate', { currency: query.get('currency') || '', date: query.get('date') || null })
     return sendJson(res, status, body)
   }
   if (method === 'GET' && path === '/egx/api/watchlist') {
@@ -129,7 +145,7 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('valuation-get', { valuation_id: Number(single[1]) })
     return sendJson(res, status, body)
   }
-  const mutating = method === 'POST' || method === 'PATCH' || method === 'DELETE'
+  const mutating = method === 'POST' || method === 'PATCH' || method === 'PUT' || method === 'DELETE'
   if (!mutating) return sendJson(res, 405, { error: 'method not allowed' })
   if (req.headers['x-egx-request'] !== '1' || !(req.headers['content-type'] ?? '').startsWith('application/json')) {
     return sendJson(res, 403, { error: 'missing same-origin request headers' })
@@ -158,6 +174,28 @@ async function handleApi(req, res, path, query) {
     else if (method === 'DELETE' && watch[1] !== undefined) result = await runCli('watchlist-remove', { symbol: watch[1] })
     else return sendJson(res, 405, { error: 'method not allowed' })
     return sendJson(res, result.status, result.body)
+  }
+  // «السجل»: a price the user typed, a fund's components, and removing an asset with all its purchases.
+  if (path === '/egx/api/prices') {
+    if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const { status, body } = await runCli('price-set', payload)
+    return sendJson(res, status, body)
+  }
+  const fund = /^\/egx\/api\/funds\/([^/]{1,96})\/components$/.exec(path)
+  if (fund) {
+    if (method !== 'PUT') return sendJson(res, 405, { error: 'method not allowed' })
+    const key = assetKey(fund[1])
+    if (!key) return sendJson(res, 400, { error: 'bad asset key' })
+    const { status, body } = await runCli('fund-components-set', { fund: key, components: Array.isArray(payload.components) ? payload.components : [] })
+    return sendJson(res, status, body)
+  }
+  const asset = /^\/egx\/api\/assets\/([^/]{1,96})$/.exec(path)
+  if (asset) {
+    if (method !== 'DELETE') return sendJson(res, 405, { error: 'method not allowed' })
+    const key = assetKey(asset[1])
+    if (!key) return sendJson(res, 400, { error: 'bad asset key' })
+    const { status, body } = await runCli('asset-remove', { asset: key })
+    return sendJson(res, status, body)
   }
   const match = /^\/egx\/api\/holdings(?:\/(\d+))?$/.exec(path)
   if (!match) return sendJson(res, 404, { error: 'not found' })

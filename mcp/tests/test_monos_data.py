@@ -5,8 +5,6 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from egx_mcp.data.cached import CachedMarketProvider
-from egx_mcp.data.manual import ManualProvider
 from egx_mcp.market import store
 from egx_mcp.market.calendar import CAIRO
 from egx_mcp.market.summary import market_digest, market_summary, portfolio_today
@@ -27,13 +25,6 @@ def db(tmp_path, monkeypatch):
     connection = connect(path)
     yield connection
     connection.close()
-
-
-@pytest.fixture
-def provider(tmp_path):
-    root = tmp_path / "manual"
-    root.mkdir()
-    return CachedMarketProvider(ManualProvider(root))
 
 
 def bars(conn, symbol, closes, last_day=date(2026, 10, 14)):
@@ -124,30 +115,31 @@ def test_market_summary_portfolio_today(db):
     assert today["has_fresh"] and today["change"] == 50.0 and today["as_of"] == "2026-10-14"
 
 
-def test_portfolio_summary_today_share_margin_and_order(db, provider):
+def test_ledger_stocks_value_today_stale_and_unpriced(db):
     bars(db, "COMI", [121, 122])
     bars(db, "EAST", [27.59, 27.77])
     bars(db, "ADIB", [40, 44], last_day=date(2026, 10, 12))
-    save(db, "COMI", 131.0, 122.0, "2026-10-14T07:00:00+00:00")
-    save(db, "EAST", 36.0, 27.77, "2026-10-14T07:00:00+00:00", critic="below protection: two possibilities")
     portfolio.add_holding(db, "EAST", buy_price=31.0, quantity=200)
     portfolio.add_holding(db, "COMI", buy_price=100.0, quantity=50)
     portfolio.add_holding(db, "ADIB", buy_price=40.0, quantity=10)
     portfolio.add_holding(db, "TMGH", buy_price=80.0, quantity=5)  # no price at all
-    summary = portfolio.portfolio_summary(db, provider, at=MORNING)
-    order = [r["symbol"] for r in summary["holdings"]]
-    assert order == ["COMI", "ADIB", "EAST", "TMGH"]  # P/L contribution, unpriced last
-    comi, adib, east = summary["holdings"][0], summary["holdings"][1], summary["holdings"][2]
-    assert comi["today_change"] == pytest.approx(50.0) and comi["name_ar"] == "البنك التجاري الدولي"
-    assert adib["today_change"] is None and adib["price_stale"] is True
-    assert round(comi["margin_to_fair"], 3) == 0.069 and comi["status"] == "at_or_below_fair_value"
-    assert east["status"] == "below_protection" and round(east["below_protection_by"], 3) == 0.036
-    total_value = 50 * 122 + 200 * 27.77 + 10 * 44
-    assert comi["share_of_portfolio"] == pytest.approx(6100 / total_value)
+    summary = portfolio.portfolio_summary(db, at=MORNING)
+    stocks = summary["groups"][0]
+    assert stocks["group"] == "stocks" and [a["key"] for a in stocks["assets"]] == ["COMI", "EAST", "ADIB", "TMGH"]
+    comi, east, adib, tmgh = stocks["assets"]
+    assert comi["today_change"] == pytest.approx(50.0) and comi["name"] == "البنك التجاري الدولي"
+    assert comi["growth"] == pytest.approx(6100 / 5000 - 1)
+    # A stale close still counts in the value, with its date, but not in today's move.
+    assert adib["today_change"] is None and adib["stale"] is True and adib["value_egp"] == pytest.approx(440)
+    assert adib["price_as_of"] == "2026-10-12"
+    assert tmgh["value_egp"] is None and tmgh["growth"] is None
     totals = summary["totals"]
-    assert totals["today_change"] == pytest.approx(50 + 200 * 0.18)  # ADIB is stale, TMGH unpriced
-    assert totals["today_has_fresh"] is True and totals["below_protection"] == ["EAST"]
-    assert totals["unpriced_holdings"] == ["TMGH"]
+    assert totals["value"] == pytest.approx(6100 + 5554 + 440)
+    assert totals["growth"] == pytest.approx((6100 + 5554 + 440) / (5000 + 6200 + 400) - 1)  # TMGH left out
+    assert totals["cost"] == pytest.approx(5000 + 6200 + 400 + 400)
+    assert totals["today_change"] == pytest.approx(50 + 200 * 0.18)
+    assert totals["today_change_pct"] == pytest.approx(86 / (6100 + 5554 - 86))
+    assert totals["today_has_fresh"] is True and totals["unpriced"] == ["طلعت مصطفى القابضة"]
 
 
 def test_digest_status_change_new_valuation_and_holding_move(db):

@@ -20,12 +20,13 @@ def db(tmp_path, monkeypatch):
 
 def test_portfolio_round_trip_with_form_values():
     # The add form sends blanks for fields left empty and extra keys; both are fine.
-    added = cli.run("portfolio-add", json.dumps({"symbol": "COMI", "buy_price": "80", "quantity": "",
-                                                 "invested_amount": 4000, "note": "", "ui_only": 1}))
+    added = cli.run("portfolio-add", json.dumps({"asset": "COMI", "buy_price": "80", "quantity": "",
+                                                 "amount": 4000, "note": "", "ui_only": 1}))
     assert added["quantity"] == pytest.approx(50) and added["note"] is None
     updated = cli.run("portfolio-update", json.dumps({"holding_id": added["id"], "quantity": 60}))
     assert updated["quantity"] == 60
-    assert cli.run("portfolio-summary", None)["holdings"][0]["symbol"] == "COMI"
+    assert cli.run("portfolio-summary", None)["groups"][0]["assets"][0]["key"] == "COMI"
+    assert any(a["key"] == "XAU-G" for a in cli.run("catalog", None)["assets"])
     assert cli.run("portfolio-remove", json.dumps({"holding_id": added["id"]}))["removed"]["id"] == added["id"]
 
 
@@ -43,10 +44,10 @@ def test_unknown_command_and_bad_arguments():
 
 
 def test_main_reports_validation_errors_as_exit_2(tmp_path):
-    proc = subprocess.run([sys.executable, "-m", "egx_mcp.cli", "portfolio-add", '{"symbol": "COMI"}'],
+    proc = subprocess.run([sys.executable, "-m", "egx_mcp.cli", "portfolio-add", '{"asset": "COMI"}'],
                           capture_output=True, text=True)
     assert proc.returncode == 2
-    assert "buy_price" in json.loads(proc.stdout)["error"]
+    assert "سعر الشرا" in json.loads(proc.stdout)["error"]
 
 
 def test_market_sync_without_key_says_so(monkeypatch):

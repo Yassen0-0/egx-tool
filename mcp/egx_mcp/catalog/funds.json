@@ -1,0 +1,4 @@
+{
+  "note": "Funds the ledger search knows. Starts empty: a fund that is not here is added by name and becomes searchable. Each entry: {\"slug\": \"...\", \"name\": \"Arabic name\", \"name_en\": \"...\", \"manager\": \"...\", \"currency\": \"EGP\", \"aliases\": []}. The unit price (NAV) is typed by the user until a source is chosen.",
+  "funds": []
+}

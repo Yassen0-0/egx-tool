@@ -1,6 +1,9 @@
 # monos-analyses: شاشة التحليلات: أرشيف التقييمات وصفحة التحليل الكاملة. Turn it off without touching the others with a profile patch row
 #   - id: monos-analyses
 #     disabled: true
+# Off since «السجل» (docs/تحول.md): the code stays until the deletion phase. Delete the
+# `disabled` line to bring the screen back.
 - insert:
     - id: monos-analyses
       name: monos-analyses
+      disabled: true

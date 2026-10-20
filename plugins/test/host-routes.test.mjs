@@ -96,8 +96,8 @@ test('each route maps to its egx-cli command and arguments', async () => {
   const list = await get('/egx/api/valuations?kind=&limit=200&offset=200')
   assert.equal(list.command, 'valuations-list')
   assert.deepEqual([list.payload.kind, list.payload.limit, list.payload.offset], [null, 200, 200])
-  const add = await call('POST', '/egx/api/holdings', { body: { symbol: 'COMI', buy_price: 80, quantity: 5 }, headers: SAME_ORIGIN })
-  assert.deepEqual(add.body, { command: 'portfolio-add', payload: { symbol: 'COMI', buy_price: 80, quantity: 5 } })
+  const add = await call('POST', '/egx/api/holdings', { body: { asset: 'COMI', buy_price: 80, quantity: 5 }, headers: SAME_ORIGIN })
+  assert.deepEqual(add.body, { command: 'portfolio-add', payload: { asset: 'COMI', buy_price: 80, quantity: 5 } })
   const edit = await call('PATCH', '/egx/api/holdings/3', { body: { quantity: 6 }, headers: SAME_ORIGIN })
   assert.deepEqual(edit.body, { command: 'portfolio-update', payload: { quantity: 6, holding_id: 3 } })
   const remove = await call('DELETE', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })
@@ -106,4 +106,20 @@ test('each route maps to its egx-cli command and arguments', async () => {
   assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
   assert.equal((await call('GET', '/egx/api/nothing')).status, 405)
   assert.equal((await call('POST', '/egx/api/nothing', { body: {}, headers: SAME_ORIGIN })).status, 404)
+})
+
+test('ledger routes: catalog, rate, manual price, fund components and removing an asset', async () => {
+  assert.equal((await call('GET', '/egx/api/catalog')).body.command, 'catalog')
+  assert.deepEqual((await call('GET', '/egx/api/fx?currency=USD&date=2026-10-01')).body,
+    { command: 'fx-rate', payload: { currency: 'USD', date: '2026-10-01' } })
+  const price = await call('POST', '/egx/api/prices', { body: { asset: 'USD', price: 48.5 }, headers: SAME_ORIGIN })
+  assert.deepEqual(price.body, { command: 'price-set', payload: { asset: 'USD', price: 48.5 } })
+  const parts = await call('PUT', `/egx/api/funds/${encodeURIComponent('custom:4')}/components`,
+    { body: { components: [{ asset: 'COMI', weight: 0.3 }] }, headers: SAME_ORIGIN })
+  assert.deepEqual(parts.body, { command: 'fund-components-set', payload: { fund: 'custom:4', components: [{ asset: 'COMI', weight: 0.3 }] } })
+  const gone = await call('DELETE', '/egx/api/assets/XAU-G', { body: {}, headers: SAME_ORIGIN })
+  assert.deepEqual(gone.body, { command: 'asset-remove', payload: { asset: 'XAU-G' } })
+  assert.equal((await call('DELETE', '/egx/api/assets/%2Fetc', { body: {}, headers: SAME_ORIGIN })).status, 400)
+  assert.equal((await call('GET', '/egx/api/prices')).status, 405)
+  assert.equal((await call('PUT', '/egx/api/funds/x/components', { body: {}, headers: { 'content-type': 'application/json' } })).status, 403)
 })

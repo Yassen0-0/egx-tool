@@ -73,26 +73,6 @@ var __monos = (() => {
     if (!res.ok || data && data.error) throw new Error(data.error || `HTTP ${res.status}`);
     return data;
   }
-  function PortfolioIcon({ size }) {
-    return h(
-      "svg",
-      {
-        width: size,
-        height: size,
-        viewBox: "0 0 24 24",
-        fill: "none",
-        stroke: "currentColor",
-        strokeWidth: 1.6,
-        strokeLinecap: "round",
-        strokeLinejoin: "round",
-        "aria-hidden": true
-      },
-      h("path", { d: "M4 7.5A2.5 2.5 0 0 1 6.5 5H18a1 1 0 0 1 1 1v2" }),
-      h("rect", { x: 3.5, y: 8, width: 17, height: 11, rx: 2.5 }),
-      h("path", { d: "M16 13.5h2" }),
-      h("path", { d: "M7 16l2.5-2.5 2 1.5L14 12" })
-    );
-  }
 
   // plugins/shared/format.mjs
   var MINUS = "−";
@@ -114,13 +94,13 @@ var __monos = (() => {
   function signedParts(v, digits) {
     const factor = 10 ** digits;
     const rounded = Math.round(Math.abs(v) * factor) / factor;
-    const sign = rounded === 0 ? "" : v < 0 ? MINUS : "+";
-    return { sign, body: fixed(digits).format(rounded) };
+    const sign2 = rounded === 0 ? "" : v < 0 ? MINUS : "+";
+    return { sign: sign2, body: fixed(digits).format(rounded) };
   }
   function fmtNumber(v, digits = 2) {
     if (missing(v)) return DASH;
-    const { sign, body } = signedParts(v, digits);
-    return (sign === MINUS ? MINUS : "") + body;
+    const { sign: sign2, body } = signedParts(v, digits);
+    return (sign2 === MINUS ? MINUS : "") + body;
   }
   function fmtPrice(v) {
     return fmtNumber(v, 2);
@@ -129,64 +109,11 @@ var __monos = (() => {
     if (missing(v)) return DASH;
     return new Intl.NumberFormat("ar-EG-u-nu-latn", { maximumFractionDigits: 4 }).format(v).replace(/[‎‏؜]/g, "").replace("-", MINUS);
   }
-  function fmtCount(v) {
-    return fmtNumber(v, 0);
-  }
-  function fmtSigned(v, digits = 2) {
-    if (missing(v)) return DASH;
-    const { sign, body } = signedParts(v, digits);
-    return sign + body;
-  }
   function fmtPct(fraction, { digits = 1, signed = false } = {}) {
     if (missing(fraction)) return DASH;
-    const { sign, body } = signedParts(fraction * 100, digits);
-    return (signed ? sign : sign === MINUS ? MINUS : "") + body + "%";
+    const { sign: sign2, body } = signedParts(fraction * 100, digits);
+    return (signed ? sign2 : sign2 === MINUS ? MINUS : "") + body + "%";
   }
-  var EPS = 1e-6;
-  function protectionOf(fair) {
-    return missing(fair) ? null : fair * PROTECTION_RATIO;
-  }
-  function marginToFair(fair, price) {
-    if (missing(fair) || missing(price) || fair <= 0) return null;
-    return (fair - price) / fair;
-  }
-  function belowProtectionBy(fair, price) {
-    const protection = protectionOf(fair);
-    if (protection == null || missing(price) || price >= protection - EPS) return null;
-    return (protection - price) / protection;
-  }
-  function statusOf(price, fair) {
-    if (missing(price) || missing(fair) || fair <= 0) return null;
-    if (price >= fair - EPS) return "above";
-    if (price >= protectionOf(fair) - EPS) return "between";
-    return "under";
-  }
-  function marginSentence(price, fair) {
-    const status = statusOf(price, fair);
-    if (!status) return null;
-    if (status === "under") {
-      return { status, mark: "◆", text: "تحت سعر الحماية بـ", value: fmtPct(belowProtectionBy(fair, price)) };
-    }
-    const margin = marginToFair(fair, price);
-    if (Math.round(Math.abs(margin) * 1e3) === 0) return { status, mark: "○", text: "عند السعر العادل", value: null };
-    return status === "between" ? { status, mark: "○", text: "أقل من العادل بـ", value: fmtPct(margin) } : { status, mark: "○", text: "أعلى من العادل بـ", value: fmtPct(-margin) };
-  }
-  function rulerScale({ bear, bull, fair, price }) {
-    const protection = protectionOf(fair);
-    const values = [bear, bull, fair, protection, price].filter((v) => !missing(v));
-    if (!values.length) return null;
-    let lo = Math.min(...values), hi = Math.max(...values);
-    if (hi === lo) {
-      lo -= 1;
-      hi += 1;
-    }
-    const pad = (hi - lo) * 0.06;
-    lo -= pad;
-    hi += pad;
-    const at = (v) => missing(v) ? null : (v - lo) / (hi - lo) * 100;
-    return { at, bear: at(bear), bull: at(bull), fair: at(fair), protection: at(protection), price: at(price) };
-  }
-  var WEEKDAYS = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
   var cairoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" });
   var cairoTime = new Intl.DateTimeFormat("en-GB", { timeZone: "Africa/Cairo", hour: "2-digit", minute: "2-digit", hourCycle: "h23" });
   function cairoDay(iso) {
@@ -210,40 +137,19 @@ var __monos = (() => {
     const p = parts(iso);
     return p ? `${two(p.d)}/${two(p.m)}/${p.y}` : DASH;
   }
-  function fmtTime(iso) {
-    if (!iso) return DASH;
-    const d = new Date(iso);
-    return Number.isNaN(d.getTime()) ? DASH : cairoTime.format(d);
+  function iconState(portfolio) {
+    const totals = portfolio && portfolio.totals || {};
+    const count = portfolio && portfolio.holdings ? portfolio.holdings.length : totals.assets || 0;
+    if (!count) return "neutral";
+    if (!totals.today_has_fresh || missing(totals.today_change)) return "neutral";
+    const cents = Math.round(totals.today_change * 100);
+    if (cents === 0) return "neutral";
+    return cents > 0 ? "up" : "down";
   }
   function toneOf(v) {
     if (missing(v)) return "";
     const r = Math.round(v * 1e4);
     return r > 0 ? "q-up" : r < 0 ? "q-down" : "";
-  }
-  var TRADING = /* @__PURE__ */ new Set([0, 1, 2, 3, 4]);
-  function sessionLine(asOf, open, nextSession) {
-    if (open) return { text: "الجلسة مفتوحة · تغلق", time: "14:30" };
-    const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(asOf || "");
-    if (!m) return { text: "الجلسة مغلقة", time: null };
-    const day = new Date(Date.UTC(+m[1], +m[2] - 1, +m[3]));
-    const n = /^(\d{4})-(\d{2})-(\d{2})$/.exec(nextSession || "");
-    if (n) {
-      const next2 = new Date(Date.UTC(+n[1], +n[2] - 1, +n[3]));
-      const ahead2 = Math.round((next2 - day) / 864e5);
-      const when2 = ahead2 <= 0 ? "اليوم" : ahead2 === 1 ? "غدًا" : WEEKDAYS[next2.getUTCDay()];
-      return { text: `الجلسة مغلقة · تفتح ${when2}`, time: "10:00" };
-    }
-    const minutes = +m[4] * 60 + +m[5];
-    if (TRADING.has(day.getUTCDay()) && minutes < 10 * 60) return { text: "الجلسة مغلقة · تفتح اليوم", time: "10:00" };
-    let ahead = 1;
-    const next = new Date(day);
-    next.setUTCDate(next.getUTCDate() + 1);
-    while (!TRADING.has(next.getUTCDay())) {
-      next.setUTCDate(next.getUTCDate() + 1);
-      ahead++;
-    }
-    const when = ahead === 1 ? "غدًا" : WEEKDAYS[next.getUTCDay()];
-    return { text: `الجلسة مغلقة · تفتح ${when}`, time: "10:00" };
   }
   function parseNumberInput(text) {
     if (text == null) return null;
@@ -266,12 +172,6 @@ var __monos = (() => {
     const date = new Date(Date.UTC(y, m - 1, d));
     if (date.getUTCFullYear() !== y || date.getUTCMonth() !== m - 1 || date.getUTCDate() !== d) return void 0;
     return `${y}-${two(m)}-${two(d)}`;
-  }
-  function lastCloseOf(rows) {
-    return (rows || []).reduce((m, r) => r.price != null && r.as_of && r.as_of.slice(0, 10) > m ? r.as_of.slice(0, 10) : m, "");
-  }
-  function callsUsed(run) {
-    return run && run.daily_limit ? (run.used_before || 0) + (run.calls_made || 0) : null;
   }
 
   // plugins/shared/identity.js
@@ -332,6 +232,46 @@ var __monos = (() => {
       dot(17.11, 8.25, "d")
     );
   }
+  function todayOf(portfolio) {
+    const totals = portfolio && portfolio.totals;
+    return { state: iconState(portfolio), change: totals && totals.today_change, pct: totals && totals.today_change_pct };
+  }
+  var SIDEBAR_PCT_CLASS = "monos-sidebar-pct";
+  function SidebarMonosIcon({ size }) {
+    const portfolio = useMonos();
+    const ref = import_react.default.useRef(null);
+    const { state, pct } = todayOf(portfolio);
+    useEffect(() => {
+      const timer = setInterval(() => monos.refresh(), MONOS_REFRESH_MS);
+      return () => clearInterval(timer);
+    }, []);
+    useEffect(() => {
+      const row = ref.current && ref.current.closest("button");
+      if (!row) return void 0;
+      const name = state === "neutral" || pct == null ? "Monos — السجل" : `Monos — السجل، اليوم ${fmtPct(pct, { digits: 2, signed: true })}`;
+      row.setAttribute("title", "Monos — السجل");
+      row.setAttribute("aria-label", name);
+      const wide = size <= 16;
+      if (!wide || state === "neutral" || pct == null) return void 0;
+      const tag = document.createElement("span");
+      tag.className = SIDEBAR_PCT_CLASS;
+      tag.setAttribute("aria-hidden", "true");
+      tag.textContent = fmtPct(pct, { digits: 2, signed: true });
+      Object.assign(tag.style, {
+        marginInlineStart: "8px",
+        direction: "ltr",
+        unicodeBidi: "isolate",
+        fontVariantNumeric: "tabular-nums",
+        fontFamily: "var(--ds-font-family-code)",
+        fontSize: "12px",
+        flex: "none",
+        color: state === "up" ? "var(--dsw-alias-file-diff-added-marker)" : "var(--dsw-alias-file-diff-deleted-marker)"
+      });
+      row.append(tag);
+      return () => tag.remove();
+    }, [state, pct, size]);
+    return h("span", { ref, style: { display: "inline-flex" } }, h(MonosIcon, { size }));
+  }
   function PanelHeader({ here, crumbs = [], actions = null, children = null }) {
     return h(
       "header",
@@ -356,311 +296,401 @@ var __monos = (() => {
       )
     );
   }
-  var DISCLAIMER = "تقييم وليس توصية بالشراء أو البيع.";
-  function Disclaimer({ extra }) {
-    return h("p", { className: "q-foot" }, extra || null, extra ? " " : null, h("b", { style: { fontWeight: 600 } }, DISCLAIMER));
-  }
-  function useToast() {
-    const [text, setText] = useState("");
-    useEffect(() => {
-      if (!text) return void 0;
-      const timer = setTimeout(() => setText(""), 4e3);
-      return () => clearTimeout(timer);
-    }, [text]);
-    const node = text ? h("div", { className: "q-toast", role: "status" }, text) : null;
-    return [node, setText];
-  }
-  async function copyValuationPrompt(symbol, toast) {
-    const message = `قيّم سهم ${symbol}`;
-    try {
-      await navigator.clipboard.writeText(message);
-      toast(`اتنسخت الرسالة «${message}» — الصقها في المحادثة`);
-    } catch {
-      toast(`اكتب في المحادثة: «${message}»`);
-    }
-  }
 
   // plugins/shared/components.js
-  function Ruler({ fair, bear, bull, price, large = false }) {
-    const s = rulerScale({ bear, bull, fair, price });
-    if (!s || s.fair == null) return null;
-    return h(
-      "span",
-      { className: `q-rl${large ? " q-rl-lg" : ""}`, "aria-hidden": true },
-      h("span", { className: "tr" }),
-      s.bear != null && s.bull != null ? h("span", { className: "bd", style: { left: `${s.bear}%`, width: `${s.bull - s.bear}%` } }) : null,
-      s.protection != null ? h("span", { className: "tk prot", style: { left: `${s.protection}%` } }) : null,
-      h("span", { className: "tk fair", style: { left: `${s.fair}%` } }),
-      s.price != null ? h("span", { className: "dt", style: { left: `${s.price}%` } }) : null
-    );
-  }
-  function StatusMark({ status, size = 10 }) {
-    const common = { width: size, height: size, viewBox: "0 0 10 10", "aria-hidden": true, style: { flex: "none" } };
-    if (status === "under") return h("svg", common, h("path", { d: "M5 1 9 5 5 9 1 5Z", fill: "currentColor", stroke: "currentColor", strokeWidth: 1.4, strokeLinejoin: "round" }));
-    return h("svg", common, h("circle", { cx: 5, cy: 5, r: 3.3, fill: status === "above" ? "currentColor" : "none", stroke: "currentColor", strokeWidth: 1.4 }));
-  }
-  var STATUS_TIP = {
-    under: "السعر أقل من سعر الحماية (80% من العادل): المحلل يراجع التقييم. تنبيه للمراجعة، مش أمر بيع.",
-    between: "السعر بين سعر الحماية والسعر العادل.",
-    above: "السعر أعلى من السعر العادل أو يساويه."
-  };
-  function MarginText({ price, fair, prefix = "", suffix = null, size }) {
-    const m = marginSentence(price, fair);
-    if (!m) return null;
-    return h(
-      "span",
-      { className: `q-status${m.status === "under" ? " under" : ""}`, title: STATUS_TIP[m.status], style: size ? { fontSize: size } : void 0 },
-      h(StatusMark, { status: m.status, size: size ? Math.round(size * 0.85) : 10 }),
-      prefix,
-      m.text,
-      m.value ? " " : null,
-      m.value ? N(m.value) : null,
-      suffix
-    );
-  }
-  function StaleChip() {
-    return h("span", { className: "q-chip q-chip-warn", title: "هذا السعر أقدم من آخر جلسة، فلا يدخل في حساب اليوم" }, "سعر قديم");
-  }
-  function PriceCell({ price, asOf, stale, kind }) {
-    if (price == null) return h("span", { className: "q-ter" }, "بانتظار السعر");
-    return h(
-      "span",
-      { className: "q-cell" },
-      h("b", { className: "num", style: { fontWeight: 500 } }, fmtPrice(price)),
-      h("small", null, stale ? h(StaleChip) : kind === "delayed" ? frag("متأخر ", N(fmtTime(asOf))) : N(fmtDayMonth(asOf)))
-    );
-  }
-  function ProtectionHelp({ open, onToggle }) {
-    return h("button", { type: "button", className: "q-help", "aria-label": "ما هو سعر الحماية؟", "aria-expanded": open, onClick: onToggle }, "؟");
-  }
-  function ProtectionNote() {
-    return h(
-      "div",
-      { className: "q-note", role: "note" },
-      "سعر الحماية = ",
-      N("80%"),
-      " من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع. ",
-      "مرجع الدخول = السعر العادل نفسه، وليس توصية بالشراء."
-    );
-  }
   function Skeleton({ width = 80 }) {
     return h("span", { className: "q-skel", style: { width } });
   }
 
-  // plugins/shared/market.css
-  var market_default = "/* Market screen («Monos / السوق»). host tokens only; builds on styles.css. */\n\n/* Status strip */\n.qm .m-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 8px 16px; }\n.qm .m-ring { width: 8px; height: 8px; border-radius: 50%; border: 1.5px solid var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-kv { display: flex; flex-direction: column; gap: 1px; min-width: 0; }\n.qm .m-kv small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-kv b { font-size: 13px; font-weight: 500; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }\n.qm .m-stack { display: flex; height: 6px; width: 56px; border-radius: 3px; overflow: hidden; gap: 1px; direction: ltr; flex: none; }\n.qm .m-stack > span { display: block; }\n\n/* Digest */\n.qm .m-digest { display: flex; flex-wrap: wrap; align-items: center; gap: 0 4px; padding: 4px 8px 4px 16px; }\n.qm .m-digest-t { font-size: 14px; font-weight: 600; margin-inline-end: 8px; }\n.qm .m-di { appearance: none; border: 0; background: transparent; display: inline-flex; align-items: center; gap: 6px; min-height: 36px; padding: 0 10px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; font-size: 13px; white-space: nowrap; text-align: start; }\n.qm .m-di:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-ic { width: 18px; height: 18px; border-radius: var(--dsw-radius-xs); display: grid; place-items: center; background: var(--dsw-alias-markdown-tag);\n  color: var(--dsw-alias-label-secondary); flex: none; }\n.qm .m-ic.w { background: var(--dsw-alias-state-warn-tertiary); color: var(--dsw-alias-state-warn-label); }\n.qm .m-ic.b { background: var(--dsw-alias-state-business-tertiary); color: var(--dsw-alias-state-business-primary); }\n\n/* Toolbar */\n.qm .m-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .m-toolbar .q-field input[type='search'] { width: 140px; }\n.qm .m-chips { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .q-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Table: 7 columns. The card is a size container so the grid adapts to the panel width. */\n.qm .m-table { overflow: hidden; container-type: inline-size; }\n/* The first column carries the «متابعتي» star (32px), taken from the valuation column's minimum. */\n.qm .m-g { --cols: minmax(204px, 1.5fr) 88px 136px 68px minmax(188px, 2.5fr) 104px 112px; min-width: 930px; }\n@container (max-width: 930px) {\n  .qm .m-g { --cols: minmax(178px, 1.4fr) 84px 128px 64px minmax(172px, 2.4fr) 96px; min-width: 760px; }\n  .qm .m-g > .m-c52 { display: none; }\n}\n.qm .m-row { min-height: 64px; cursor: pointer; position: relative; }\n.qm .m-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-row.q-warn:hover { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .m-row.q-sel, .qm .m-row.q-sel:hover { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-sym .l1 { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; }\n.qm .m-sym .nm { font-size: 13px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }\n.qm .m-sym small { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }\n.qm .m-vc { display: flex; flex-direction: column; justify-content: center; padding-block: 8px; }\n.qm .m-unvalued { display: flex; align-items: center; gap: 12px; }\n.qm .m-qbtn { appearance: none; height: 32px; padding: 0 12px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l4);\n  background: transparent; cursor: pointer; color: var(--dsw-alias-link); font-size: 13px; font-weight: 500; }\n.qm .m-qbtn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-grp { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform);\n  display: flex; align-items: center; gap: 12px; min-height: 48px; padding: 0 16px; text-align: start; cursor: pointer; font-size: 13px; }\n.qm .m-grp:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); padding: 8px 16px 12px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-tkcell { display: flex; align-items: center; gap: 2px; min-width: 0; }\n.qm .m-tkgrid .m-tkpick { flex: 1; min-width: 0; appearance: none; border: 0; background: transparent; display: flex; gap: 8px; align-items: baseline; min-height: 36px; padding: 0 8px;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; text-align: start; font-size: 13px; }\n.qm .m-tkgrid .m-tkpick:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .m-tkgrid .m-tkpick.q-sel { background: var(--dsw-alias-interactive-bg-active); }\n.qm .m-foot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 20px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .m-key { display: inline-flex; align-items: center; gap: 6px; }\n\n/* Detail */\n.qm .m-dhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 28px; padding: 16px; }\n.qm .m-dstrip { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 40px; padding: 12px 16px; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: var(--dsw-alias-bg-module-platform); }\n.qm .m-panes { padding: 16px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-start; }\n.qm .m-left { flex: 1 1 380px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-right { flex: 2 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }\n.qm .m-box { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); padding: 16px; display: flex; flex-direction: column; gap: 16px; }\n.qm .m-dashed { border: 1px dashed var(--dsw-alias-border-l4); border-radius: var(--dsw-radius-sm); padding: 24px 16px; display: flex; flex-direction: column;\n  align-items: flex-start; gap: 12px; }\n.qm .m-facts { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px 16px; padding-top: 12px; border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .m-hist { display: grid; grid-template-columns: 88px 1fr 1fr 1.4fr; gap: 8px; align-items: baseline; padding: 8px 0; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .m-hist.h { font-size: 12px; color: var(--dsw-alias-label-secondary); border-top: 0; padding: 4px 0; }\n.qm .m-chart { height: 280px; direction: ltr; }\n.qm .m-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; font-size: 12px; }\n.qm .m-sk { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; }\n.qm .m-sk > div { padding: 8px 10px; border-inline-start: 1px solid var(--dsw-alias-border-l1); border-bottom: 1px solid var(--dsw-alias-border-l1);\n  display: flex; flex-direction: column; gap: 2px; font-size: 13px; }\n.qm .m-tv { border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-sm); overflow: hidden; display: flex; flex-direction: column; }\n.qm .m-tvh { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 8px 12px; border-bottom: 1px solid var(--dsw-alias-border-l2);\n  font-size: 12px; color: var(--dsw-alias-label-secondary); background: var(--dsw-alias-bg-module-platform); }\n.qm .m-tvh a { color: inherit; }\n.qm .m-tvbody { direction: ltr; color-scheme: normal; background: var(--dsw-alias-bg-layer-1); }\n\n/* «متابعتي»: star toggle per row and in the detail header; one-line refresh note in the strip. */\n.qm .m-symw { display: flex; align-items: center; gap: 2px; min-width: 0; margin-inline-start: -6px; }\n.qm .m-symw > .m-sym { min-width: 0; flex: 1; }\n.qm .m-star { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; flex: none; display: grid; place-items: center;\n  border-radius: var(--dsw-radius-sm); cursor: pointer; color: var(--dsw-alias-label-tertiary); }\n.qm .m-star:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .m-star.on { color: var(--dsw-alias-label-primary); }\n.qm .m-watch { gap: 6px; }\n.qm .m-watch.on { background: var(--dsw-alias-interactive-bg-active); color: var(--dsw-alias-label-primary); }\n.qm .m-plan { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n";
+  // plugins/shared/logos/ABUK.svg
+  var ABUK_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path fill-rule="evenodd" d="M6.06 6H2v1.7h2.66c.46 0 .46.69.46.69s-.38-.34-1.09-.34c-.7 0-2.03.72-2.03 2.25 0 1.5 1.17 2.19 1.96 2.19.83 0 1.35-.5 1.35-.5l.13.5H7V7.1C7 6.05 6.06 6 6.06 6Zm-.94 4.1c0-.38-.26-.69-.62-.69s-.63.31-.63.69c0 .37.27.68.63.68.33 0 .62-.3.62-.68ZM15.1 6H10v1.7h3.75c.45 0 .45.69.45.69s-.37-.34-1.05-.34-1.95.72-1.95 2.25c0 1.5 1.12 2.19 1.88 2.19.8 0 1.3-.5 1.3-.5l.12.5H16V7.1C16 6.05 15.1 6 15.1 6Zm-.9 4.1c0-.38-.26-.69-.6-.69-.34 0-.6.31-.6.69 0 .37.26.68.6.68.31 0 .6-.3.6-.68Z" fill="#00762C"/><path d="M8 14h2V7.02s-.17-.6.5-.6V4.6H9.47S8 4.69 8 5.96V14Z" fill="#00762C"/><path fill-rule="evenodd" d="M6.06 6H2v1.03h2.66c.46 0 .65 1.36.65 1.36s-.64-.43-1.35-.43c-.7 0-1.96.6-1.96 2.01A2 2 0 0 0 3.96 12c.83 0 1.35-.46 1.35-.46l.13.46H7V7.03C7 6.04 6.06 6 6.06 6Zm-.4 3.78c0-.4-.32-.7-.73-.7a.71.71 0 0 0-.73.7c0 .38.3.7.73.7.38 0 .73-.32.73-.7ZM15.1 6H10v1h3.75c.45 0 .63 1.4.63 1.4s-.55-.4-1.23-.4c-.68 0-1.95.56-1.95 1.97A1.96 1.96 0 0 0 13.08 12c.8 0 1.3-.46 1.3-.46l.12.46H16V7.03c0-.99-.9-1.03-.9-1.03Zm-.39 3.78a.7.7 0 0 0-.7-.7.7.7 0 0 0-.7.7c0 .38.3.7.7.7.37 0 .7-.32.7-.7Z" fill="#10A736"/><path d="M8 14h2V6.42s.06-.6.5-.6V4H8.98S8 4.1 8 5.36V14Z" fill="#10A736"/></svg>';
 
-  // plugins/monos-portfolio/src/portfolio.css
-  var portfolio_default = "/* Portfolio screen («Monos / المحفظة»). host tokens only. */\n\n.qm .p-summary { display: grid; grid-template-columns: minmax(200px, 1.2fr) repeat(4, minmax(150px, 1fr)); }\n.qm .p-summary > div { padding: 16px; border-inline-start: 1px solid var(--dsw-alias-border-l1); display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .p-summary > div:first-child { border-inline-start: 0; background: var(--dsw-alias-bg-module-platform); }\n.qm .p-summary small { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .p-big { font-size: 24px; font-weight: 600; }\n@media (max-width: 1000px) { .qm .p-summary { grid-template-columns: 1fr 1fr; } .qm .p-summary > div { border-inline-start: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); } }\n.qm .p-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; border-top: 1px solid var(--dsw-alias-border-l1); font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n.qm .p-formhead { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 10px 16px; }\n.qm .p-form { display: grid; grid-template-columns: minmax(220px, 2fr) minmax(120px, 1fr) auto minmax(110px, 0.8fr) minmax(130px, 1fr); gap: 12px; align-items: end;\n  padding: 16px; border-top: 1px solid var(--dsw-alias-border-l1); }\n@media (max-width: 1000px) { .qm .p-form { grid-template-columns: 1fr 1fr; } }\n.qm .p-form .q-input { width: 100%; }\n.qm .p-form label small { color: var(--dsw-alias-label-tertiary); }\n.qm .p-form .q-label { white-space: normal; }\n.qm .p-formfoot { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 0 16px 16px; }\n.qm .p-total { font-size: 14px; }\n\n.qm .p-g { --cols: minmax(170px, 1.5fr) 92px 88px 96px 100px 72px minmax(200px, 2fr) 76px; min-width: 900px; }\n.qm .p-g > * { padding-block: 10px; }\n.qm .p-row { border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .p-row:last-child { border-bottom: 0; }\n.qm .p-row.q-warn { background: var(--dsw-alias-state-warn-tertiary); }\n.qm .p-row .q-input { height: 32px; width: 92px; }\n.qm .p-actions { display: flex; gap: 2px; justify-content: flex-end; }\n.qm .p-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 20px; padding: 12px 16px 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n";
+  // plugins/shared/logos/ADIB.svg
+  var ADIB_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><circle cx="9" cy="9" r="5" fill="#BBBEC0"/><path d="M9 4.3a4.7 4.7 0 1 1 0 9.4 4.7 4.7 0 0 1 0-9.4Z" fill="#F0F3FA"/><path d="M8.34 4.57a5.01 5.01 0 0 1 4.63 6.97 4.72 4.72 0 0 1-8.68-2.56c0-1.84.97-3.32 2.5-4.1.47-.13 1.06-.3 1.55-.3Z" fill="url(#apajdmeat)"/><path d="M9.58 4.47a5.05 5.05 0 0 1 3.83 4.84c0 .68-.09 1.45-.34 2.05-.2.4-.92 1.28-1.6 1.66a5.1 5.1 0 0 1-3.8-4.77c0-1.56.75-2.92 1.91-3.78Z" fill="url(#bpajdmeat)"/><path d="M8.42 4.33c1.96 0 3.61 1.17 4.42 2.8a4.68 4.68 0 0 1-8.37.6 4.74 4.74 0 0 1 3.95-3.4Z" fill="url(#cpajdmeat)"/><path d="M12.84 7.1a4.72 4.72 0 0 1-4.83 2.92 4.71 4.71 0 0 1 1.58-5.55 5.01 5.01 0 0 1 3.25 2.62Z" fill="url(#dpajdmeat)"/><path d="M9 5.47h2.8l1.15 1.43.31.92-.73 2.36V8.12l-2.06 3.53 1.47-4.12-3.23 2.06 2.94-2.65-3.83.59 3.53-1.18L9 5.47Z" fill="#F0F3FA"/><defs><linearGradient id="apajdmeat" x1="4.59" y1="7.82" x2="11.35" y2="13.71" gradientUnits="userSpaceOnUse"><stop stop-color="#0095D9"/><stop offset="1" stop-color="#063072"/></linearGradient><linearGradient id="bpajdmeat" x1="8.12" y1="8.72" x2="13.41" y2="11.22" gradientUnits="userSpaceOnUse"><stop stop-color="#00BAEF"/><stop offset="1" stop-color="#0BABEF"/></linearGradient><linearGradient id="cpajdmeat" x1="10.05" y1="4.68" x2="4.67" y2="8.19" gradientUnits="userSpaceOnUse"><stop stop-color="#00C3EF"/><stop offset=".92" stop-color="#02A1E8"/></linearGradient><linearGradient id="dpajdmeat" x1="12.82" y1="7.09" x2="7.53" y2="7.82" gradientUnits="userSpaceOnUse"><stop stop-color="#D1E2EA"/><stop offset=".94" stop-color="#5DC6F3"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/ALCN.svg
+  var ALCN_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M4.82 13H3l1.65-8h3.02L9 13H6.76l-.22-2H5.16l-.34 2Zm.52-3h1.09L6 6.18 5.34 10ZM15 8V6.93S14.9 5 12.5 5 10 6.5 10 6.5v4.47S9.95 13 12.38 13c2.44 0 2.62-1.9 2.62-1.9V10h-2v1.29s0 .71-.5.71-.5-.73-.5-.73V6.5s.02-.5.5-.5.5.5.5.5V8h2Z" fill="#181B1E"/></svg>';
+
+  // plugins/shared/logos/AMOC.svg
+  var AMOC_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M9 15s3-2.5 3-4.57c0-2.06-3-4.92-3-6s.26-1.2.4-1.43C9.2 2.94 6 6.15 6 8.91c0 2.76 2.74 3.44 3 6.09Z" fill="#D2232A"/></svg>';
+
+  // plugins/shared/logos/BTFH.svg
+  var BTFH_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M8 3v8l4.58-3.23c.27-.2.42-.48.42-.8 0-.32-.15-.6-.42-.8L8 3Z" fill="#384F6E"/><path d="M8 7v8l4.58-3.23c.27-.2.42-.48.42-.8 0-.32-.15-.6-.42-.8L8 7Z" fill="#384F6E"/><path d="M8 7v4l3-2.02L8 7Z" fill="#F0F3FA"/><path d="M8 7v4L5 8.98 8 7Z" fill="#BB4E4F"/></svg>';
+
+  // plugins/shared/logos/CLHO.svg
+  var CLHO_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M5 3h8v12H5V3Z" fill="#0599A7"/><path d="M5.5 3.5h7V11h-7V3.5Z" fill="#90CFD6"/><path d="M5.5 11.5h7v3h-7v-3Z" fill="#F0F3FA"/><path d="M8.7 4s-.2.11-.2.25c0 .28.25.5 1 .5.15 0 .32-.05.5-.08 0 0-.25.33-1 .33-.7 0-1-.31-1-.55 0-.3.48-.44.7-.45Z" fill="#039CA8"/><path d="M7.38 9.67s-.21-1.13.28-2.31c.5-1.18.53.4.53.4l1 1.95.14.28c.02 0-.86.1-1.95-.32Z" fill="#004151"/><path d="M9.93 10H9.9c-.28.01-2.45.07-2.11-2.45l-.32-.2s-.23.14-.47.16c0 0-.01-.46.06-.73 0 0 .11.14.38.06 0 0 .67-.84 1.6-.84s1.41.64 1.41.64.16-.01.16-.2c0-.2.38-.25.39.19 0 0-.06-.1-.17-.1-.1 0-.04.33-.34.37l-.03.87.33.48-.24.19s-.01.1.08.1c.1 0-.02.13-.02.13s.08.14-.06.14c0 0-.06.08.01.19.07.1-.12.27-.4.23-.27-.04-.29 0-.29 0s-.2.44.06.77Z" fill="#039CA8"/><path d="M10.6 6.92s-.6-.02-1.27.3V10l.18-.01V7.6l1.16-.23-.07-.46Z" fill="#004151"/><path opacity=".5" fill="#0599A7" d="M7 12h1v2H7zM9 12h1v2H9zM11 12h1v2h-1z"/></svg>';
+
+  // plugins/shared/logos/COMI.svg
+  var COMI_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#0359A2" d="M0 0h18v18H0z"/><path d="M8.5 13v-1.73a4.3 4.3 0 0 0-2.09.91c.53.5 1.27.7 2.09.82Zm0-2.64v-.9H5c.06.74.3 1.27.7 1.82a5.25 5.25 0 0 1 2.8-.92Zm0-1.81v-.91a5.29 5.29 0 0 1-2.81-.91A4.02 4.02 0 0 0 5 8.55h3.5Zm0-1.82V5c-.82.12-1.5.32-2.09.82.59.43 1.27.85 2.09.9ZM9.5 5v1.73a4.3 4.3 0 0 0 2.09-.91c-.59-.5-1.33-.7-2.09-.82Zm0 2.64v.9H13a3.26 3.26 0 0 0-.7-1.81c-.76.55-1.8.78-2.8.9Zm0 1.81v.91c1.06.07 2.06.36 2.82.91A4 4 0 0 0 13 9.45H9.5Zm0 1.82V13c.82-.12 1.5-.32 2.09-.82a4.96 4.96 0 0 0-2.09-.9ZM4 9c0-2.78 2.24-5 5-5s5 2.22 5 5-2.24 5-5 5-5-2.22-5-5Z" fill="#F58423"/></svg>';
+
+  // plugins/shared/logos/EAST.svg
+  var EAST_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path fill-rule="evenodd" d="M9 5.5c-2.23 0-5.5.87-5.5 3.5 0 2.64 3.27 3.5 5.5 3.5s5.5-.87 5.5-3.5c0-2.64-3.27-3.5-5.5-3.5ZM15 9c0-2.2-2.69-4-6-4-3.32 0-6 1.8-6 4s2.69 4 6 4 6-1.8 6-4Z" fill="#622300"/><path d="m7.37 7.33-.2.1c-.08.06-.08.08-.19.11-.27.02-.09.04-.54.12l-.61.75c-.33.42-.33.61-.44.76-.2.26.02.2-.28.3-.22.09-.08.09-.27.17l-.31.17c-.17.08-.14-.02-.28.1.07.07.04.09.2.08.21-.02.07-.02.14-.05.36-.19.17 0 .4-.13.12-.05.08-.1.26-.1.17.01.18.13.55.38l.07.06.64.37c.39.26.57.35 1.05.48.15.04.27.02.65.02.34.43.9.04 1.16.03.38-.03.34-.1.62-.16l.4-.2c.2-.17.33-.25.65-.36.24-.04.24 0 .46-.13l.11-.06.03-.03-.41.01c-.05-.07-.05-.12-.08-.2-.07-.18.35.26.35.02 1.38-.05.97-.88-1.78-2.3.12.01-1.68-.3-1.57-.36-.35.04-.32-.08-.78.05Z" fill="#AC4301"/><path d="M7.37 7.33c.33-.09.5.15.44.45.73.02.25-.17.86-.14l.35.98c.23.2.38.38.91.4.2 0 .81 0 .98-.04.14-.04.11-.05.32-.05-.02.3-.2.25-.05.45.2-.07 0-.16.28-.16.13.24.41.51.1.66-.28-.2.08-.21-.48-.23 0 .23 0 .09.06.26.04.1.04.14.08.21h.42c.14-.18.13-.12.31-.18l.29-.2c.26-.32 1.6-1.03 1.5-1.27-.22-.27-.44-.2-.73-.41-.55-.42-.72-.23-1.08-.4-.14-.07-.1-.13-.3-.16-.37-.08-.15-.07-.36-.14-.32-.12-.51-.13-.77-.23-.16-.04-.13-.1-.37-.11a9.3 9.3 0 0 0-1.5.02c-.38.08-.1.15-.87.14h-.22c-.25.04-.13.01-.17.15Z" fill="#8C2A00"/><path d="M6.43 9.24h.21c-.01-.12-.01-.1-.05-.18h-.23c-.06.07-.03.01-.07.11l-.03.11c-.06.27-.14.13-.37.27l.03.16c.22.1.23-.04.44.22l.24.37c-.2-.05-.27-.1-.4-.17.14.17.27.21.44.33.11.08-.04.13.6.36.29.13.4.16 1.1.15.21.05.1.08.26.13.33.09.3-.13.65-.15l.27-.01c.17-.05 0 0 .09-.05l.26-.1h.04l.03-.02h-.15c-.35.06-.18.17-.9.16.28-.28.25.12.4-.36l.46-.01.16-.16c-.15-.12-.04-.07-.13-.2l-.3-.3c-.62-.6-.12-.63-.46-.76-.11-.04-.5.03-.43.15-.21-.28-.03-.21.03-.49.04-.2.14-.36.07-.53-.06-.15-.02-.05-.1-.12-.17.07-.03-.03-.12.11-.06.1.06 0-.15.26-.06.08-.19.3-.22.4l.21.16c-.25.02-.51 0-.73.06-.03.08-1.27.29-1.15.1Z" fill="#BB5301"/><path d="M7.52 9.3c-.14.17-.1.06-.23.16l-.04.05c-.08.1 0 .1-.14.14-.19-.16.08-.36-.38-.3-.06-.1.09.02-.09-.1l-.21-.02c-.04.07-.04.1-.1.16-.32.36-.05.23.15.54l.26.37c.21-.09.15-.15.37-.26.19.15-.02.05.37.25l.18-.08c.29.33.51-.01.7.43l.52.07c.01-.26 0-.2-.1-.35-.08-.1-.1-.17-.16-.26l-.35-.44-.2-.22-.1-.2c-.07-.12-.39.03-.45.05Z" fill="#CC6B02"/><path d="M7.22 8.91c-.08-.22.1-.69.26-.77.15.1.16.03.1.56-.3.1-.14.14-.36.21Zm.59-1.13c-.05-.04-.01.01-.09-.1l-.06-.1c-.36-.02-.17.05-.41.13l-.18.03c.08.16.1 0 .1.28 0 .36 0 .47-.27.53-.05-.2.01-.39-.07-.52H6.7l-.11.42c-.06.18-.04.38-.03.56l.36.01c.17.04.07.08.34.08.29-.1.07-.12.5-.13.04-.2.12-.17 0-.37-.15-.26-.08-.09 0-.33-.13-.17-.15-.04-.14-.3h.36c-.09-.12-.15-.02-.17-.19Z" fill="#C46302"/><path d="M13.2 8.79c-.06.16.06 0-.14.11l-.25.2c-.04-.06-.01 0-.04-.1a.28.28 0 0 1 0-.07c-.02-.03-.02-.11-.02-.16-.26-.02-.73-.03-.92.11-.2.14-.14.22-.09.33l.1.14c.15.03.4.06.53.02.25-.08.14-.27.32-.16-.06.05 0 0-.07.04l-.08.05-.03.02-.1.11c-.13.14-.07.2-.16.3l-.29.2c-.18.06-.17 0-.31.17l.16.03c.1-.2.08-.07.28-.17.1-.05.14-.13.24-.16.02-.08.04-.16.08-.22a.22.22 0 0 1 .06-.07c.09-.06.04-.03.13-.05 0-.17-.08-.04.1-.16.2-.13.97-.58.79-.92l-.02.23c-.17.09-.23 0-.27.18Z" fill="#A43B01"/><path d="m10.12 7.68.12-.13.02-.03c.24.03.2.07.41-.07l-.05-.16c-.73-.01-.5-.3-1.2-.2-.34.05-.43.33-.4.48.04.26.65.07.7.06.32-.08.17.04.4.05Z" fill="#671A01"/><path d="M8.19 9.62c-.05-.03-.1-.03-.18-.14-.05-.07-.06-.12-.1-.2-.22.02-.27.03-.33.18l.5.54c.36.24.14.38.57.46-.02-.16-.05-.22-.17-.37l-.04-.05-.02-.02c-.1-.1-.23-.26-.23-.4Z" fill="#E29706"/><path d="M10.37 8.67c.17.05.08.07.33.09.05-.46-.14-.22-.39-.37-.3-.18.06-.26-.5-.23-.04.46 0 .55.25.52.18-.02.08-.08.3-.01Z" fill="#A43B01"/><path d="M7.16 10.76h.13c.17.04.3.06.49.03-.08-.22-.06-.09-.16-.19-.07-.08-.05-.04-.07-.18-.27-.03-.2-.12-.5-.15-.06.1-.12.13-.14.25.18.12.18 0 .25.24Z" fill="#AC4301"/><path d="M9.51 9.34c.04.08-.02.04.1.12l.11.06c.12.05.17.08.33.08l-.1-.56L9.94 9c-.23.05-.34.04-.53-.07-.02-.01-.26-.28-.28.21.1.1.19.18.38.2Z" fill="#BD5B01"/><path d="M7.22 8.91c.22-.07.07-.11.36-.21.06-.52.06-.47-.1-.56-.16.08-.34.56-.26.77ZM6.76 9.44c.08.16.15.12.02.3-.17-.05-.07.07-.17-.12-.03-.04-.05-.14-.06-.2l.21.02Zm0 0V9.4l-.02-.03-.01-.03H6.5a.82.82 0 0 1-.1.12c-.13.15-.05-.02-.1.16.09.06.07.05.28.05l.1.2c.4-.02.23.05.46.07-.02-.33-.02 0-.24-.39-.09-.17.02-.09-.14-.11Z" fill="#D88705"/><path d="M9.51 9.34c.25.02.13.12.43.16.04-.22-.05-.15-.04-.41l-.56-.04c.05.18.1.13.17.3Z" fill="#D47702"/><path d="m8.7 9.18.25.37c.14.13.05.15.26.22 0-.21-.12-.32-.13-.33-.17-.27-.14-.14-.18-.24l-.2-.02Z" fill="#CB7505"/><path d="M11.06 8.78c.15-.1 0-.37 0-.37l-.01-.03c-.47.05-.16.5 0 .4Z" fill="#771B00"/></svg>';
+
+  // plugins/shared/logos/EFID.svg
+  var EFID_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M9 3a6 6 0 0 1 5.96 6.7l-4.76 5.15c-.39.07-.8.15-1.2.15A6 6 0 0 1 9 3Z" fill="url(#a4y5kufot)"/><path d="M9 4c2.77 0 5 2.23 5 5 0 .58-.25 1.35-.55 1.67L11 13.33c-.62.27-.83.67-2 .67A4.99 4.99 0 1 1 9 4Z" fill="url(#b4y5kufot)"/><path d="M12 10s-2.25 1.83-5 1.35c0 0 .78.69 2.21.65.95-.02 2.1-.5 2.79-2Z" fill="#F7EC5B"/><path d="m15 10-5 5s-.06-1.48 1.7-3.15S15 10 15 10Z" fill="url(#c4y5kufot)"/><path opacity=".7" d="m5 9 7-3 1 2-7 3-1-2Z" fill="#F0F3FA"/><defs><linearGradient id="a4y5kufot" x1="3" y1="6.88" x2="13.76" y2="11.65" gradientUnits="userSpaceOnUse"><stop offset=".32" stop-color="#fff"/><stop offset=".95" stop-color="#B1B6BB"/></linearGradient><linearGradient id="b4y5kufot" x1="4.02" y1="7.34" x2="12.83" y2="10.82" gradientUnits="userSpaceOnUse"><stop offset=".39" stop-color="#F6AF39"/><stop offset="1" stop-color="#F06C2A"/></linearGradient><linearGradient id="c4y5kufot" x1="11.46" y1="12.08" x2="12.4" y2="13.16" gradientUnits="userSpaceOnUse"><stop offset=".21" stop-color="#9DA1A8"/><stop offset=".51" stop-color="#FCFBFC"/><stop offset=".82" stop-color="#8A8F97"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/HRHO.svg
+  var HRHO_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M5 12s-.2.9-1 2h9s.31-.98 1-2H5ZM5 4s-.2.9-1 2h9s.31-.98 1-2H5ZM5 8s-.2.9-1 2h9s.31-.98 1-2H5Z" fill="#003E21"/></svg>';
+
+  // plugins/shared/logos/EFIH.svg
+  var EFIH_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M4 5h10v5s-2.88 4-6.42 4C6.43 14 6 13.46 6 12.65 5.99 10.62 8.78 6.98 10.84 7c.62 0 .66.58.66.79 0 .99-2.47 3.09-4.5 3.81 1.6 0 6-1.94 6-4.05C13 7.1 12.84 6 11.38 6 9.26 6 5.25 8.42 4 11.6V5Z" fill="#E32012"/></svg>';
+
+  // plugins/shared/logos/EGAL.svg
+  var EGAL_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M5.85 4h5.31s.59.14.78.72l2.16 7.2S15 12 15 13H3s-.12-.84.69-1.14l1.55-7.12c0 .01.2-.74.61-.74Z" fill="url(#akpgcu1od)"/><path d="M6.44 5h3.65s1.05.1 1.4 1.55C11.87 8 13 12 13 12H5l1.44-7Z" fill="#F0F3FA"/><path d="M8.5 6.59c-.37.45-.89.55-1.14.89.76 1.1.07 1.76.45.56L7.53 8l-.23-.2-.15.02c-.51.53-1.06.53.03 2.26h1.1c.95 0 1.7 1.21 2 2.1.22-.2.25-.2.58-.24-.05.55.07.22-.26.32.01.01.04.01.06.04l.42.24c.76.24 1.09.64 1.8.84l-.35-.35c-.41-.14-.4-.1-.64-.42l-.9-.3-.08-.92-.25-1.95c.48-.48.76-.22.9-.75.11-.43-.08-1.09-.01-1.56-.37-.35-.73.35-1.1-.16-.39.23-.17.91-.17 1.5.03.45.2 1.93-.28 1.55-1.06-.73-.86-.46-.8-2.3.04-.79-.1-.93.48-1.2-.03-.38-.05-.35-.18-.65l.32-.28c-.1-.9-.98.56-1.33 1Z" fill="#030303"/><path d="m7.08 9.5-.43-.02.08.67c1.13 1.06.17.41 1.68 1.62.28.22.3.38.59.57.49.02.36 0 1.08.04l.47-.1c-.19-.12-.04 0-.14-.18-.16-.5-.9-1.52-1.24-2.04l-.78-.07c-.13-.66.02-.33-.35-.73-.28-.3-.1-.25-.54-.4.16.94.56.04.7 1.18l-1.02.02-.1-.56Z" fill="#FDFDFC"/><path d="M6.73 11.51c-.6.27-.24.3-.6.7-.77.84-.47.84-.26 1.28.27-1.14.53-1.44 1.25-1.96.64.16.5.25.9.62.45.42.65.19.7.87-.78.1-.97-.22-1.52.98l.25-.2c.31-.3.46-.51 1.04-.5.5.02.91.35 1.23.54l-.43-.57c.63-.14.34.02.96.03l.06-.01c.02-.02.05-.02.07-.03-.28-.54-1.33-.1-1.33-.94-.3-.17-.34-.32-.63-.55-1.5-1.2-.54-.56-1.67-1.62-.25 0-.18-.06-.18.17.21.53.2.62.16 1.2Z" fill="#15131D"/><path d="M6.57 10.32c-.02-.23-.07-.17.18-.17l-.08-.67.43.02c.02.02.05.03.05.05l.05.05c.46.4.1.22.66.34-.25-.38-.26-.57-.78-.57.07-.28.07-.3.18-.47l-.48-.08c.27-.22-.06-.43-.06-.43.62-.2 1.1-.15.86-.24.13.21-.05.18.48.08l-.61-.92-.48-.01a4.91 4.91 0 0 0-.75 1.34c-.07.43.1 1.35.35 1.68Z" fill="#727272"/><path d="M10.35 13.27c.08-.1-.32-.25.33-.13.41.08.2.13.25.16.63.35.31.16.58-.03-.17-.41.36-.32-.48-.36-.19-.53-.07-.22-.02-.34l-.41-.23c-.03-.05-.78 0-.87 0-.2 0 .05.03-.67 0-.02.21-.09.36-.12.46l-.08.32 1.2-.1.05.05.14.12c.03-.01.08.05.1.08Z" fill="#757575"/><path d="M9.12 5.5s-.15.39-.2.47c-.08.14-.18.2-.23.27-.23.28-.07.01-.22.35-.31.15.1.68.12 1.53l.58-1.7c.13-.34 0-.52.2-.69.18-.34.33-.43.63-.41-.23-.3-.07-.22-.68-.32-.05.5-.07.3-.2.5Z" fill="#7D7D7E"/><path d="m10.68 6.6-.28.37c.1.46.11.7.23 1.1l.38-.55c.07-.36-.03-.17.28-.35l.25-.1c-.07-.44-.12-.37-.3-.77-.02-.03-.13-.33-.15-.35-.31-.36.28-.14-.43-.2l.27.7c-.1.18.34.17-.25.15Z" fill="#ADADAE"/><path d="M9.77 5.6c0 .02-.02.38 0 .48.08.44.28.08.08.47l.83.05c.6 0 .15.03.3-.13l-.27-.7c-.6.17-.63-.23-.7-.47l-.3-.01.06.31Z" fill="#030303"/><path d="M9.45 12.16c.45.39.17.2.26 0-.2-.42-.36-1.03-.6-1.54l-1.23-.03c.3.3.57.3.9.64.46.49.14.46.67.93Z" fill="#2C2C2C"/><path d="M9.95 10.12c.33.15-.41.16.39.11.24-.27.06-.12.3-.32l-.18-1.35c-1.01-.07-.27-.07-.5.16.11.5.23 1 0 1.4Z" fill="#898A8A"/><path d="M6.75 12.65c.08.23.05.11.08.4-.24.28-.33.3-.51.55l.73-.04c.05-.54-.03-1.02-.51-1.32l.21.41Z" fill="#1C1C1C"/><path d="M8.08 8.2c-.52.11-.35.13-.48-.08-.34.18-.2.07-.37.37.3.19.28.22.8.25l.05-.54Z" fill="#FCFCFC"/><defs><linearGradient id="akpgcu1od" x1="7" y1="7.6" x2="10.62" y2="5.41" gradientUnits="userSpaceOnUse"><stop stop-color="#293982"/><stop offset="1" stop-color="#1A1A26"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/EMFD.svg
+  var EMFD_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#6A6A6A" d="M0 0h18v18H0z"/><path d="m11.98 12.2-.13.8H5.8c.25-.55.2-.87.2-1.26V6.26c0-.38.05-.72-.2-1.26l6.2-.01v.83l-.28-.12c-.22-.08-.5-.15-.79-.15H7.58v2.83h3.84l-.2.62H7.59v3.43h3.25c.58 0 1.16-.3 1.16-.3l-.02.07Z" fill="#fff"/></svg>';
+
+  // plugins/shared/logos/FWRY.svg
+  var FWRY_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#FFC10E" d="M0 0h18v18H0z"/><path d="M9 4a5 5 0 1 1-.01 10.01A5 5 0 0 1 9 4Z" fill="#F0F3FA"/><path d="M6.26 13.2a5.32 5.32 0 0 1-1.53-1.58c.02 0 1.57.82 4.27-1.62l-.94-.7C8.03 9.28 8 9.2 8 9.14c0-.07.04-.14.14-.14h2.68s.16 0 .18.14v2.72s-.05.14-.15.14a.17.17 0 0 1-.1-.04C10.54 11.8 10 11 10 11s-1.89 2.07-3.74 2.2ZM11.81 4.87c.64.4 1.15 1 1.52 1.63-.1 1-.98 2.33-1.07 2.47-.02.03-.05.03-.08.03C12 9 12 8.84 12 8.7V8h-1.18c-.1 0-.21-.02-.26-.07a.17.17 0 0 1-.06-.12c0-.09.08-.15.08-.15 1.07-1.4 1.24-2.22 1.23-2.58v-.21Z" fill="#076D93"/></svg>';
+
+  // plugins/shared/logos/GBCO.svg
+  var GBCO_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M8.5 6h-3L2 8.98 4.5 12h3.9s.6 0 .6-.67V7L6.5 9v1.5L5 9l3.5-3Z" fill="#2A1071"/><path d="M14.5 9 16 8l-2.09-2h-3.39S10 6 10 6.67v4.83l2-1.83v-1l1.5.83L11 12h2.91L16 10l-1.5-1Z" fill="#00A9EC"/></svg>';
+
+  // plugins/shared/logos/HELI.svg
+  var HELI_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M5.76 10c-.1-.45-.36.3-.34-.41v-.63c0-.57.38-.42.92-.47.77-.07.4.04.45.62 0 .12 0 1.1-.03 1.2l-1.24.07-.04-.06.28-.32Zm6.2-.96-.24.22c-.07-.03-.47-.19-.51-.18l-.08.2-.94-.26-.05.44-.1-.72h-.12c-.01.11-.07.58-.05.65l.05.12.16.16-.29-.09.08-.72c-.5-.2-1.02-.41-1.5-.64l.1.27-1.1-.03-.4.01-.06-.3-.92.27h-.45l-.3-.22-.27.44h.34l-.11 1.65c0 .13.11.24.25.16l.47.13.15.1 2.5-.32c-.12-.02-.3-.04-.4-.08l.08-1.51.33.1.04.3h.06v-.3l.3.13-.22.36.1.06.31-.39.13.3.07-.01.06-.24c0 .05 0 .28.03.3.05.02.18 0 .23.03l-.12.24c.08.72.3.76.38.81.15.09.15-.02.37.04l.18-.4 1.15.2.13.2.34-.3-1.66-.67.23.07c0-.03.75.71 1.27.08-.06.41.45.73.61.41l-.02-.38-.65-.26.05-.13.47.11c0-.08-.02-.46-.05-.5l.18.06c-.05-.07-.19-.79-.22-.92L12.1 9l.12.04h-.25Z" fill="#B4A27C"/><path d="m7.38 8.46 1.1.03-.06-.17c.5.2 1 .43 1.4.58l-.07.65.18.75.07-.01.19-.65-.18-.08.18-.03-.32-.14c-.02-.07.04-.53.06-.64h.11l.1.71.06-.43.94.25.07-.2c.05 0 .44.16.52.19l.24-.22-.07-.31-1.7-.15-.04-.83-.3-.76H8.47c0 .15.1.42.13.57l-.21-.01v.57l-.1.29-.92.04Z" fill="#E3DCCB"/><path d="m11.78 10.5.1-.11v.12l1.25.22-.02-.1c.02-.06.36-.47.36-.55l-.33.02-.01-.2-.29-.02-.03-.31.26-.03v-.08l-.28-.03-.46-1.35c.03.14.18.85.22.92l-.18-.06c.03.05.04.43.05.5l-.47-.1-.05.12.65.26V10l-.09-.12-.08.17c-.04-.06-.28-.1-.36-.12l-.06-.24-.38.12-.17-.22-.06.02-.02.3h-.05l-.02-.33-.05.16-.06.01-.09-.24c-.04.01-.29-.04-.29-.04l-.03-.05-.05.2-.1-.24h-.09l-.04.17-.09-.22-.11.03.06.58.06-.07 1.61.33-.21.3Z" fill="#EBE4D3"/><path d="M5.8 10.22c0-.68-.11-.64.34-.62v.58l-.04.02c-.17.09-.1.04-.3.02Zm-.02-1.53c.1-.02.3-.03.38 0 0 .14-.01.44.02.55-.03.02-.14.1-.16.1l-.23-.04v-.6Zm-.13 1.28-.17.35.04.06 1.24-.07c.03-.1.03-1.08.03-1.2-.04-.58.32-.69-.45-.62-.54.05-.93-.11-.92.46v.64c-.02.7.15.13.23.38Z" fill="#FAFAF1"/><path d="m8.62 7.61-.32.19c0 .09.01.13.1.25l1.47-.16v-.1l-1.06-.1.06-.37.12.32h.05l.12-.35.15.3.18-.3.07.26c.38-.4-.3-.4-.34-.38-.3.14-.56-.19-.6.44Z" fill="#B39B73"/><path d="M5.78 8.7v.6l.23.04c.03 0 .14-.08.17-.1-.04-.1-.02-.41-.03-.56-.08-.02-.27 0-.37.01Z" fill="#B89A74"/><path d="M5.8 10.22c.2.02.12.07.3-.02l.05-.02-.01-.58c-.45-.02-.33-.06-.35.62Z" fill="#AC9364"/><path d="m9.37 9.58.13.12.1.92a2.3 2.3 0 0 0-.71.3c-.12.09-.55.32-.56.49.12-.01.09-.07.27-.08.1 0 .21 0 .32-.02l.15.13-.08.09c-.3.1-.56.2-.94.14-.12-.16-.45-.92-.6-.95-.13.24.14.48.18.7-.2.26-.53.29-.76.19-.05-.02 0-.02-.08-.01v.26l.05.1c.15.02.3.02.43-.04.09-.04.25-.15.33-.16.05 0 .1 0 .16-.02.03.26.41.27.64.26.46-.02.57-.25 1.02-.4.26-.1.41-.04.4-.35-.18-.02-.32.02-.48.03-.09 0-.36-.07-.41-.1.17-.21.44-.13.69-.2.13-.04.18-.19.18-.36 0-.18-.04-.38-.07-.5-.1-.44.01-.33.05-.56l.02-.15c-.07-.07-.14-.02-.22-.07-.06-.05-.05-.22-.01-.23L9.54 9c-.17.07-.18.33-.17.58ZM5.7 11.26c0 .14-.02.08.05.2.03.06.09.14.08.2a.86.86 0 0 1-.24.12c-.23.08-.2-.03-.31-.03v.18l.04.04c.13.02.22 0 .32-.04.08-.04.2-.12.26-.13.15.14.08.2.37.2.25 0 .3-.08.43-.13.04-.1.1-.18.08-.33-.06-.04-.13-.16-.28-.15l-.02.15c.06.05.15.1.16.18-.11.1-.3.1-.5.09a1.8 1.8 0 0 1-.3-.46c-.09-.07-.05-.13-.14-.09Z" fill="#0C442B"/><path d="m4.7 11.6.1-.1c.13-.01.23.03.28.12-.02.05-.03.07-.1.1a.22.22 0 0 1-.12.03l-.16-.03v-.11Zm-.14.37c.61.22 1.12-.77.24-.72-.13.22-.38.45-.24.72Z" fill="#0C442B"/><path d="m9.74 10.3.02.17c0 .1.06.38.08.5.09.55.02.3.05.59.14-.02.03-.77.03-.8-.03-.06-.07-.38-.08-.49v-.04c-.06-.02-.08-.01-.1.07Z" fill="#13432C"/><path d="M11.56 11.18c.03-.1.31-.23.4-.26.15-.08.44 0 .5.1-.08.15-.74.17-.9.16Zm-2.1.2c.05-.02.12-.04.12-.13-.07 0-.1.04-.14.09-.05.02-.08.07-.13.08a.64.64 0 0 0-.18.2c-.03.06-.1.14-.07.24.02.1.1.14.2.14s.4-.16.46-.22c.24-.1.32-.25.87-.37.07-.02.14 0 .2-.02.11 0 .08-.04.16-.04.17.04.16 0 .14.13 0 .1-.13.17-.13.31.1-.03.05-.05.2-.23l.12-.15c.09-.06.54 0 .69-.03.08-.01.78.07.97 0 .11-.06.1-.14.17-.22.23 0 .27.1.45.09a.44.44 0 0 0 .04-.22c-.02-.16-.1-.34-.23-.36-.09-.01-.19.05-.3.21-.04.04-.05.09-.08.11-.01.11-.03.16-.14.17a.89.89 0 0 1-.25.02l.07-.18c.02-.21-.33-.44-.67-.28l-.52.3c-.1.06-.23.2-.32.04-.05-.07 0-.09-.09-.13-.14.06 0 .22-.27.23-.31.03-1.06.38-1.1.47-.11.04-.15.04-.28.06-.07 0-.1-.03-.11-.1.07-.12.06-.11.14-.2Zm3.74-.42c.02-.18.2-.04.21.05l-.21-.05Z" fill="#13432C"/><path d="M3.15 12c-.1-.47-.15-.96-.15-1.47C3 6.93 5.69 4 9 4s6 2.93 6 6.53c0 .5-.05 1-.15 1.47h-1.01c.1-.45.16-.93.16-1.42C14 7.5 11.76 5 9 5s-5 2.5-5 5.58c0 .5.06.97.16 1.42h-1Z" fill="#A09077" fill-opacity=".5"/></svg>';
+
+  // plugins/shared/logos/ISPH.svg
+  var ISPH_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M7.56 6 7 4.15 7.44 4 8 5.85 7.56 6Z" fill="#C493C2"/><path d="m9.74 5.58.44-.58.5.42-.45.58-.49-.42Z" fill="#AD3190"/><path d="M8.55 8V7H9v1h-.45Z" fill="#57C1E9"/><path d="M10.34 7.68 12.36 5l.35.32L10.69 8l-.35-.32Z" fill="#0083BF"/><path d="M12 7.56 13.85 7l.15.44-1.85.56-.15-.44Z" fill="#685AA7"/><path d="M10 9h2.7v.5H10V9Z" fill="#9F58A3"/><path d="M7.63 8 6 6.33 6.37 6 8 7.67 7.63 8Z" fill="#00518A"/><path d="M5.86 8.5h-.95V8h.95v.5Z" fill="#005DA6"/><path d="M11.7 14 10 11.29l.3-.29 1.7 2.71-.3.29Z" fill="#9279B7"/><path d="m13.2 12.25-1.2-.83.24-.42 1.2.83-.25.42Z" fill="#F48474"/><path d="M8.55 13.7V12H9v1.7h-.45Z" fill="#CA5BA2"/><path d="m9 9-4.7 5-.3-.37 3.73-3.97-2.69.34L5 9.5 9 9Z" fill="#4D5FAB"/></svg>';
+
+  // plugins/shared/logos/JUFO.svg
+  var JUFO_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M9 8.5S8 6.75 8 5.56C8 4.34 8.53 4 9 4s1 .47 1 1.5-1 3-1 3Z" fill="url(#am4lldc1t)"/><path d="M9 9.4s-1 1.15-1 2.12C8 12.5 8.46 13 9 13s1-.58 1-1.44S9 9.4 9 9.4Z" fill="url(#bm4lldc1t)"/><path d="M8 8.5s-2.27 0-3.14-.43C4.22 7.72 4 7.31 4 6.94c0-.22.08-.42.19-.6.2-.3.58-.54 1.06-.54.27 0 .55.07.86.23C7.02 6.53 8 8.5 8 8.5Z" fill="url(#cm4lldc1t)"/><path d="M10 8.5s2.27 0 3.14-.43c.64-.35.86-.76.86-1.13 0-.22-.08-.42-.19-.6-.2-.3-.58-.54-1.06-.54-.27 0-.55.07-.86.23C10.98 6.53 10 8.5 10 8.5Z" fill="url(#dm4lldc1t)"/><path d="M8 9.4s-1.8.92-2.8 2.24c0 0-.26.46-.98.46-.68 0-1.22-.36-1.22-1.17C3 9.97 4.4 9.4 5.16 9.4H8Z" fill="url(#em4lldc1t)"/><path d="M10 9.4s1.8.92 2.8 2.24c0 0 .26.46.98.46.68 0 1.22-.36 1.22-1.17 0-.96-1.4-1.53-2.16-1.53H10Z" fill="url(#fm4lldc1t)"/><defs><linearGradient id="am4lldc1t" x1="9" y1="4" x2="9" y2="8.5" gradientUnits="userSpaceOnUse"><stop stop-color="#1BB2EA"/><stop offset=".25" stop-color="#5FC5F3"/><stop offset=".42" stop-color="#5DC4F2"/><stop offset="1" stop-color="#018DD1"/></linearGradient><linearGradient id="bm4lldc1t" x1="9" y1="9.4" x2="9" y2="13" gradientUnits="userSpaceOnUse"><stop stop-color="#006EBB"/><stop offset=".4" stop-color="#024B9A"/><stop offset="1" stop-color="#05489A"/></linearGradient><linearGradient id="cm4lldc1t" x1="5.47" y1="6.07" x2="6.01" y2="8.5" gradientUnits="userSpaceOnUse"><stop offset=".09" stop-color="#5EC6EE"/><stop offset=".56" stop-color="#06ABE8"/><stop offset=".95" stop-color="#007EB9"/></linearGradient><linearGradient id="dm4lldc1t" x1="11.6" y1="5.8" x2="12.15" y2="8.5" gradientUnits="userSpaceOnUse"><stop offset=".19" stop-color="#039BDB"/><stop offset=".6" stop-color="#007BC7"/><stop offset="1" stop-color="#0158A7"/></linearGradient><linearGradient id="em4lldc1t" x1="5.35" y1="9.4" x2="5.51" y2="12.1" gradientUnits="userSpaceOnUse"><stop stop-color="#0290D8"/><stop offset=".53" stop-color="#0BABE3"/><stop offset="1" stop-color="#0184CA"/></linearGradient><linearGradient id="fm4lldc1t" x1="12.35" y1="9.25" x2="12.81" y2="12.25" gradientUnits="userSpaceOnUse"><stop stop-color="#0085CB"/><stop offset=".39" stop-color="#0295DC"/><stop offset="1" stop-color="#0187CD"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/MCQE.svg
+  var MCQE_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="m3 11 1 2 2.5-4-1.05-2L3 11ZM6 6.02 7.25 4 11 10.74 9.75 13 6 6.02ZM10 6.17 11.25 4 15 10.74 13.75 13 10 6.17Z" fill="#AA1F2E"/></svg>';
+
+  // plugins/shared/logos/MFPC.svg
+  var MFPC_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M11 7c.05-.1-.13-2.29 1.98-3 0 0 .35 2.37-1.98 3Z" fill="url(#al13qf4kh)"/><path d="M10 7c-.1-.05-2.28.14-3-1.98.01 0 2.36-.36 3 1.98Z" fill="url(#bl13qf4kh)"/><path d="M11 8c.1.05 2.28-.14 3 1.98-.01 0-2.36.36-3-1.98Z" fill="url(#cl13qf4kh)"/><path d="M10.68 6c-.03-.06-1.19-.8-.42-2 0-.01 1.34.73.42 2Z" fill="url(#dl13qf4kh)"/><path d="M12 7.65c.06-.03.82-1.17 2-.36 0 0-.76 1.32-2 .36Z" fill="url(#el13qf4kh)"/><path fill-rule="evenodd" d="M11 10.5a3.5 3.5 0 1 0-7 0 3.5 3.5 0 0 0 7 0Zm-1.5 0a2 2 0 0 0-2-2c-1.1 0-1.98.9-2 2 0 1.1.9 2 2 2a2 2 0 0 0 2-2Z" fill="#1E4B6F"/><defs><linearGradient id="al13qf4kh" x1="11" y1="7" x2="13.25" y2="7" gradientUnits="userSpaceOnUse"><stop stop-color="#AEC71D"/><stop offset="1" stop-color="#849830"/></linearGradient><linearGradient id="bl13qf4kh" x1="7" y1="7" x2="10.38" y2="7" gradientUnits="userSpaceOnUse"><stop stop-color="#AEC71D"/><stop offset="1" stop-color="#849830"/></linearGradient><linearGradient id="cl13qf4kh" x1="11" y1="10" x2="14.38" y2="10" gradientUnits="userSpaceOnUse"><stop stop-color="#AEC71D"/><stop offset="1" stop-color="#849830"/></linearGradient><linearGradient id="dl13qf4kh" x1="10" y1="6" x2="11.13" y2="6" gradientUnits="userSpaceOnUse"><stop stop-color="#AEC71D"/><stop offset="1" stop-color="#849830"/></linearGradient><linearGradient id="el13qf4kh" x1="12" y1="8" x2="14.25" y2="8" gradientUnits="userSpaceOnUse"><stop stop-color="#AEC71D"/><stop offset="1" stop-color="#849830"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/ORAS.svg
+  var ORAS_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="m7 4 1 1.26L6.68 6.4l.73.86.38-.95c.12-.27.3-.5.54-.7H9v-.3h1.21c.18.03 1.32.5 1.36.53.24.24.1.7.1.7l.2.47-.06.07.51.9-.14.11c-.05.05-.05.17-.05.17l.25 1.23-.73-.08v.57l1.06-.33L14 13H4.94L7.2 8h.19L6.33 6.65 5 7.7l-1-1.4L7 4Zm-.37 2.46h-.02c-.06.05-.17.19-.1.28l4.11 4.98.38-.16-.65-.83 1.06-.5v-.88l-.9-.06s-.13-.07-.06-.14l1.72.14L12 8.22s-.1-.23.13-.29l-.44-.79c.05-.03.07-.09.05-.14l-.2-.47s-1.18-.08-1.78.6L9.69 10 6.63 6.46Z" fill="#9C9897"/></svg>';
+
+  // plugins/shared/logos/ORHD.svg
+  var ORHD_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M9 4.94 10.02 4l.54.51L9 6 7.44 4.51 7.98 4 9 4.94Z" fill="#BDA371"/><path d="m9 7.44 2.84-2.82.6.55L9 8.55 5.56 5.17l.6-.54L9 7.42ZM9.02 12l1.54 1.48-.54.52L9 13.04 7.96 14l-.52-.53L9.02 12Z" fill="#BDA371"/><path d="m9 9.47 3.44 3.35-.6.55L9 10.57l-2.84 2.8-.6-.55L9 9.47ZM4.94 9 4 7.98l.51-.54L6 9l-1.49 1.56-.51-.54L4.94 9Z" fill="#BDA371"/><path d="M7.44 9 4.62 6.16l.55-.6L8.53 9l-3.36 3.44-.54-.6L7.42 9ZM12 8.98l1.48-1.54.52.54L13.04 9l.96 1.04-.53.52L12 8.98Z" fill="#BDA371"/><path d="m9.47 9 3.35-3.44.55.6L10.57 9l2.8 2.84-.55.6L9.47 9Z" fill="#BDA371"/></svg>';
+
+  // plugins/shared/logos/PHDC.svg
+  var PHDC_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M9 3v6H3l6-6Z" fill="url(#a1fym4k4u)"/><path d="M9 3v6h6L9 3Z" fill="url(#b1fym4k4u)"/><path d="M9 15V9H3l6 6Z" fill="url(#c1fym4k4u)"/><path d="M9 15V9h6l-6 6Z" fill="url(#d1fym4k4u)"/><defs><linearGradient id="a1fym4k4u" x1="6" y1="6" x2="9" y2="9" gradientUnits="userSpaceOnUse"><stop stop-color="#D31048"/><stop offset="1" stop-color="#D31048" stop-opacity="0"/></linearGradient><linearGradient id="b1fym4k4u" x1="12" y1="6" x2="9" y2="9" gradientUnits="userSpaceOnUse"><stop stop-color="#A70336"/><stop offset="1" stop-color="#A70336" stop-opacity="0"/></linearGradient><linearGradient id="c1fym4k4u" x1="6" y1="12" x2="9" y2="9" gradientUnits="userSpaceOnUse"><stop stop-color="#A70336"/><stop offset="1" stop-color="#A70336" stop-opacity="0"/></linearGradient><linearGradient id="d1fym4k4u" x1="12" y1="12" x2="9" y2="9" gradientUnits="userSpaceOnUse"><stop stop-color="#90002B"/><stop offset="1" stop-color="#90002B" stop-opacity="0"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/CCAP.svg
+  var CCAP_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="m5 14 2-5-1.5-2V6h1v1h2V6h1v1h2V6h1v1L11 9l2 5-1.32-5L13 7V5h-2v1h-1V5H8v1.02H7V5H5v2l1.33 2L5 14Z" fill="#003565"/></svg>';
+
+  // plugins/shared/logos/RAYA.svg
+  var RAYA_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M7 4h4l3 9h-3L9 7l-2 6H4l3-9Z" fill="#004CB7"/></svg>';
+
+  // plugins/shared/logos/SKPC.svg
+  var SKPC_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path fill-rule="evenodd" d="M13 9c0-1.66-1.8-3-4-3S5 7.34 5 9s1.8 3 4 3 4-1.34 4-3Zm-1 0c0-1.09-1.33-2-3-2s-3 .91-3 2c0 1.09 1.33 2 3 2s3-.91 3-2Z" fill="#B41F22"/><path opacity=".5" fill="url(#aopbewce3)" d="M7 9h4v1H7z"/><path d="M8.96 7.2s.61.32.61.66-.48.32-.48.54c0 0-.66-.32-.66-.51 0-.22.57-.2.53-.69Z" fill="#B41F22"/><path fill-rule="evenodd" d="M9 13c3.87 0 7-1.8 7-4s-3.13-4-7-4-7 1.8-7 4 3.13 4 7 4Zm0-.5c3.31 0 6-1.84 6-3.5s-2.69-3.5-6-3.5S3 7.34 3 9s2.69 3.5 6 3.5Z" fill="url(#bopbewce3)"/><defs><linearGradient id="aopbewce3" x1="9" y1="9" x2="9" y2="10"><stop offset="1" stop-color="#181B1E"/></linearGradient><linearGradient id="bopbewce3" x1="9" y1="5" x2="9" y2="13" gradientUnits="userSpaceOnUse"><stop stop-color="#06015D"/><stop offset=".5" stop-color="#FCFBFF"/><stop offset="1" stop-color="#B11A1F"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/TMGH.svg
+  var TMGH_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#013660" d="M0 0h18v18H0z"/><path fill-rule="evenodd" d="M8.5 13V3H8v9H7v1h-.54v-1H6v1H4.46v-1H4v1.5h10V13h-.55v-1H10V3h-.5v9H9v.4h.5v.6H7.46v-.6H8v.6h.5Zm4.5 0v-.6h-3v.6h3ZM7.5 9.7V4H7v5.6h-.5V6H6v3.6H5v.4h1v1H4v.5h2.5V11H6h.5v-1h1v-.3Zm3-.2v.5h1v1h.5-.5v.5H14V11h-2v-1h1v-.5h-1V6h-.5v3.5H11V4h-.5v5.5Z" fill="url(#a5a3b4uad)"/><defs><linearGradient id="a5a3b4uad" x1="5.5" y1="4" x2="13.5" y2="14.5" gradientUnits="userSpaceOnUse"><stop stop-color="#B1AC64"/><stop offset=".48" stop-color="#848561"/><stop offset="1" stop-color="#C6BF66"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/ETEL.svg
+  var ETEL_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M12 12.8s-2.23 1.76-3.93-.88c0 .22-.32.4-.36.62 0 2.12.86 2.46 1.58 2.46 1.85 0 2.32-.95 2.71-2.2Z" fill="url(#a4umfbtcy)"/><path d="M7.71 3s3.72 0 3.72 3.06c0 3.22-3.44 3.93-3.44 6.62 0 2.65 2.1 2.23 2.1 2.23S6 15.3 6 11.54s3.05-4.48 3-6.35A3.03 3.03 0 0 0 7.71 3Z" fill="url(#b4umfbtcy)"/><path d="M11.19 4.85c-.28.22-.24.86-2.89 2.5a6.4 6.4 0 0 0-1.9 2c-.24.63-.4 1.26-.4 2.15 0 2.42 1.79 3.48 3.07 3.5.35 0 .72.02 1.05-.08-.65.03-2.12-.38-2.12-2.3 0-2.69 3.43-3.04 3.43-6.73-.04-.37-.1-.7-.24-1.04Z" fill="url(#c4umfbtcy)"/><defs><linearGradient id="a4umfbtcy" x1="12.14" y1="13.15" x2="8" y2="12.89" gradientUnits="userSpaceOnUse"><stop offset=".11" stop-color="#763792"/><stop offset=".83" stop-color="#DC9BDB"/></linearGradient><linearGradient id="b4umfbtcy" x1="8.71" y1="3" x2="8.38" y2="8.69" gradientUnits="userSpaceOnUse"><stop stop-color="#2D3389"/><stop offset=".49" stop-color="#AEA6CB"/><stop offset=".96" stop-color="#9076AE"/></linearGradient><linearGradient id="c4umfbtcy" x1="8.57" y1="5.92" x2="8.74" y2="15" gradientUnits="userSpaceOnUse"><stop offset=".07" stop-color="#4F3F8A"/><stop offset=".29" stop-color="#7D5B98"/><stop offset=".55" stop-color="#7C3A91"/><stop offset=".69" stop-color="#BA51A0"/><stop offset=".78" stop-color="#C555A2"/><stop offset=".96" stop-color="#6F196C"/></linearGradient></defs></svg>';
+
+  // plugins/shared/logos/RMDA.svg
+  var RMDA_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M8.38 9H4V4.62l1 1.25V8h2.13l1.25 1Z" fill="#6D6D6A"/><path d="M4.63 4H9v4.38L8 7.12V5H5.87L4.63 4Z" fill="red"/><path d="M13.38 14H9V9.62l1 1.26V13h2.13l1.24 1Z" fill="#0093CD"/><path d="M9.63 9H14v4.38l-1-1.26V10h-2.13L9.63 9Z" fill="#00A755"/><path d="M8.38 9H4v4.38l1-1.26V10h2.13l1.25-1Z" fill="#A32285"/><path d="M4.63 14H9V9.62l-1 1.26V13H5.87l-1.25 1Z" fill="#004F9B"/><path d="M13.38 4H9v4.38l1-1.26V5h2.13l1.24-1Z" fill="#FF7900"/><path d="M9.63 9H14V4.62l-1 1.25V8h-2.13L9.63 9Z" fill="#FFDC00"/></svg>';
+
+  // plugins/shared/logos/VLMR.svg
+  var VLMR_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M2.43 7H6l-.14 1h-.29l-.28-.5H4v1.25h.86l.28-.5h.29v1.5H5l-.14-.5H4v1.25h1.57l.57-.75.29.13-.4 1.12h-3.6v-.25L3 10.5v-3l-.57-.25V7Z" fill="#002864"/><path d="M8.5 11h-2v-.25l.5-.25v-3l-.5-.25V7h2v.25L8 7.5v3l.5.25V11Z" fill="#BA0025"/><path d="M11.23 11H9.62L8 9.12S9.4 8.04 9.48 7.5l-.67-.25V7H11v.25l-.84.25-1.08 1.25 1.13 1.4s.4.63 1.02.6V11Z" fill="#BA0025"/><path d="M15.5 7h-2v.25l.5.25v1h-2v-1l.5-.25V7h-1v.35s.02.23-.5.23v2.67s.25.25.75.25v.5h.75v-.25l-.5-.25V9.25h2v1.25l-.5.25V11h2v-.25l-.5-.25v-3l.5-.25V7Z" fill="#002864"/></svg>';
+
+  // plugins/shared/logos/VLMRA.svg
+  var VLMRA_default = '<svg width="18" height="18" viewBox="0 0 18 18" xmlns="http://www.w3.org/2000/svg"><path fill="#F0F3FA" d="M0 0h18v18H0z"/><path d="M2.43 7H6l-.14 1h-.29l-.28-.5H4v1.25h.86l.28-.5h.29v1.5H5l-.14-.5H4v1.25h1.57l.57-.75.29.13-.4 1.12h-3.6v-.25L3 10.5v-3l-.57-.25V7Z" fill="#002864"/><path d="M8.5 11h-2v-.25l.5-.25v-3l-.5-.25V7h2v.25L8 7.5v3l.5.25V11Z" fill="#BA0025"/><path d="M11.23 11H9.62L8 9.12S9.4 8.04 9.48 7.5l-.67-.25V7H11v.25l-.84.25-1.08 1.25 1.13 1.4s.4.63 1.02.6V11Z" fill="#BA0025"/><path d="M15.5 7h-2v.25l.5.25v1h-2v-1l.5-.25V7h-1v.35s.02.23-.5.23v2.67s.25.25.75.25v.5h.75v-.25l-.5-.25V9.25h2v1.25l-.5.25V11h2v-.25l-.5-.25v-3l.5-.25V7Z" fill="#002864"/></svg>';
+
+  // plugins/shared/logos/index.js
+  var LOGOS = { ABUK: ABUK_default, ADIB: ADIB_default, ALCN: ALCN_default, AMOC: AMOC_default, BTFH: BTFH_default, CLHO: CLHO_default, COMI: COMI_default, EAST: EAST_default, EFID: EFID_default, HRHO: HRHO_default, EFIH: EFIH_default, EGAL: EGAL_default, EMFD: EMFD_default, FWRY: FWRY_default, GBCO: GBCO_default, HELI: HELI_default, ISPH: ISPH_default, JUFO: JUFO_default, MCQE: MCQE_default, MFPC: MFPC_default, ORAS: ORAS_default, ORHD: ORHD_default, PHDC: PHDC_default, CCAP: CCAP_default, RAYA: RAYA_default, SKPC: SKPC_default, TMGH: TMGH_default, ETEL: ETEL_default, RMDA: RMDA_default, VLMR: VLMR_default, VLMRA: VLMRA_default };
+
+  // plugins/shared/logo.js
+  function Logo({ symbol, mark, size = 32 }) {
+    const svg = symbol ? LOGOS[symbol] : null;
+    const style = { width: size, height: size };
+    if (svg) {
+      return h("img", { className: "l-logo", alt: "", style, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
+    }
+    const text = String(mark || "?");
+    return h("span", { className: `l-logo l-mark${text.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text);
+  }
+
+  // plugins/monos-portfolio/src/search.mjs
+  var MAX_RESULTS = 6;
+  function normalize(text) {
+    return String(text == null ? "" : text).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+  }
+  function rank(entry, query) {
+    const q = normalize(query);
+    if (!q) return null;
+    const exact = [entry.symbol, entry.key, ...entry.aliases || []].filter(Boolean).map(normalize);
+    if (exact.includes(q)) return 0;
+    const texts = [entry.name, entry.name_en, ...entry.aliases || []].filter(Boolean).map(normalize);
+    if (texts.some((t) => t.startsWith(q) || t.split(" ").some((w) => w.startsWith(q)))) return 1;
+    if (texts.some((t) => t.includes(q))) return 2;
+    return null;
+  }
+  var KIND_ORDER = { currency: 0, gold: 1, bitcoin: 2, stock: 3, fund: 4 };
+  function search(entries, query, limit = MAX_RESULTS) {
+    const hits = [];
+    for (const entry of entries || []) {
+      const r = rank(entry, query);
+      if (r !== null) hits.push([r, entry]);
+    }
+    hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[1].kind] ?? 9) - (KIND_ORDER[b[1].kind] ?? 9) || a[1].name.localeCompare(b[1].name, "ar"));
+    return hits.slice(0, limit).map(([, entry]) => entry);
+  }
+
+  // plugins/monos-portfolio/src/ledger.css
+  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
-  var HOLDING_SORTS = [["pnl", "مساهمة الربح/الخسارة"], ["value", "القيمة"], ["share", "نسبة من المحفظة"]];
-  var todayCairo = () => cairoDay((/* @__PURE__ */ new Date()).toISOString());
-  function SummaryCard({ portfolio, lastClose }) {
-    const t = portfolio.totals;
-    const valued = portfolio.holdings.filter((r) => r.fair_value != null);
-    const under = t.below_protection.length;
-    const unvalued = portfolio.holdings.length - valued.length;
+  var CURRENCY_SIGN = { EGP: "ج.م", USD: "$", EUR: "€", GBP: "£", SAR: "ر.س", AED: "د.إ" };
+  var KIND_CHOICES = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"]];
+  var QTY_LABEL = { stock: "عدد الأسهم", fund: "عدد الوثائق" };
+  var money = (v) => fmtNumber(v, 0);
+  var sign = (currency) => CURRENCY_SIGN[currency] || currency;
+  var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
+  function quantityLabel(kind, unit, key) {
+    if (kind === "currency") return `المبلغ (${key})`;
+    return QTY_LABEL[kind] || `الكمية (${unit})`;
+  }
+  function quantityText(asset) {
+    return frag(N(fmtQty(asset.quantity)), " ", asset.unit);
+  }
+  function useCatalog() {
+    const [items, setItems] = useState(null);
+    const load = () => api("GET", "/egx/api/catalog").then((d) => setItems(d.assets)).catch(() => setItems((prev) => prev || []));
+    useEffect(() => {
+      load();
+    }, []);
+    return [items, load];
+  }
+  function Search({ catalog, onPick, onCustom }) {
+    const [query, setQuery] = useState("");
+    const [active, setActive] = useState(0);
+    const text = query.trim();
+    const results = text ? search(catalog || [], text) : [];
+    const options = text ? results.length ? results : [{ custom: true, key: "custom" }] : [];
+    const pick = (option) => {
+      if (!option) return;
+      if (option.custom) onCustom(text);
+      else onPick(option);
+      setQuery("");
+      setActive(0);
+    };
+    const onKeyDown = (e) => {
+      if (!options.length) return;
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        setActive((active + 1) % options.length);
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        setActive((active - 1 + options.length) % options.length);
+      } else if (e.key === "Enter") {
+        e.preventDefault();
+        pick(options[active]);
+      } else if (e.key === "Escape") {
+        setQuery("");
+        setActive(0);
+      }
+    };
+    const at = Math.min(active, Math.max(0, options.length - 1));
     return h(
-      "section",
-      { className: "q-card", "aria-label": "ملخص المحفظة", style: { overflow: "hidden" } },
-      h(
-        "div",
-        { className: "p-summary" },
-        h(
-          "div",
-          null,
-          h("small", null, h("b", { style: { color: "var(--dsw-alias-label-primary)" } }, "اليوم"), t.today_as_of ? frag(" · حتى إغلاق ", N(fmtDayMonth(t.today_as_of))) : null),
-          t.today_has_fresh ? [
-            h("span", { key: "v", className: `num q-hero ${toneOf(t.today_change)}` }, fmtSigned(t.today_change)),
-            h("span", { key: "p", className: `num ${toneOf(t.today_change)}`, style: { fontWeight: 600 } }, fmtPct(t.today_change_pct, { digits: 2, signed: true }))
-          ] : [h("span", { key: "v", className: "num q-hero q-ter" }, "—"), h("small", { key: "n" }, "لا يوجد سعر جديد اليوم لأسهمك")]
-        ),
-        h("div", null, h("small", null, "القيمة الحالية"), N(fmtPrice(t.market_value), "p-big"), h("small", null, "ج.م")),
-        h(
-          "div",
-          null,
-          h("small", null, "الربح / الخسارة الكلي"),
-          N(fmtSigned(t.pnl), `p-big ${toneOf(t.pnl)}`),
-          t.pnl_pct == null ? null : h("small", null, N(fmtPct(t.pnl_pct, { signed: true })))
-        ),
-        h("div", null, h("small", null, "التكلفة الإجمالية"), N(fmtPrice(t.cost), "p-big"), h("small", null, "ج.م")),
-        h(
-          "div",
-          null,
-          h("small", null, "حالة التقييم"),
-          under ? h("span", { className: "q-amber" }, "تحت سعر الحماية: ", N(String(under))) : h("span", { className: "q-sec" }, "لا يوجد سهم تحت سعر الحماية"),
-          unvalued ? h("small", null, "لم يُقيَّم بعد: ", N(String(unvalued))) : null,
-          t.unpriced_holdings.length ? h("small", null, "بانتظار السعر: ", t.unpriced_holdings.join("، ")) : null
-        )
-      ),
-      h(
-        "div",
-        { className: "p-strip" },
-        h(
-          "span",
-          null,
-          "الأرقام كما أدخلتها أنت، والأسعار إغلاق متأخر وليست لحظية",
-          lastClose ? frag(" (آخر إغلاق ", N(fmtDate(lastClose)), ")") : null
-        )
-      )
+      "div",
+      { className: "l-search" },
+      h("input", {
+        type: "search",
+        value: query,
+        placeholder: "ابحث عن أصل… دولار، دهب، بتكوين، COMI، أو اسم صندوق",
+        role: "combobox",
+        "aria-label": "ابحث عن أصل",
+        "aria-autocomplete": "list",
+        "aria-expanded": options.length > 0,
+        "aria-controls": "l-results",
+        "aria-activedescendant": options.length ? `l-opt-${at}` : void 0,
+        autoComplete: "off",
+        onChange: (e) => {
+          setQuery(e.target.value);
+          setActive(0);
+        },
+        onKeyDown
+      }),
+      options.length ? h(
+        "ul",
+        { id: "l-results", className: "l-results", role: "listbox", "aria-label": "نتايج البحث" },
+        options.map((o, i) => h("li", {
+          key: o.key,
+          id: `l-opt-${i}`,
+          role: "option",
+          "aria-selected": i === at,
+          className: "l-option",
+          onMouseDown: (e) => {
+            e.preventDefault();
+            pick(o);
+          },
+          onMouseEnter: () => setActive(i)
+        }, o.custom ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text))] : [
+          h(Logo, { key: "l", symbol: o.kind === "stock" ? o.symbol : null, mark: o.mark }),
+          h("span", { key: "t", className: "l-name" }, o.name),
+          h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)
+        ]))
+      ) : null
     );
   }
-  function AddForm({ universe, onAdded, startOpen }) {
-    const [open, setOpen] = useState(startOpen);
+  function AddLine({ entry, customName, onDone, onCancel }) {
+    const custom = !entry;
+    const [kind, setKind] = useState("stock");
+    const [name, setName] = useState(customName || "");
     const [symbol, setSymbol] = useState("");
+    const [current, setCurrent] = useState("");
+    const kindNow = custom ? kind : entry.kind;
+    const isPound = !custom && entry.key === "EGP";
+    const fixedEgp = kindNow === "currency";
+    const [currency, setCurrency] = useState(custom || fixedEgp ? "EGP" : entry.currency);
+    const [mode, setMode] = useState("qty");
+    const [qty, setQty] = useState("");
     const [price, setPrice] = useState("");
-    const [mode, setMode] = useState("shares");
-    const [amount, setAmount] = useState("");
-    const [date, setDate] = useState("");
+    const [cost, setCost] = useState("");
+    const [costTouched, setCostTouched] = useState(false);
+    const [day, setDay] = useState("");
     const [note, setNote] = useState("");
+    const [rate, setRate] = useState(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const cur = fixedEgp || isPound ? "EGP" : currency;
+    const parsedDay = parseDayInput(day);
     useEffect(() => {
-      if (startOpen) setOpen(true);
-    }, [startOpen]);
-    const sym = symbol.trim().toUpperCase().split(/\s/)[0];
-    const known = universe.find((c) => c.symbol === sym);
-    const p = parseNumberInput(price);
-    const a = parseNumberInput(amount);
-    const valid = p > 0 && a > 0;
-    const shares = valid ? mode === "shares" ? a : a / p : null;
-    const total = valid ? mode === "shares" ? a * p : a : null;
+      if (cur === "EGP" || parsedDay === void 0) {
+        setRate(null);
+        return void 0;
+      }
+      let live = true;
+      api("GET", `/egx/api/fx?currency=${encodeURIComponent(cur)}&date=${parsedDay || ""}`).then((r) => {
+        if (live) setRate(r.rate);
+      }).catch(() => {
+        if (live) setRate(null);
+      });
+      return () => {
+        live = false;
+      };
+    }, [cur, parsedDay]);
+    const q = parseNumberInput(qty);
+    const p = isPound ? 1 : parseNumberInput(price);
+    const quantity = q > 0 && p > 0 ? mode === "qty" ? q : q / p : null;
+    const paid = quantity != null ? quantity * p : null;
+    const suggested = cur !== "EGP" && rate && paid != null ? Math.round(paid * rate * 100) / 100 : null;
+    const costShown = costTouched ? cost : suggested != null ? String(suggested) : "";
     async function submit(e) {
       e.preventDefault();
       setError("");
-      const day = parseDayInput(date);
-      if (!known) return setError("اختر سهمًا من قائمة EGX30.");
-      if (!(p > 0)) return setError("أدخل سعر تنفيذ أكبر من صفر.");
-      if (!(a > 0)) return setError(mode === "shares" ? "أدخل عدد الأسهم." : "أدخل المبلغ بالجنيه.");
-      if (day === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو اتركه فارغًا لليوم.");
-      const body = { symbol: known.symbol, buy_price: p, buy_date: day || todayCairo(), note: note.trim() || null };
-      body[mode === "shares" ? "quantity" : "invested_amount"] = a;
+      if (custom && !name.trim()) return setError("اكتب اسم الأصل.");
+      if (!(q > 0)) return setError(mode === "qty" ? "اكتب الكمية." : "اكتب المبلغ.");
+      if (!isPound && !(p > 0)) return setError("اكتب سعر الشرا.");
+      if (parsedDay === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
+      const costValue = parseNumberInput(costShown);
+      if (cur !== "EGP" && !(costValue > 0)) return setError("مفيش سعر تحويل معروف لليوم ده: اكتب المبلغ اللي دفعته بالجنيه.");
+      const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null };
+      body[mode === "qty" ? "quantity" : "amount"] = q;
+      if (cur !== "EGP") body.cost_egp = costValue;
+      if (custom) {
+        const now = parseNumberInput(current);
+        body.custom = { kind, name: name.trim(), symbol: symbol.trim() || null, currency: cur, price: now > 0 ? now : null };
+      } else body.asset = entry.key;
       setBusy(true);
       try {
-        await api("POST", "/egx/api/holdings", body);
-        setSymbol("");
-        setPrice("");
-        setAmount("");
-        setDate("");
-        setNote("");
-        onAdded(known.symbol);
+        const lot = await api("POST", "/egx/api/holdings", body);
+        onDone(lot.symbol);
       } catch (err) {
         setError(err.message);
       } finally {
         setBusy(false);
       }
     }
-    const plus = h("svg", { width: 14, height: 14, viewBox: "0 0 16 16", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.8, strokeLinecap: "round" }, h("path", { d: "M8 3v10M3 8h10" }));
+    const field = (label, input2) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input2);
+    const input = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const currencySelect = h(
+      "select",
+      { className: "q-input", value: cur, "aria-label": "عملة سعر الشرا", onChange: (e) => {
+        setCurrency(e.target.value);
+        setCostTouched(false);
+      } },
+      ["EGP", "USD", ...entry && !["EGP", "USD"].includes(entry.currency) ? [entry.currency] : []].map((c) => h("option", { key: c, value: c }, sign(c)))
+    );
     return h(
-      "section",
-      { className: "q-card", "aria-label": "إضافة سهم" },
+      "form",
+      { className: "l-add", onSubmit: submit, noValidate: true, "aria-label": "إضافة أصل" },
       h(
         "div",
-        { className: "p-formhead" },
-        h("button", { type: "button", className: "q-btn", "aria-expanded": open, "aria-controls": "p-add-form", onClick: () => setOpen(!open) }, plus, "أضف سهمًا"),
-        h("span", { className: "q-meta" }, "إدخال يدوي بالسعر والتاريخ كما نُفّذ فعلًا."),
-        h("span", { className: "q-grow" }),
-        h(
-          "button",
-          { type: "button", className: "q-btn", disabled: true, title: "قريبًا: رفع ملف جداول فيه الرمز والكمية وسعر التنفيذ والتاريخ لإضافة كل المراكز مرة واحدة" },
-          "استيراد ملف جداول (CSV) · قريبًا"
-        )
+        { className: "l-add-head" },
+        custom ? h(Logo, { mark: "+" }) : h(Logo, { symbol: entry.kind === "stock" ? entry.symbol : null, mark: entry.mark }),
+        h("b", null, custom ? "أصل جديد بالاسم" : entry.name),
+        custom ? null : h("span", { className: "q-meta" }, entry.kind_label)
       ),
-      open ? h(
-        "form",
-        { id: "p-add-form", onSubmit: submit, noValidate: true },
+      custom ? h(
+        "div",
+        { className: "l-fields" },
+        field("النوع", h(
+          "select",
+          { className: "q-input", value: kind, onChange: (e) => setKind(e.target.value) },
+          KIND_CHOICES.map(([k, l]) => h("option", { key: k, value: k }, l))
+        )),
+        field("الاسم", input(name, setName, { maxLength: 80 })),
+        field("الرمز (اختياري)", input(symbol, setSymbol, { maxLength: 16, dir: "ltr" })),
+        field("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
+      ) : null,
+      h(
+        "div",
+        { className: "l-fields" },
         h(
           "div",
-          { className: "p-form" },
-          h(
-            "label",
-            { className: "q-stack" },
-            h("span", { className: "q-label" }, "السهم"),
-            h("input", {
-              className: "q-input",
-              list: "p-universe",
-              value: symbol,
-              placeholder: "ابحث بالرمز أو الاسم، مثل COMI أو التجاري",
-              autoComplete: "off",
-              onChange: (e) => setSymbol(e.target.value)
-            }),
-            h("datalist", { id: "p-universe" }, universe.map((c) => h("option", { key: c.symbol, value: c.symbol }, `${c.symbol} — ${c.name_ar || c.name}`))),
-            known ? h("small", { className: "q-sec" }, known.name_ar) : null
-          ),
-          h(
-            "label",
-            { className: "q-stack" },
-            h("span", { className: "q-label" }, "سعر التنفيذ (ج.م)"),
-            h("input", { className: "q-input num", inputMode: "decimal", value: price, placeholder: "80.00", onChange: (e) => setPrice(e.target.value) })
-          ),
-          h(
-            "div",
-            { className: "q-stack" },
-            h("span", { className: "q-label", id: "p-qty-l" }, mode === "shares" ? "الكمية" : "المبلغ"),
-            h(
-              "div",
-              { className: "q-row", style: { flexWrap: "nowrap", gap: 8 } },
-              h(
-                "div",
-                { className: "q-seg", role: "group", "aria-label": "طريقة إدخال الكمية" },
-                h("button", { type: "button", "aria-pressed": mode === "shares", onClick: () => setMode("shares") }, "عدد الأسهم"),
-                h("button", { type: "button", "aria-pressed": mode === "amount", onClick: () => setMode("amount") }, "المبلغ بالجنيه")
-              ),
-              h("input", {
-                className: "q-input num",
-                inputMode: "decimal",
-                value: amount,
-                "aria-labelledby": "p-qty-l",
-                style: { width: 110 },
-                placeholder: mode === "shares" ? "100" : "8000",
-                onChange: (e) => setAmount(e.target.value)
-              })
-            )
-          ),
-          h(
-            "label",
-            { className: "q-stack" },
-            h("span", { className: "q-label" }, "تاريخ التنفيذ ", h("small", null, "(اختياري، الافتراضي اليوم)")),
-            h("input", { className: "q-input", value: date, placeholder: "يوم/شهر/سنة", inputMode: "numeric", onChange: (e) => setDate(e.target.value) })
-          ),
-          h(
-            "label",
-            { className: "q-stack" },
-            h("span", { className: "q-label" }, "ملاحظة ", h("small", null, "(اختياري)")),
-            h("input", { className: "q-input", value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })
+          { className: "q-stack" },
+          h("span", { className: "q-label" }, isPound ? "المبلغ (EGP)" : mode === "qty" ? quantityLabel(kindNow, entry ? entry.unit : "", entry ? entry.key : "") : `المبلغ المدفوع (${sign(cur)})`),
+          h("input", { className: "q-input num", inputMode: "decimal", value: qty, "aria-label": "الكمية أو المبلغ", onChange: (e) => setQty(e.target.value) }),
+          isPound ? null : h(
+            "button",
+            { type: "button", className: "q-link", style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setMode(mode === "qty" ? "amount" : "qty") },
+            mode === "qty" ? "أو اكتب المبلغ المدفوع" : "أو اكتب الكمية"
           )
         ),
-        h(
-          "div",
-          { className: "p-formfoot" },
+        isPound ? null : field(
+          fixedEgp ? `سعر ${entry.key} بالجنيه وقت الشرا` : "سعر الشرا للوحدة",
           h(
-            "span",
-            { className: "p-total", "aria-live": "polite" },
-            h("span", { className: "q-sec" }, "الإجمالي: "),
-            valid ? mode === "shares" ? frag(N(`${fmtQty(a)} × ${fmtPrice(p)} = ${fmtPrice(total)}`, "q-strong"), " ج.م") : frag(N(fmtPrice(total), "q-strong"), " ج.م · الأسهم ", N(`${fmtPrice(a)} ÷ ${fmtPrice(p)} = ${fmtQty(Math.round(shares * 1e4) / 1e4)}`, "q-strong")) : h("span", { className: "q-ter" }, "أدخل السعر والكمية")
-          ),
-          h("span", { className: "q-grow" }),
-          error ? h("span", { className: "q-error", role: "alert" }, error) : null,
-          h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, plus, busy ? "جارٍ الإضافة…" : "أضف إلى المحفظة")
-        )
-      ) : null
+            "div",
+            { className: "q-row", style: { flexWrap: "nowrap", gap: 6 } },
+            h("input", { className: "q-input num", inputMode: "decimal", value: price, style: { flex: 1 }, "aria-label": "سعر الشرا", onChange: (e) => setPrice(e.target.value) }),
+            fixedEgp ? h("span", { className: "q-meta" }, "ج.م") : currencySelect
+          )
+        ),
+        cur !== "EGP" ? field(
+          "المبلغ اللي دفعته بالجنيه",
+          h("input", { className: "q-input num", inputMode: "decimal", value: costShown, placeholder: "ج.م", onChange: (e) => {
+            setCost(e.target.value);
+            setCostTouched(true);
+          } })
+        ) : null,
+        field("التاريخ (اختياري)", input(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+        field("ملاحظة (اختياري)", input(note, setNote, { maxLength: 200 }))
+      ),
+      h(
+        "div",
+        { className: "l-actions" },
+        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ الإضافة…" : "إضافة"),
+        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
+        paid != null && !isPound ? h(
+          "span",
+          { className: "q-meta" },
+          "الإجمالي ",
+          N(`${fmtQty(Math.round(quantity * 1e4) / 1e4)} × ${fmtPrice(p)} = ${fmtPrice(paid)}`),
+          " ",
+          sign(cur),
+          cur !== "EGP" && rate ? frag(" · سعر التحويل ", N(fmtPrice(rate)), " ج.م") : null
+        ) : null,
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      )
     );
   }
-  var EDIT_ICON = h(
-    "svg",
-    { width: 14, height: 14, viewBox: "0 0 16 16", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinejoin: "round" },
-    h("path", { d: "M10.5 2.5l3 3L6 13H3v-3z" })
-  );
-  var TRASH_ICON = h(
-    "svg",
-    { width: 14, height: 14, viewBox: "0 0 16 16", "aria-hidden": true, fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round" },
-    h("path", { d: "M3 4.5h10M6.5 4.5V3h3v1.5M4.5 4.5l.7 8.5h5.6l.7-8.5" })
-  );
-  function HoldingRow({ row, onChanged, onValue }) {
+  function LotItem({ lot, asset, onChanged }) {
     const [mode, setMode] = useState("view");
-    const [qty, setQty] = useState(String(row.quantity));
-    const [cost, setCost] = useState(String(row.buy_price));
+    const [qty, setQty] = useState(String(lot.quantity));
+    const [price, setPrice] = useState(String(lot.buy_price));
+    const [day, setDay] = useState(lot.buy_date ? fmtDate(lot.buy_date) : "");
+    const [note, setNote] = useState(lot.note || "");
+    const [cost, setCost] = useState(String(Math.round(lot.cost_egp * 100) / 100));
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const run = async (action) => {
@@ -677,201 +707,321 @@ var __monos = (() => {
       }
     };
     const save = () => {
-      const q = parseNumberInput(qty), c = parseNumberInput(cost);
-      if (!(q > 0) || !(c > 0)) return setError("الكمية والسعر لازم يكونوا أكبر من صفر");
-      return run(() => api("PATCH", `/egx/api/holdings/${row.id}`, { quantity: q, buy_price: c }));
+      const q = parseNumberInput(qty), p = parseNumberInput(price), d = parseDayInput(day), c = parseNumberInput(cost);
+      if (!(q > 0) || !(p > 0)) return setError("الكمية والسعر لازم يكونوا أكبر من صفر");
+      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة");
+      const body = { quantity: q, buy_price: p, buy_date: d, note };
+      if (lot.currency !== "EGP" && c > 0 && Math.abs(c - lot.cost_egp) > 5e-3) body.cost_egp = c;
+      return run(() => api("PATCH", `/egx/api/holdings/${lot.id}`, body));
     };
-    const remove = () => run(() => api("DELETE", `/egx/api/holdings/${row.id}`, {}));
-    const under = row.status === "below_protection";
-    const editing = mode === "edit";
-    const label = `${row.symbol} ${row.name_ar || ""}`.trim();
+    const remove = () => run(() => api("DELETE", `/egx/api/holdings/${lot.id}`, {}));
+    if (mode === "edit") {
+      const box = (label, value, set, extra = {}) => h(
+        "label",
+        { className: "q-stack" },
+        h("span", { className: "q-label" }, label),
+        h("input", { className: "q-input num", value, onChange: (e) => set(e.target.value), ...extra })
+      );
+      return h(
+        "div",
+        { className: "l-lot" },
+        box("الكمية", qty, setQty, { inputMode: "decimal", style: { width: 110 } }),
+        asset.key === "EGP" ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: "decimal", style: { width: 110 } }),
+        lot.currency !== "EGP" ? box("المدفوع بالجنيه", cost, setCost, { inputMode: "decimal", style: { width: 120 } }) : null,
+        box("التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
+        h(
+          "label",
+          { className: "q-stack" },
+          h("span", { className: "q-label" }, "ملاحظة"),
+          h("input", { className: "q-input", value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })
+        ),
+        h(
+          "span",
+          { className: "l-lot-actions" },
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-p", disabled: busy, onClick: save }, "حفظ"),
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("view") }, "إلغاء")
+        ),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      );
+    }
     return h(
       "div",
-      { className: `q-grid p-g p-row${under ? " q-warn" : ""}`, role: "row" },
+      { className: "l-lot" },
+      asset.key === "EGP" ? h("span", null, N(money(lot.quantity)), " ج.م") : h("span", null, N(fmtQty(lot.quantity)), " ", asset.unit, " × ", priceWithSign(lot.buy_price, lot.currency)),
+      lot.currency !== "EGP" ? h("span", { className: "q-sec" }, "التكلفة ", N(money(lot.cost_egp)), " ج.م") : null,
+      h("span", { className: "q-sec" }, lot.buy_date ? N(fmtDate(lot.buy_date)) : "من غير تاريخ"),
+      lot.note ? h("span", { className: "q-sec" }, lot.note) : null,
       h(
         "span",
-        { className: "q-cell", role: "cell" },
-        h("b", { className: "q-sym" }, row.symbol),
-        h("span", null, row.name_ar || row.name),
-        editing ? h(
-          "span",
-          { className: "q-row", style: { gap: 6 } },
-          h("input", { className: "q-input num", value: qty, "aria-label": `عدد أسهم ${label}`, onChange: (e) => setQty(e.target.value) }),
-          h("small", null, "سهم @"),
-          h("input", { className: "q-input num", value: cost, "aria-label": `سعر التنفيذ لـ ${label}`, onChange: (e) => setCost(e.target.value) })
-        ) : h("small", null, N(fmtQty(row.quantity)), " سهم · متوسط التكلفة ", N(fmtPrice(row.buy_price)))
-      ),
-      h("span", { role: "cell" }, h(PriceCell, { price: row.current_price, asOf: row.price_as_of, stale: row.price_stale, kind: row.price_as_of && row.price_as_of.length > 10 ? "delayed" : "close" })),
-      h(
-        "span",
-        { className: "q-cell", role: "cell" },
-        row.today_change != null ? frag(N(fmtSigned(row.today_change), toneOf(row.today_change)), h("small", null, N(fmtPct(row.day_change_pct, { digits: 2, signed: true }), toneOf(row.day_change_pct)))) : row.price_stale ? frag(N(fmtSigned(row.day_change == null ? null : row.day_change * row.quantity), "q-ter"), h("small", null, "جلسة ", N(fmtDayMonth(row.price_as_of)))) : h("span", { className: "q-ter" }, "—")
-      ),
-      h("span", { role: "cell" }, N(fmtPrice(row.market_value))),
-      h(
-        "span",
-        { className: "q-cell", role: "cell" },
-        N(fmtSigned(row.pnl), toneOf(row.pnl)),
-        row.pnl_pct == null ? null : h("small", null, N(fmtPct(row.pnl_pct, { signed: true }), toneOf(row.pnl_pct)))
-      ),
-      h("span", { role: "cell" }, N(fmtPct(row.share_of_portfolio))),
-      h(
-        "span",
-        { className: "q-cell", role: "cell", style: { alignItems: "stretch" } },
-        row.fair_value != null ? [
-          h(Ruler, { key: "r", fair: row.fair_value, bear: row.bear, bull: row.bull, price: row.current_price }),
-          row.current_price != null ? h(MarginText, { key: "m", price: row.current_price, fair: row.fair_value }) : null,
-          under ? h("small", { key: "u" }, "وأقل من العادل بـ ", N(fmtPct(row.margin_to_fair))) : row.current_price != null ? h("small", { key: "u" }, row.status === "above_fair_value" ? "فوق العادل وفوق سعر الحماية" : "فوق سعر الحماية") : null
-        ] : [
-          h("span", { key: "n", className: "q-status" }, h(StatusMark, { status: "between" }), "لم يُقيَّم بعد"),
-          h("button", { key: "b", type: "button", className: "q-link", style: { padding: 0, minHeight: 28 }, onClick: () => onValue(row.symbol) }, "اطلب التقييم من المحادثة")
-        ]
-      ),
-      h(
-        "span",
-        { className: "p-actions", role: "cell" },
-        editing ? [
-          h("button", { key: "s", type: "button", className: "q-btn q-btn-sm q-btn-p", disabled: busy, onClick: save }, "حفظ"),
-          h("button", { key: "c", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => {
-            setMode("view");
-            setQty(String(row.quantity));
-            setCost(String(row.buy_price));
-          } }, "إلغاء")
-        ] : mode === "confirm" ? [
-          h("button", { key: "d", type: "button", className: "q-btn q-btn-sm q-btn-danger", disabled: busy, onClick: remove }, "احذف"),
+        { className: "l-lot-actions" },
+        mode === "confirm" ? [
+          h("button", { key: "d", type: "button", className: "q-btn q-btn-sm q-btn-danger", disabled: busy, onClick: remove }, "احذف العملية"),
           h("button", { key: "c", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("view") }, "إلغاء")
         ] : [
-          h("button", { key: "e", type: "button", className: "q-btn q-icon-btn q-btn-quiet", "aria-label": `تعديل ${label}`, title: "تعديل", onClick: () => setMode("edit") }, EDIT_ICON),
-          h("button", { key: "r", type: "button", className: "q-btn q-icon-btn q-btn-quiet q-btn-danger", "aria-label": `حذف ${label}`, title: "حذف", onClick: () => setMode("confirm") }, TRASH_ICON)
-        ],
-        error ? h("span", { className: "q-error", role: "alert", style: { fontSize: 12 } }, error) : null
+          h("button", { key: "e", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
+          h("button", { key: "r", type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => setMode("confirm") }, "حذف")
+        ]
+      ),
+      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+    );
+  }
+  function PriceForm({ asset, onChanged }) {
+    const fixed2 = asset.kind === "currency";
+    const [value, setValue] = useState("");
+    const [currency, setCurrency] = useState(fixed2 ? "EGP" : asset.price_currency || "EGP");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    async function save(e) {
+      e.preventDefault();
+      const v = parseNumberInput(value);
+      if (!(v > 0)) return setError("اكتب السعر");
+      setBusy(true);
+      setError("");
+      try {
+        await api("POST", "/egx/api/prices", { asset: asset.key, price: v, currency });
+        setValue("");
+        onChanged();
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h(
+      "form",
+      { className: "l-inline", onSubmit: save, noValidate: true },
+      h("span", { className: "q-sec" }, "تحديث السعر للوحدة"),
+      h("input", { className: "q-input num", inputMode: "decimal", value, "aria-label": `السعر الحالي لـ ${asset.name}`, onChange: (e) => setValue(e.target.value) }),
+      fixed2 ? h("span", { className: "q-meta" }, "ج.م") : h(
+        "select",
+        { className: "q-input", style: { width: 80 }, value: currency, "aria-label": "عملة السعر", onChange: (e) => setCurrency(e.target.value) },
+        ["EGP", "USD"].map((c) => h("option", { key: c, value: c }, sign(c)))
+      ),
+      h("button", { type: "submit", className: "q-btn q-btn-sm", disabled: busy }, "حفظ السعر"),
+      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+    );
+  }
+  function Components({ asset, catalog, onChanged }) {
+    const stocks = (catalog || []).filter((e) => e.kind === "stock");
+    const [pick, setPick] = useState("");
+    const [weight, setWeight] = useState("");
+    const [error, setError] = useState("");
+    const send = async (list) => {
+      setError("");
+      try {
+        await api("PUT", `/egx/api/funds/${encodeURIComponent(asset.key)}/components`, { components: list });
+        setPick("");
+        setWeight("");
+        onChanged();
+      } catch (err) {
+        setError(err.message);
+      }
+    };
+    const current = asset.components.map((c) => ({ asset: c.asset, weight: c.weight }));
+    const add = (e) => {
+      e.preventDefault();
+      const w = parseNumberInput(weight);
+      if (!pick || !(w > 0)) return setError("اختار السهم واكتب نسبته");
+      return send([...current.filter((c) => c.asset !== pick), { asset: pick, weight: w / 100 }]);
+    };
+    return h(
+      "div",
+      null,
+      h("h3", null, "مكونات الصندوق (للعرض، مش داخلة في الإجمالي)"),
+      asset.components.map((c) => h(
+        "div",
+        { key: c.asset, className: "l-part" },
+        h(Logo, { symbol: c.symbol, mark: c.mark, size: 24 }),
+        h("span", null, c.name),
+        h("span", { className: "q-sec" }, N(fmtPct(c.weight)), " من الصندوق"),
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", "aria-label": `شيل ${c.name}`, onClick: () => send(current.filter((x) => x.asset !== c.asset)) }, "شيل")
+      )),
+      h(
+        "form",
+        { className: "l-inline", onSubmit: add, noValidate: true },
+        h(
+          "select",
+          { className: "q-input", style: { width: 220 }, value: pick, "aria-label": "السهم", onChange: (e) => setPick(e.target.value) },
+          h("option", { value: "" }, "اختار سهم"),
+          stocks.map((s) => h("option", { key: s.key, value: s.key }, `${s.symbol} — ${s.name}`))
+        ),
+        h("input", { className: "q-input num", inputMode: "decimal", value: weight, placeholder: "%", style: { width: 70 }, "aria-label": "النسبة من الصندوق", onChange: (e) => setWeight(e.target.value) }),
+        h("button", { type: "submit", className: "q-btn q-btn-sm" }, "إضافة مكون"),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
       )
     );
   }
-  function sortHoldings(rows, key) {
-    const value = { pnl: (r) => r.pnl, value: (r) => r.market_value, share: (r) => r.share_of_portfolio }[key];
-    return rows.slice().sort((a, b) => {
-      const x = value(a), y = value(b);
-      if (x == null && y == null) return 0;
-      if (x == null) return 1;
-      if (y == null) return -1;
-      return y - x;
-    });
-  }
-  function PortfolioPage() {
-    const portfolio = useMonos();
-    const [universe, setUniverse] = useState([]);
-    const [market, setMarket] = useState(null);
-    const [sort, setSort] = useState("pnl");
-    const [help, setHelp] = useState(false);
-    const [toastNode, toast] = useToast();
-    useEffect(() => {
-      monos.refresh();
-      api("GET", "/egx/api/universe").then((u) => setUniverse(u.constituents.slice().sort((a, b) => a.symbol.localeCompare(b.symbol)))).catch(() => {
-      });
-      api("GET", "/egx/api/market").then(setMarket).catch(() => {
-      });
-    }, []);
-    const refresh = () => monos.refresh();
-    const onValue = (symbol) => copyValuationPrompt(symbol, toast);
-    const lastClose = lastCloseOf(market && market.rows);
-    const session = market ? sessionLine(market.as_of, market.session_open, market.next_session) : null;
-    const run = market && market.last_sync;
-    const used = callsUsed(run);
-    const holdings = portfolio && portfolio.holdings ? sortHoldings(portfolio.holdings, sort) : [];
-    const loading = portfolio === void 0;
-    const failed = portfolio === null;
-    const empty = portfolio && !portfolio.holdings.length;
-    const headerMeta = market ? h(
-      "span",
-      { className: "q-meta", style: { marginInlineStart: "auto" } },
-      lastClose ? frag("إغلاق ", N(fmtDayMonth(lastClose))) : null,
-      run && run.finished_at ? frag(" · آخر مزامنة ", N(fmtTime(run.finished_at))) : null,
-      used != null ? frag(" · تحديثات الأسعار اليوم ", N(fmtCount(used)), " من ", N(fmtCount(run.daily_limit))) : null,
-      " · المصدر EODHD (مزوّد الأسعار)",
-      session ? frag(" · ", session.text, session.time ? " " : null, session.time ? N(session.time) : null) : null
-    ) : null;
-    let content;
-    if (loading) content = h("div", { className: "q-card q-pad", "aria-busy": true }, h(Skeleton, { width: "30%" }), h("br"), h(Skeleton, { width: "80%" }), h("br"), h(Skeleton, { width: "60%" }));
-    else if (failed) content = h(
-      "div",
-      { className: "q-card q-empty", role: "alert" },
-      h("span", { className: "q-h2" }, "تعذّر تحميل المحفظة"),
-      h("button", { type: "button", className: "q-btn", onClick: refresh }, "حاول مرة أخرى")
-    );
-    else if (empty) content = [
+  function AssetRow({ asset, catalog, fresh, onChanged }) {
+    const [open, setOpen] = useState(false);
+    const [confirm, setConfirm] = useState(false);
+    const [error, setError] = useState("");
+    const priced = asset.value_egp != null;
+    const removeAll = async () => {
+      try {
+        await api("DELETE", `/egx/api/assets/${encodeURIComponent(asset.key)}`, {});
+        onChanged();
+      } catch (e) {
+        setError(e.message);
+      }
+    };
+    const sourceText = asset.price_source === "manual" ? "كتبته أنت" : asset.price_source === "EODHD" ? "إغلاق EODHD" : null;
+    return h(
+      import_react.default.Fragment,
+      null,
       h(
-        "div",
-        { key: "e", className: "q-card q-empty" },
-        h(MonosIcon, { size: 40 }),
-        h("span", { className: "q-h2" }, "محفظتك فاضية"),
-        h("span", null, "تقدر تستخدم Monos للتحليل بس، أو تضيف الأسهم اللي عندك عشان تشوف حركتها اليومية وموقعها من التقييم.")
-      ),
-      h(AddForm, { key: "f", universe, onAdded: refresh, startOpen: true })
-    ];
-    else content = [
-      h(SummaryCard, { key: "s", portfolio, lastClose }),
-      h(AddForm, { key: "f", universe, onAdded: refresh, startOpen: false }),
-      h(
-        "section",
-        { key: "h", className: "q-card", "aria-label": "المراكز", style: { overflow: "hidden" } },
+        "button",
+        { type: "button", className: `l-row${fresh ? " l-new" : ""}`, "aria-expanded": open, onClick: () => setOpen(!open) },
+        h(Logo, { symbol: asset.kind === "stock" ? asset.symbol : null, mark: asset.mark }),
         h(
-          "div",
-          { className: "p-formhead" },
-          h("h2", { className: "q-h2" }, "المراكز ", h("span", { className: "q-sec", style: { fontSize: 13, fontWeight: 400 } }, "(", N(String(holdings.length)), ")")),
-          h("span", { className: "q-grow" }),
-          h("span", { className: "q-meta" }, "ترتيب حسب"),
+          "span",
+          { className: "q-stack" },
+          h("span", { className: "l-name" }, asset.name),
           h(
-            "div",
-            { className: "q-seg", role: "group", "aria-label": "ترتيب المراكز" },
-            HOLDING_SORTS.map(([key, label]) => h("button", { key, type: "button", "aria-pressed": sort === key, onClick: () => setSort(key) }, label))
+            "span",
+            { className: "l-sub" },
+            asset.key === "EGP" ? null : h("span", null, quantityText(asset)),
+            asset.kind === "stock" && asset.symbol ? h("span", { className: "q-sym" }, asset.symbol) : null,
+            !priced ? h("span", null, "من غير سعر") : asset.stale && asset.price_as_of ? h("span", null, "سعر ", N(fmtDayMonth(asset.price_as_of))) : null
           )
         ),
         h(
-          "div",
-          { className: "q-scroll", role: "table", "aria-label": "المراكز" },
-          h(
-            "div",
-            { className: "q-grid p-g q-th", role: "row" },
-            ["السهم", "آخر سعر", "اليوم", "القيمة", "الربح / الخسارة", "نسبة من المحفظة", "موضع السعر من التقييم", ""].map((t, i) => h("span", { key: i, role: "columnheader" }, t))
-          ),
-          holdings.map((r) => h(HoldingRow, { key: `${r.id}:${r.updated_at}`, row: r, onChanged: refresh, onValue }))
-        ),
+          "span",
+          { className: "l-value" },
+          priced ? N(money(asset.value_egp)) : h("span", { className: "num q-ter" }, DASH),
+          priced && asset.growth != null ? N(fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null
+        )
+      ),
+      open ? h(
+        "div",
+        { className: "l-detail" },
         h(
           "div",
-          { className: "p-legend" },
-          h("span", { className: "m-key" }, h("span", { style: { width: 10, height: 10, borderRadius: "50%", background: "var(--dsw-alias-label-primary)", display: "inline-block" } }), "آخر إغلاق"),
-          h(
-            "span",
-            { className: "m-key" },
-            h("span", { style: { width: 3, height: 14, background: "var(--dsw-alias-state-warn-primary)", display: "inline-block" } }),
-            "سعر الحماية",
-            h(ProtectionHelp, { open: help, onToggle: () => setHelp(!help) })
-          ),
-          h("span", { className: "m-key" }, h("span", { style: { width: 3, height: 14, background: "var(--dsw-alias-state-business-primary)", display: "inline-block" } }), "السعر العادل"),
-          h("span", { className: "m-key" }, h("span", { style: { width: 18, height: 6, borderRadius: 3, background: "var(--dsw-alias-state-business-primary)", opacity: 0.35, display: "inline-block" } }), "النطاق (المتشائم – المتفائل)")
+          null,
+          h("h3", null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : "العملية"),
+          asset.lots.map((lot) => h(LotItem, { key: `${lot.id}:${lot.updated_at}`, lot, asset, onChanged }))
         ),
-        h("div", { style: { padding: 16 } }, help ? h(ProtectionNote) : h(
+        asset.key === "EGP" ? null : h(
+          "div",
+          null,
+          h("h3", null, "السعر"),
+          priced || asset.price != null ? h(
+            "p",
+            { className: "l-hint" },
+            "آخر سعر ",
+            priceWithSign(asset.price, asset.price_currency),
+            asset.price_as_of ? frag(" · ", N(fmtDate(asset.price_as_of.slice(0, 10)))) : null,
+            sourceText ? ` · ${sourceText}` : null,
+            asset.price_currency !== "EGP" && asset.price_egp != null ? frag(" · ", N(fmtPrice(asset.price_egp)), " ج.م") : null
+          ) : h("p", { className: "l-hint" }, asset.price != null ? "مفيش سعر دولار معروف للتحويل." : "لسه مفيش سعر للأصل ده."),
+          h(PriceForm, { asset, onChanged })
+        ),
+        asset.kind === "fund" ? h(Components, { asset, catalog, onChanged }) : null,
+        h(
+          "div",
+          { className: "l-inline" },
+          confirm ? [
+            h("span", { key: "t" }, `حذف «${asset.name}» وكل عملياته؟`),
+            h("button", { key: "d", type: "button", className: "q-btn q-btn-sm q-btn-danger", onClick: removeAll }, "احذف"),
+            h("button", { key: "c", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setConfirm(false) }, "إلغاء")
+          ] : h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => setConfirm(true) }, "حذف الأصل"),
+          error ? h("span", { className: "q-error", role: "alert" }, error) : null
+        )
+      ) : null
+    );
+  }
+  function TotalBlock({ totals }) {
+    const unpriced = totals.unpriced.length;
+    return h(
+      "section",
+      { className: "l-total", "aria-label": "الإجمالي" },
+      h("span", null, N(money(totals.value || 0), "l-big"), " ", h("span", { className: "l-unit" }, "جنيه")),
+      totals.assets ? h(
+        "div",
+        { className: "l-line" },
+        h("span", null, "التكلفة ", N(money(totals.cost))),
+        totals.growth != null ? h("span", null, "النمو ", N(fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+        unpriced ? h("span", null, N(String(unpriced)), unpriced === 1 ? " أصل من غير سعر، خارج الإجمالي" : " أصول من غير سعر، خارج الإجمالي") : null
+      ) : null
+    );
+  }
+  function PortfolioPage() {
+    const ledger = useMonos();
+    const [catalog, reloadCatalog] = useCatalog();
+    const [picked, setPicked] = useState(null);
+    const [fresh, setFresh] = useState(null);
+    useEffect(() => {
+      monos.refresh();
+    }, []);
+    const refresh = () => monos.refresh();
+    const added = (key) => {
+      setPicked(null);
+      setFresh(key);
+      reloadCatalog();
+      refresh();
+    };
+    const loading = ledger === void 0;
+    const failed = ledger === null;
+    const totals = ledger && ledger.totals;
+    const today = totals && totals.today_has_fresh ? h(
+      "span",
+      { className: "l-today", title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : void 0 },
+      "اليوم",
+      N(fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change))
+    ) : null;
+    let body;
+    if (loading) {
+      body = h(
+        "div",
+        { className: "l-col", "aria-busy": true },
+        h("div", { className: "l-total" }, h(Skeleton, { width: 220 }), h(Skeleton, { width: 160 })),
+        h(Skeleton, { width: "100%" }),
+        h(Skeleton, { width: "90%" }),
+        h(Skeleton, { width: "80%" })
+      );
+    } else if (failed) {
+      body = h("div", { className: "l-col" }, h(
+        "div",
+        { className: "q-empty", role: "alert" },
+        h("span", { className: "q-h2" }, "تعذّر تحميل السجل"),
+        h("button", { type: "button", className: "q-btn", onClick: refresh }, "حاول مرة تانية")
+      ));
+    } else {
+      body = h(
+        "div",
+        { className: "l-col" },
+        h(TotalBlock, { totals }),
+        h(
+          "div",
+          null,
+          h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
+          picked ? h(AddLine, {
+            key: picked.entry ? picked.entry.key : `custom:${picked.name}`,
+            entry: picked.entry || null,
+            customName: picked.name,
+            onDone: added,
+            onCancel: () => setPicked(null)
+          }) : null
+        ),
+        ledger.groups.length ? ledger.groups.map((g) => h(
+          "section",
+          { key: g.group, className: "l-group", "aria-label": g.label },
+          h("h2", null, g.label),
+          g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh }))
+        )) : h("p", { className: "l-hint" }, "ابحث عن أصل وأضفه."),
+        h(
           "p",
-          { className: "q-meta", style: { margin: 0 } },
-          "سعر الحماية = ",
-          N("80%"),
-          " من السعر العادل. لو السعر نزل تحته، المحلل بيراجع التقييم تلقائيًا. ده تنبيه للمراجعة، مش أمر بيع."
-        ))
-      )
-    ];
+          { className: "l-foot" },
+          "الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ",
+          "القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع."
+        )
+      );
+    }
     return h(
       "div",
       { className: "qm", dir: "rtl", lang: "ar" },
-      h("style", null, styles_default + market_default + portfolio_default),
-      h(PanelHeader, { here: "المحفظة" }, headerMeta),
-      h(
-        "div",
-        { className: "q-wrap", style: { paddingTop: 12 } },
-        content,
-        h(Disclaimer, { extra: "الأسعار إغلاق يومي متأخر من EODHD (مزوّد بيانات الأسعار)، وكل سعر مؤرّخ بيوم إغلاقه. الربح والخسارة محسوبان على التكلفة المُدخلة يدويًا ولا يشملان رسوم الوساطة أو الضرائب. «نسبة من المحفظة» = قيمة المركز ÷ قيمة المحفظة، وهي غير وزن السهم في المؤشر." })
-      ),
-      toastNode
+      h("style", null, styles_default + ledger_default),
+      h(PanelHeader, { here: "السجل" }, today),
+      body
     );
   }
 
@@ -882,9 +1032,9 @@ var __monos = (() => {
       ctx.slots.inject("sidebar.panellist", () => ctx.slots.register({
         name: "sidebar.panellist",
         id: PANEL_ID,
-        order: 10,
-        label: "المحفظة"
-      }, PortfolioIcon));
+        order: 8,
+        label: "Monos"
+      }, SidebarMonosIcon));
       ctx.slots.inject("main", () => ctx.slots.register({ name: "main", key: PANEL_ID }, PortfolioPage));
     }
   };

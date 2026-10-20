@@ -28,7 +28,7 @@ def main() -> None:
     from egx_mcp.market.sync import refresh_plan
     from egx_mcp.store import portfolio, valuations, watchlist
     from egx_mcp.store.db import connect
-    from egx_mcp.data import default_provider
+    from egx_mcp.catalog import catalog
     from egx_mcp.universe import load_universe
     import egx_mcp.market.summary as summary_mod
 
@@ -61,9 +61,22 @@ def main() -> None:
         conn.execute("UPDATE valuations SET created_at = ? WHERE id = ?",
                      ((at - timedelta(days=30 - i * 7)).astimezone(CAIRO).isoformat(timespec="seconds"), row[0]))
     conn.commit()
+    # «السجل»: one asset in every group, a stale fund price, a fund's components and an unpriced stock.
+    portfolio.set_price(conn, "USD", 47.2, day="2026-09-01")
+    portfolio.set_price(conn, "USD", 48.6, day="2026-10-15")
+    portfolio.set_price(conn, "XAU-G", 5450, day="2026-10-15")
+    portfolio.add_holding(conn, "USD", buy_price=30.9, quantity=2000, buy_date="2023-03-01")
+    portfolio.add_holding(conn, "USD", buy_price=49.5, amount=24750, buy_date="2025-01-05")
+    portfolio.add_holding(conn, "XAU-G", buy_price=3900, quantity=20, buy_date="2025-06-01")
+    portfolio.add_holding(conn, "BTC", buy_price=60000, quantity=0.05, buy_date="2026-09-10")
+    portfolio.set_price(conn, "BTC", 67000, "USD", day="2026-10-15")
     portfolio.add_holding(conn, "COMI", buy_price=70, quantity=100)
-    portfolio.add_holding(conn, "TMGH", buy_price=65, invested_amount=6500)
+    portfolio.add_holding(conn, "TMGH", buy_price=65, amount=6500)
     portfolio.add_holding(conn, "CLHO", buy_price=8, quantity=500)  # no price yet
+    fund = portfolio.add_holding(conn, None, buy_price=10, quantity=3000,
+                                 custom={"kind": "fund", "name": "صندوق الأهلي للأسهم", "currency": "EGP"})
+    portfolio.set_price(conn, fund["symbol"], 12.4, day="2026-10-08")
+    portfolio.set_fund_components(conn, fund["symbol"], [{"asset": "COMI", "weight": 0.32}, {"asset": "TMGH", "weight": 0.18}])
     watchlist.add_to_watchlist(conn, "FWRY")
     watchlist.add_to_watchlist(conn, "PHDC")
 
@@ -71,7 +84,9 @@ def main() -> None:
     api = {
         "/egx/api/market": market_summary(conn, at=at),
         "/egx/api/market/digest": market_digest(conn, at=at),
-        "/egx/api/portfolio": portfolio.portfolio_summary(conn, default_provider(), at=at),
+        "/egx/api/portfolio": portfolio.portfolio_summary(conn, at=at),
+        "/egx/api/catalog": {"assets": catalog(conn)},
+        "/egx/api/fx?currency=USD&date=": portfolio.fx_rate(conn, "USD", "2026-10-15"),
         "/egx/api/universe": load_universe(),
         "/egx/api/watchlist": {"watchlist": watchlist.list_watchlist(conn), "refresh_plan": refresh_plan(conn)},
         "/egx/api/valuations?kind=&limit=200&offset=0": valuations.list_valuations(conn, kind=None, limit=200),

@@ -5,8 +5,6 @@ from datetime import date, datetime, timedelta
 
 import pytest
 
-from egx_mcp.data.cached import CachedMarketProvider
-from egx_mcp.data.manual import ManualProvider
 from egx_mcp.market import store
 from egx_mcp.market.calendar import CAIRO
 from egx_mcp.market.eodhd import EodhdClient, MarketDataError, _key_from_file
@@ -70,8 +68,8 @@ def test_stored_zero_close_does_not_break_the_screens(db):
     portfolio.add_holding(db, "COMI", buy_price=40, quantity=10)
     row = next(r for r in market_summary(db, at=MORNING)["rows"] if r["symbol"] == "COMI")
     assert row["price"] == 52.0 and row["valuation"]["status"] == "at_or_below_fair_value"
-    held = portfolio.portfolio_summary(db, CachedMarketProvider(ManualProvider(db_dir(db))), at=MORNING)
-    assert held["holdings"][0]["current_price"] == 52.0
+    held = portfolio.portfolio_summary(db, at=MORNING)["groups"][0]["assets"][0]
+    assert held["price"] == 52.0
     market_digest(db, at=MORNING)  # must not raise
 
 
@@ -90,10 +88,9 @@ def test_portfolio_and_market_agree_on_yesterdays_quote(db):
     quote(db, "COMI", 53.0, datetime(2026, 10, 14, 13, 0, tzinfo=CAIRO))
     portfolio.add_holding(db, "COMI", buy_price=40, quantity=1)
     market_price = next(r for r in market_summary(db, at=MORNING)["rows"] if r["symbol"] == "COMI")["price"]
-    provider = CachedMarketProvider(ManualProvider(db_dir(db)))
-    held = portfolio.portfolio_summary(db, provider, at=MORNING)["holdings"][0]
-    assert market_price == held["current_price"] == 51.0
-    assert held["price_stale"] is True  # the stale flag now applies to the price that is shown
+    held = portfolio.portfolio_summary(db, at=MORNING)["groups"][0]["assets"][0]
+    assert market_price == held["price"] == 51.0
+    assert held["stale"] is True  # the stale flag now applies to the price that is shown
 
 
 # ── B7: the delayed quote's base is the previous session ─────────────────────

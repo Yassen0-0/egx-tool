@@ -354,10 +354,19 @@ export function AssetRow({ asset, catalog, fresh, onChanged }) {
 }
 
 // ── the page ─────────────────────────────────────────────────────────────────
+function UsdLine({ totals }) {
+  if (totals.value_usd == null) return null
+  const rate = totals.usd_rate != null ? `سعر الدولار ${fmtPrice(totals.usd_rate)} ج.م` : ''
+  const day = totals.usd_rate_as_of ? ` · ${fmtDate(totals.usd_rate_as_of.slice(0, 10))}` : ''
+  return h('div', { className: 'l-usd', title: rate + day },
+    '≈ ', N(money(Math.round(totals.value_usd))), ' دولار')
+}
+
 export function TotalBlock({ totals }) {
   const unpriced = totals.unpriced.length
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
     h('span', null, N(money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
+    h(UsdLine, { totals }),
     totals.assets ? h('div', { className: 'l-line' },
       h('span', null, 'التكلفة ', N(money(totals.cost))),
       totals.growth != null ? h('span', null, 'النمو ', N(fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,

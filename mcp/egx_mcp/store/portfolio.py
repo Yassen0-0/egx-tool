@@ -346,6 +346,14 @@ def _lot(row: dict) -> dict:
     return {k: row[k] for k in keys}
 
 
+def _usd_total(conn: sqlite3.Connection, value: float | None, at: datetime) -> dict:
+    """The EGP total in dollars at the current USD rate; all three None when either is unknown."""
+    rate = rate_now(conn, "USD", at)
+    if value is None or rate is None or not rate["rate"]:
+        return {"value_usd": None, "usd_rate": None, "usd_rate_as_of": None}
+    return {"value_usd": value / rate["rate"], "usd_rate": rate["rate"], "usd_rate_as_of": rate["as_of"]}
+
+
 def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict:
     """The ledger: totals in EGP, then the assets in four groups (currencies with gold, bitcoin,
     stocks, funds), each asset with its lots and, for a fund, its components."""
@@ -400,9 +408,11 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         if members:
             members.sort(key=lambda a: (a["value_egp"] is None, -(a["value_egp"] or 0), a["name"]))
             groups.append({"group": group, "label": label, "assets": members})
+    usd = _usd_total(conn, value if priced else None, at)
     return {
         "as_of": at.isoformat(timespec="minutes"),
         "totals": {
+            **usd,
             "assets": len(assets),
             "value": value if priced else None,
             "cost": sum(a["cost_egp"] for a in assets if a["cost_egp"] is not None),

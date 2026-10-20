@@ -8,6 +8,7 @@
 .qm .l-total { display: flex; flex-direction: column; gap: 4px; }
 .qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }
 .qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }
 

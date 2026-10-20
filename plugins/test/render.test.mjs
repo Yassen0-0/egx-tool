@@ -62,7 +62,8 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.match(t, /التكلفة 355,393/)
   assert.match(t, /النمو \+32\.0%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
-  assert.match(t, /اليوم \+0\.18%/)
+  assert.match(t, /اليوم \+0\.20%/)
+  assert.match(t, /≈ [\d,]+ دولار/)  // the total in dollars, under the big number
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle

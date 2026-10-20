@@ -111,3 +111,14 @@ def test_the_assistants_search_follows_the_screens_rules(conn):
     assert [e["key"] for e in search(conn, "دهب")] == ["XAU-G", "XAU-OZ"]  # the gram first
     assert search(conn, "التجاري")[0]["key"] == "COMI"
     assert search(conn, "comi")[0]["key"] == "COMI" and search(conn, "") == []
+
+
+def test_a_failed_purchase_leaves_no_asset_behind_and_keys_ignore_case(conn):
+    with pytest.raises(ValuationInputError):
+        portfolio.add_holding(conn, None, buy_price=None, quantity=1, custom={"kind": "fund", "name": "X fund", "price": 12})
+    assert conn.execute("SELECT COUNT(*) FROM custom_assets").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM manual_prices").fetchone()[0] == 0
+    portfolio.add_holding(conn, None, buy_price=2, quantity=3, custom={"kind": "gold", "name": "سبيكة"})
+    from egx_mcp.catalog import find
+    assert find(conn, "custom:1")["unit"] == "وحدة"
+    assert find(conn, "usd")["key"] == "USD" and find(conn, "xau-g")["key"] == "XAU-G"

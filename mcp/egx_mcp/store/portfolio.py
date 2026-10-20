@@ -87,12 +87,13 @@ def resolve_price(conn: sqlite3.Connection, entry: dict, at: datetime) -> dict |
 def rate_now(conn: sqlite3.Connection, currency: str, at: datetime) -> dict | None:
     """EGP per unit of `currency` from its asset's latest price (EGP itself is 1)."""
     if currency == "EGP":
-        return {"rate": 1.0, "as_of": None}
+        return {"rate": 1.0, "previous": 1.0, "as_of": None}
     entry = find(conn, currency)
     price = resolve_price(conn, entry, at) if entry else None
     if price is None or price["currency"] != "EGP":
         return None
-    return {"rate": price["price"], "as_of": price["as_of"]}
+    previous = price["price"] - price["change"] if price.get("change") is not None else price["price"]
+    return {"rate": price["price"], "previous": previous, "as_of": price["as_of"]}
 
 
 def rate_on(conn: sqlite3.Connection, currency: str, day: str) -> dict | None:
@@ -184,10 +185,7 @@ def _custom_asset(conn: sqlite3.Connection, custom: dict) -> dict:
             (kind, name, symbol, currency, now_iso())).lastrowid
     else:
         row_id = row["id"]
-    entry = find(conn, custom_key(row_id))
-    if custom.get("price") not in (None, ""):
-        set_price(conn, entry["key"], custom["price"], currency)
-    return entry
+    return find(conn, custom_key(row_id))
 
 
 def add_holding(
@@ -206,6 +204,14 @@ def add_holding(
     or the amount paid, the unit price in `currency`, and optionally the EGP the user actually paid."""
     if (asset is None) == (custom is None):
         raise ValuationInputError("اختار أصل من البحث أو أضفه بالاسم")
+    try:
+        return _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom)
+    except Exception:
+        conn.rollback()  # an asset added by name stays only with a valid purchase
+        raise
+
+
+def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom) -> dict:
     entry = _custom_asset(conn, custom) if custom is not None else _entry(conn, asset)
     if entry["key"] == "EGP":
         buy_price, currency = 1.0, "EGP"
@@ -237,6 +243,8 @@ def add_holding(
         (entry["key"], quantity, buy_price, buy_date, (note or "").strip() or None, stamp, stamp, entry["kind"],
          entry["name"], currency, fx, paid * fx),
     )
+    if custom is not None and custom.get("price") not in (None, ""):
+        set_price(conn, entry["key"], custom["price"], custom.get("currency") or entry["currency"])  # commits
     conn.commit()
     return get_holding(conn, cursor.lastrowid)
 
@@ -264,14 +272,15 @@ def update_holding(
     buy_price = current["buy_price"] if buy_price in (None, "") else _positive(buy_price, "سعر الشرا لازم يكون أكبر من صفر")
     if current["symbol"] == "EGP":
         buy_price = 1.0
-    fx = current["fx_egp"]
+    fx = current["fx_egp"] or None  # 0: the rate of an old dollar purchase is not known yet
     if cost_egp not in (None, "") and current["currency"] != "EGP":
         fx = _positive(cost_egp, "المبلغ بالجنيه لازم يكون أكبر من صفر") / (quantity * buy_price)
     conn.execute(
         "UPDATE holdings SET quantity = ?, buy_price = ?, buy_date = ?, note = ?, fx_egp = ?, cost_egp = ?,"
         " updated_at = ? WHERE id = ?",
         (quantity, buy_price, current["buy_date"] if buy_date in (None, "") else _day(buy_date),
-         current["note"] if note is None else (note.strip() or None), fx, quantity * buy_price * fx,
+         current["note"] if note is None else (note.strip() or None), fx or 0,
+         None if fx is None else quantity * buy_price * fx,
          now_iso(), holding_id),
     )
     conn.commit()
@@ -352,18 +361,21 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
                                      "symbol": key, "mark": key[:2], "unit": "", "currency": rows[0]["currency"],
                                      "kind_label": ""}
         quantity = sum(r["quantity"] for r in rows)
-        cost = sum(r["cost_egp"] for r in rows)
+        # A purchase whose EGP cost is unknown (an old dollar line) makes the asset's cost unknown.
+        cost = None if any(r["cost_egp"] is None for r in rows) else sum(r["cost_egp"] for r in rows)
         price = resolve_price(conn, entry, at)
         rate = rate_now(conn, price["currency"], at) if price else None
         unit_egp = price["price"] * rate["rate"] if price and rate else None
         value = quantity * unit_egp if unit_egp is not None else None
         fresh = bool(price and price["source"] == "EODHD" and price["stale"] is False and price["change"] is not None)
-        today = quantity * price["change"] * rate["rate"] if fresh and rate else None
+        # The day's move in EGP, the dollar's own move included for a price in dollars.
+        today = quantity * (price["price"] * rate["rate"] - (price["price"] - price["change"]) * rate["previous"]) \
+            if fresh and rate else None
         assets.append({
             "key": key, "kind": entry["kind"], "kind_label": entry["kind_label"], "group": entry["group"],
             "name": entry["name"], "symbol": entry.get("symbol"), "mark": entry["mark"], "unit": entry["unit"],
             "quantity": quantity, "cost_egp": cost, "value_egp": value,
-            "growth": value / cost - 1 if value is not None and cost else None,
+            "growth": value / cost - 1 if value is not None and cost else None,  # None cost: unknown
             "price": price["price"] if price else None, "price_currency": price["currency"] if price else entry["currency"],
             "price_egp": unit_egp, "price_as_of": price["as_of"] if price else None,
             "price_source": price["source"] if price else None, "stale": price["stale"] if price else None,
@@ -374,7 +386,9 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
 
     priced = [a for a in assets if a["value_egp"] is not None]
     value = sum(a["value_egp"] for a in priced)
-    priced_cost = sum(a["cost_egp"] for a in priced)
+    costed = [a for a in priced if a["cost_egp"] is not None]  # growth needs both ends
+    priced_cost = sum(a["cost_egp"] for a in costed)
+    costed_value = sum(a["value_egp"] for a in costed)
     moved = [a for a in assets if a["today_change"] is not None]
     today = sum(a["today_change"] for a in moved)
     today_base = sum(a["value_egp"] for a in moved) - today
@@ -391,9 +405,9 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         "totals": {
             "assets": len(assets),
             "value": value if priced else None,
-            "cost": sum(a["cost_egp"] for a in assets),
+            "cost": sum(a["cost_egp"] for a in assets if a["cost_egp"] is not None),
             "priced_cost": priced_cost,
-            "growth": value / priced_cost - 1 if priced and priced_cost else None,
+            "growth": costed_value / priced_cost - 1 if costed and priced_cost else None,
             "unpriced": unpriced,
             "today_change": today if moved else None,
             "today_change_pct": today / today_base if moved and today_base else None,

@@ -71,16 +71,21 @@ def refresh_plan(conn: sqlite3.Connection) -> dict:
             "feeds": len(ledger_feeds(conn)), "overflow": max(0, need - budget), "all_daily": budget >= need}
 
 
+def _check_mark(symbol: str, at: datetime) -> date:
+    """What «tried already» is counted against: a feed once per Cairo day; an EGX stock once per
+    session it is due for, so a morning check does not hold back the close due at 16:00."""
+    return at.date() if is_feed(symbol) else expected_last_bar(at)
+
+
 def _from_date(conn: sqlite3.Connection, symbol: str, at: datetime) -> str | None:
     """The from-date to fetch, or None when the cache is current or the symbol was tried today. One
-    attempt per symbol per day whatever came back, so a ticker EODHD does not serve cannot eat the
-    budget on every 5-minute sync."""
-    today = at.date()
-    if store.sync_state(conn, symbol)["bars_checked_on"] == today.isoformat():
+    attempt per symbol per day (per due session for a stock) whatever came back, so a ticker EODHD
+    does not serve cannot eat the budget on every 5-minute sync."""
+    if store.sync_state(conn, symbol)["bars_checked_on"] == _check_mark(symbol, at).isoformat():
         return None
     last = store.last_bar_date(conn, symbol)
     if last is None:
-        return (today - timedelta(days=HISTORY_DAYS)).isoformat()
+        return (at.date() - timedelta(days=HISTORY_DAYS)).isoformat()
     if is_feed(symbol):
         return last  # the last stored day may have been an unfinished one
     if date.fromisoformat(last) >= expected_last_bar(at):
@@ -90,13 +95,13 @@ def _from_date(conn: sqlite3.Connection, symbol: str, at: datetime) -> str | Non
 
 def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | None = None) -> dict:
     at = at or now_cairo()
-    today = at.date()
     run_id = conn.execute("INSERT INTO sync_runs (started_at) VALUES (?)", (_stamp(at),)).lastrowid
     conn.commit()
     summary = {"bars_updated": [], "bars_current": 0, "skipped_for_budget": [], "errors": {}}
     account = {"plan": None, "used_today": 0, "daily_limit": 0}
     try:
-        symbols = held_stocks(conn) + ledger_feeds(conn)
+        # Feeds first: there are a few of them, and many stocks must never starve the dollar or gold.
+        symbols = ledger_feeds(conn) + held_stocks(conn)
         due = [(s, d) for s in symbols if (d := _from_date(conn, s, at)) is not None]
         summary["bars_current"] = len(symbols) - len(due)
         if due:
@@ -113,7 +118,7 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
             try:
                 rows = client.daily_bars(symbol, date_from)
                 store.upsert_bars(conn, symbol, rows, SOURCE)
-                store.mark_checked(conn, symbol, bars_on=today)
+                store.mark_checked(conn, symbol, bars_on=_check_mark(symbol, at))
                 if rows:
                     summary["bars_updated"].append(symbol)
             except MarketDataError as exc:
@@ -124,7 +129,7 @@ def sync_market(conn: sqlite3.Connection, client: EodhdClient, at: datetime | No
                     summary["skipped_for_budget"].append(symbol)
                     budget = 0
                     continue
-                store.mark_checked(conn, symbol, bars_on=today, error=str(exc))
+                store.mark_checked(conn, symbol, bars_on=_check_mark(symbol, at), error=str(exc))
                 summary["errors"][symbol] = str(exc)
             conn.commit()
     except MarketDataError as exc:

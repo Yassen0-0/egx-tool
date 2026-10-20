@@ -87,7 +87,8 @@ def catalog(conn: sqlite3.Connection) -> list[dict]:
     entries = [dict(e) for e in builtin_catalog()]
     known = {e["key"] for e in entries}
     for r in conn.execute("SELECT * FROM custom_assets ORDER BY id"):
-        entry = _entry(custom_key(r["id"]), r["kind"], r["name"], r["name"], r["symbol"], (), r["currency"])
+        entry = _entry(custom_key(r["id"]), r["kind"], r["name"], r["name"], r["symbol"], (), r["currency"],
+                       UNIT.get(r["kind"]) or "وحدة")
         entry["custom"] = True
         entries.append(entry)
         known.add(entry["key"])
@@ -102,9 +103,10 @@ def catalog(conn: sqlite3.Connection) -> list[dict]:
 
 def find(conn: sqlite3.Connection, key: str) -> dict | None:
     key = key.strip()
-    ticker = normalize_symbol(key)
+    # Built-in keys are upper case (usd → USD, xau-g → XAU-G); fund: and custom: keep theirs.
+    upper = key if ":" in key else normalize_symbol(key)
     for entry in catalog(conn):
-        if entry["key"] == key or (entry["kind"] == "stock" and entry["key"] == ticker):
+        if entry["key"] in (key, upper):
             return entry
     return None
 

@@ -2,6 +2,8 @@
 
 import sqlite3
 
+import pytest
+
 from egx_mcp.store.db import SCHEMA_VERSION, connect
 
 OLD_VALUATIONS = """CREATE TABLE valuations (
@@ -65,4 +67,25 @@ def test_old_holding_becomes_a_ledger_stock(tmp_path):
     tables = {r[0] for r in conn.execute("SELECT name FROM sqlite_master WHERE type = 'table'")}
     assert {"custom_assets", "manual_prices", "fund_components"} <= tables
     assert len(list((tmp_path / "backups").glob("egx-*-before-v*.sqlite"))) == 1
+    conn.close()
+
+
+def test_an_old_dollar_line_keeps_its_dollars_and_an_unknown_egp_cost(tmp_path):
+    path = tmp_path / "egx.sqlite"
+    with sqlite3.connect(path) as old:
+        old.execute(OLD_HOLDINGS)
+        for symbol in ("VLMR", "COMI"):
+            old.execute("INSERT INTO holdings (symbol, quantity, buy_price, created_at, updated_at)"
+                        " VALUES (?, 100, 0.5, '2026-09-01T10:00:00+00:00', '2026-09-01T10:00:00+00:00')", (symbol,))
+        old.execute("PRAGMA user_version = 1")
+    old.close()
+    conn = connect(path)
+    rows = {r["symbol"]: dict(r) for r in conn.execute("SELECT * FROM holdings")}
+    assert (rows["VLMR"]["currency"], rows["VLMR"]["cost_egp"], rows["VLMR"]["fx_egp"]) == ("USD", None, 0)
+    assert (rows["COMI"]["currency"], rows["COMI"]["cost_egp"]) == ("EGP", 50)
+    from egx_mcp.store import portfolio
+    totals = portfolio.portfolio_summary(conn)["totals"]
+    assert totals["cost"] == 50  # the unknown cost is not a zero
+    fixed = portfolio.update_holding(conn, rows["VLMR"]["id"], cost_egp=2400)
+    assert fixed["cost_egp"] == 2400 and fixed["fx_egp"] == pytest.approx(48)
     conn.close()

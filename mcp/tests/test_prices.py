@@ -165,7 +165,8 @@ def test_sync_fetches_held_stocks_and_the_feeds_they_need_only(db):
     portfolio.add_holding(db, "BTC", buy_price=60000, quantity=0.01, cost_egp=30000)
     client = Client()
     sync_market(db, client, at=MORNING)
-    assert [s for s, _ in client.requests] == ["COMI", "USDEGP.FOREX", "XAUUSD.FOREX", "BTC-USD.CC"]
+    # Feeds first, so many stocks can never starve the dollar or gold.
+    assert [s for s, _ in client.requests] == ["USDEGP.FOREX", "XAUUSD.FOREX", "BTC-USD.CC", "COMI"]
     # Same day: nothing again. Next day: the feeds come back from their last stored day.
     again = Client()
     sync_market(db, again, at=MORNING + timedelta(minutes=5))
@@ -241,3 +242,26 @@ def test_holidays_are_not_trading_days(tmp_path, monkeypatch):
     assert not calendar.is_trading_day(date(2026, 10, 14))
     assert calendar.expected_last_bar(MORNING) == date(2026, 10, 13)
     assert calendar.next_session_day(datetime(2026, 10, 13, 15, 0, tzinfo=CAIRO)) == date(2026, 10, 15)
+
+
+def test_a_morning_check_does_not_hold_back_the_close_due_at_four(db):
+    put(db, "COMI", [120.0], last_day=date(2026, 10, 12))
+    portfolio.add_holding(db, "COMI", buy_price=100, quantity=1)
+    morning = Client()
+    sync_market(db, morning, at=datetime(2026, 10, 15, 11, 0, tzinfo=CAIRO))  # due: Wednesday
+    assert ("COMI", "2026-10-13") in morning.requests
+    evening = Client()
+    sync_market(db, evening, at=datetime(2026, 10, 15, 16, 30, tzinfo=CAIRO))  # due: Thursday
+    assert "COMI" in [s for s, _ in evening.requests]
+    again = Client()
+    sync_market(db, again, at=datetime(2026, 10, 15, 16, 35, tzinfo=CAIRO))
+    assert "COMI" not in [s for s, _ in again.requests]
+
+
+def test_todays_move_includes_the_dollars_own_move(db):
+    put(db, "USDEGP.FOREX", [50.0, 51.0], every_day=True)
+    put(db, "BTC-USD.CC", [60000.0, 66000.0], every_day=True)
+    portfolio.add_holding(db, "BTC", buy_price=60000, quantity=1, cost_egp=3_000_000)
+    totals = portfolio.portfolio_summary(db, MORNING)["totals"]
+    assert totals["today_change"] == pytest.approx(66000 * 51 - 60000 * 50)
+    assert totals["today_change_pct"] == pytest.approx((66000 * 51) / (60000 * 50) - 1)

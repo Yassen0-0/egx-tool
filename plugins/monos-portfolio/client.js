@@ -701,7 +701,7 @@ var __monos = (() => {
     const [price, setPrice] = useState(String(lot.buy_price));
     const [day, setDay] = useState(lot.buy_date ? fmtDate(lot.buy_date) : "");
     const [note, setNote] = useState(lot.note || "");
-    const [cost, setCost] = useState(String(Math.round(lot.cost_egp * 100) / 100));
+    const [cost, setCost] = useState(lot.cost_egp == null ? "" : String(Math.round(lot.cost_egp * 100) / 100));
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const run = async (action) => {
@@ -722,7 +722,7 @@ var __monos = (() => {
       if (!(q > 0) || !(p > 0)) return setError("الكمية والسعر لازم يكونوا أكبر من صفر");
       if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة");
       const body = { quantity: q, buy_price: p, buy_date: d, note };
-      if (lot.currency !== "EGP" && c > 0 && Math.abs(c - lot.cost_egp) > 5e-3) body.cost_egp = c;
+      if (lot.currency !== "EGP" && c > 0 && (lot.cost_egp == null || Math.abs(c - lot.cost_egp) > 5e-3)) body.cost_egp = c;
       return run(() => api("PATCH", `/egx/api/holdings/${lot.id}`, body));
     };
     const remove = () => run(() => api("DELETE", `/egx/api/holdings/${lot.id}`, {}));
@@ -759,7 +759,7 @@ var __monos = (() => {
       "div",
       { className: "l-lot" },
       asset.key === "EGP" ? h("span", null, N(money(lot.quantity)), " ج.م") : h("span", null, N(fmtQty(lot.quantity)), " ", asset.unit, " × ", priceWithSign(lot.buy_price, lot.currency)),
-      lot.currency !== "EGP" ? h("span", { className: "q-sec" }, "التكلفة ", N(money(lot.cost_egp)), " ج.م") : null,
+      lot.currency !== "EGP" ? h("span", { className: "q-sec" }, lot.cost_egp == null ? "التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها" : frag("التكلفة ", N(money(lot.cost_egp)), " ج.م")) : null,
       h("span", { className: "q-sec" }, lot.buy_date ? N(fmtDate(lot.buy_date)) : "من غير تاريخ"),
       lot.note ? h("span", { className: "q-sec" }, lot.note) : null,
       h(

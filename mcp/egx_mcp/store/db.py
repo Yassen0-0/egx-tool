@@ -173,11 +173,23 @@ def _ledger_holdings(conn: sqlite3.Connection) -> None:
             conn.execute("UPDATE holdings SET name = ? WHERE id = ?", (names[row["symbol"]], row["id"]))
 
 
+def _dollar_lines(conn: sqlite3.Connection) -> None:
+    """Step 2 read every old holding as EGP. A line quoted in dollars (catalog STOCK_CURRENCY, e.g.
+    VLMR) was bought in dollars: its EGP cost is unknown until the user gives it (cost_egp NULL;
+    fx_egp 0 means «no rate», the column being NOT NULL)."""
+    from ..catalog import STOCK_CURRENCY
+    for symbol, currency in STOCK_CURRENCY.items():
+        conn.execute("UPDATE holdings SET currency = ?, fx_egp = 0, cost_egp = NULL WHERE symbol = ? AND kind = 'stock'"
+                     " AND currency = 'EGP' AND fx_egp = 1 AND abs(cost_egp - quantity * buy_price) < 1e-9",
+                     (currency, symbol))
+
+
 # Note: SCHEMA runs before the steps, so it must not index a column a step adds.
 MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (1, "valuations.report (full Markdown report)", _add_column("valuations", "report", "TEXT")),
     (2, "«السجل»: holdings get kind, name, currency, fx_egp, cost_egp", _ledger_holdings),
     (3, "ledger_snapshots (created by SCHEMA)", lambda conn: None),
+    (4, "old purchases of a dollar EGX line are in dollars, their EGP cost unknown", _dollar_lines),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

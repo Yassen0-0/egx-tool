@@ -13,16 +13,18 @@ an asset's price, its fund components and its manual prices belong to the asset 
 - prices: EGX closes for stocks; EODHD feeds for currencies, gold and bitcoin (market/prices.py);
   the user's own price for anything else, or when it is newer than the market's.
 - fund components are shown under the fund and never added to anything.
+- a bank certificate or deposit is not priced: store/deposits.py values it from its terms.
 """
 
 import sqlite3
 from datetime import date, datetime
 
-from ..catalog import CURRENCY_CODES, GROUPS, catalog, custom_key, egx_ticker, find
+from ..catalog import CURRENCY_CODES, DEPOSIT_PREFIX, GROUPS, catalog, custom_key, deposit_entry, egx_ticker, find
 from ..errors import ValuationInputError
 from ..market import store
 from ..market.calendar import now_cairo
 from ..market.prices import formula_price, formula_price_on, price_state
+from . import deposits
 from .db import now_iso
 
 DISCLAIMER = "الأرقام كما أدخلها المستخدم، والأسعار إغلاق متأخر أو سعر كتبه المستخدم. وصف للأرقام، وليس توصية بالشراء أو البيع."
@@ -129,6 +131,8 @@ def fx_rate(conn: sqlite3.Connection, currency: str, day: str | None = None) -> 
 def set_price(conn: sqlite3.Connection, asset: str, price: float, currency: str | None = None,
               day: str | None = None) -> dict:
     """The user's price for an asset on a day (default today); a newer market close wins over it."""
+    if asset.startswith(DEPOSIT_PREFIX):
+        raise ValuationInputError("الشهادة والوديعة قيمتها بتتحسب من شروطها، مفيش سعر تكتبه")
     entry = _entry(conn, asset)
     if entry["key"] == "EGP":
         raise ValuationInputError("الجنيه سعره ثابت")
@@ -200,9 +204,13 @@ def add_holding(
     buy_date: str | None = None,
     note: str | None = None,
     custom: dict | None = None,
+    deposit: dict | None = None,
 ) -> dict:
     """Add one purchase: an asset from the catalog (or a new one by name in `custom`), the quantity
-    or the amount paid, the unit price in `currency`, and optionally the EGP the user actually paid."""
+    or the amount paid, the unit price in `currency`, and optionally the EGP the user actually paid.
+    A bank certificate or deposit is `deposit` alone, with its principal as the amount."""
+    if deposit is not None:
+        return _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     if (asset is None) == (custom is None):
         raise ValuationInputError("اختار أصل من البحث أو أضفه بالاسم")
     try:
@@ -210,6 +218,23 @@ def add_holding(
     except Exception:
         conn.rollback()  # an asset added by name stays only with a valid purchase
         raise
+
+
+def _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit) -> dict:
+    if asset is not None or custom is not None:
+        raise ValuationInputError("الشهادة أو الوديعة بتتضاف لوحدها، من غير أصل من البحث")
+    if (currency or "EGP").strip().upper() != "EGP":
+        raise ValuationInputError("الشهادة والوديعة بالجنيه المصري بس")
+    if (quantity in (None, "")) == (amount in (None, "")):
+        raise ValuationInputError("اكتب مبلغ الشهادة، مرة واحدة")
+    principal = _positive(amount if quantity in (None, "") else quantity, "مبلغ الشهادة لازم يكون أكبر من صفر")
+    try:
+        holding_id = deposits.add(conn, principal, note, deposit)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return get_holding(conn, holding_id)
 
 
 def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom) -> dict:
@@ -271,7 +296,7 @@ def update_holding(
     current = get_holding(conn, holding_id)
     quantity = current["quantity"] if quantity in (None, "") else _positive(quantity, "الكمية لازم تكون أكبر من صفر")
     buy_price = current["buy_price"] if buy_price in (None, "") else _positive(buy_price, "سعر الشرا لازم يكون أكبر من صفر")
-    if current["symbol"] == "EGP":
+    if current["symbol"] == "EGP" or current["kind"] == "deposit":
         buy_price = 1.0
     fx = current["fx_egp"] or None  # 0: the rate of an old dollar purchase is not known yet
     if cost_egp not in (None, "") and current["currency"] != "EGP":
@@ -355,17 +380,40 @@ def _usd_total(conn: sqlite3.Connection, value: float | None, at: datetime) -> d
     return {"value_usd": value / rate["rate"], "usd_rate": rate["rate"], "usd_rate_as_of": rate["as_of"]}
 
 
+def _deposit_asset(entry: dict, rows: list[dict], terms: dict, at: datetime) -> dict:
+    """A certificate or deposit as a ledger row: no price, a value from its terms (store/deposits.py)."""
+    principal = sum(r["quantity"] for r in rows)
+    cost = sum(r["cost_egp"] for r in rows)
+    result = deposits.valued(terms.get(rows[0]["id"]), principal, at)
+    detail = result["deposit"]
+    return {
+        "key": entry["key"], "kind": "deposit", "kind_label": entry["kind_label"], "group": entry["group"],
+        "name": entry["name"], "symbol": None, "mark": entry["mark"], "unit": entry["unit"],
+        "quantity": principal, "cost_egp": cost, "value_egp": result["value"], "growth": result["value"] / cost - 1,
+        "price": None, "price_currency": "EGP", "price_egp": None, "price_as_of": None, "price_source": "terms",
+        "stale": False, "today_change": None, "today_as_of": None,
+        "interest_per_year": detail and detail["interest_per_year"],
+        "next_payout_date": detail and detail["next_payout_date"],
+        "maturity_date": detail and detail["maturity_date"],
+        "deposit": detail, "lots": [_lot(r) for r in rows], "components": [],
+    }
+
+
 def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> dict:
-    """The ledger: totals in EGP, then the assets in four groups (currencies with gold, bitcoin,
-    stocks, funds), each asset with its lots and, for a fund, its components."""
+    """The ledger: totals in EGP, then the assets in five groups (currencies with gold, bitcoin,
+    stocks, funds, certificates and deposits), each asset with its lots and, for a fund, its components."""
     at = at or now_cairo()
     entries = {e["key"]: e for e in catalog(conn)}
     lots: dict[str, list[dict]] = {}
     for row in conn.execute("SELECT * FROM holdings ORDER BY id"):
         lots.setdefault(row["symbol"], []).append(dict(row))
 
+    terms = deposits.load(conn)
     assets = []
     for key, rows in lots.items():
+        if key.startswith(DEPOSIT_PREFIX):
+            assets.append(_deposit_asset(deposit_entry(key, rows[0]["name"] or "شهادة"), rows, terms, at))
+            continue
         entry = entries.get(key) or {"key": key, "kind": rows[0]["kind"], "group": "stocks", "name": rows[0]["name"] or key,
                                      "symbol": key, "mark": key[:2], "unit": "", "currency": rows[0]["currency"],
                                      "kind_label": ""}

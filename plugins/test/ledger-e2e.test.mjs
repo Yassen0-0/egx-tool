@@ -302,3 +302,77 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
   assert.doesNotMatch(seen.final, /الذهب \(جرام\)/)
   assert.match(seen.final, /32,650 جنيه/)  // 26,000 + 5,000 + 1,650
 })
+
+test('a certificate: picked by kind, its terms typed, the mistakes named, then its row and terms', { skip }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = () => host.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((r) => setTimeout(r, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const setValue = async (el, value) => {
+        const proto = el.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+          el.dispatchEvent(new window.Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
+        })
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.textContent.includes(name))
+      const labelled = (name) => [...host.querySelectorAll('form.l-add label')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
+      const form = () => host.querySelector('form.l-add')
+      await wait(() => host.querySelector('input[role="combobox"]') && row('الجنيه المصري'), 'the ledger from the earlier tests')
+      const input = host.querySelector('input[role="combobox"]')
+      await setValue(input, 'شهادة')
+      await wait(() => host.querySelector('[role="option"]'), 'the add-by-name option')
+      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      await wait(form, 'the custom add line')
+      await setValue(labelled('النوع'), 'deposit')
+      seen.fields = [...form().querySelectorAll('label')].map((l) => l.querySelector('.q-label').textContent)
+      seen.kinds = [...labelled('النوع').options].map((o) => o.textContent)
+
+      await click(button('إضافة', form()))
+      seen.noAmount = form().querySelector('[role="alert"]').textContent
+      await setValue(labelled('المبلغ'), '100,000')
+      await setValue(labelled('العائد السنوي'), '27')
+      await setValue(labelled('تاريخ البداية'), '1/1/2026')
+      await setValue(labelled('تاريخ الاستحقاق'), '1/1/2025')
+      await click(button('إضافة', form()))
+      seen.badOrder = form().querySelector('[role="alert"]').textContent
+      await setValue(labelled('تاريخ الاستحقاق'), '1/1/2029')
+      await setValue(labelled('البنك'), 'البنك الأهلي')
+      await setValue(labelled('صرف العائد'), 'monthly')
+      await click(button('إضافة', form()))
+      await wait(() => row('شهادة البنك الأهلي'), 'the certificate row')
+      seen.row = row('شهادة البنك الأهلي').textContent
+      seen.heading = text()
+
+      await click(row('شهادة البنك الأهلي'))
+      const detail = row('شهادة البنك الأهلي').nextElementSibling
+      seen.detail = detail.textContent.replace(/\s+/g, ' ')
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.deepEqual(seen.fields, ['النوع', 'البنك', 'المبلغ (ج.م)', 'العائد السنوي %', 'تاريخ البداية', 'تاريخ الاستحقاق', 'صرف العائد', 'ملاحظة (اختياري)'])
+  assert.ok(seen.kinds.includes('شهادة/وديعة'))
+  assert.match(seen.noAmount, /اكتب مبلغ الشهادة/)
+  assert.match(seen.badOrder, /بعد تاريخ البداية/)
+  assert.match(seen.row, /100,000/)
+  assert.match(seen.row, /27% · شهري/)
+  assert.match(seen.heading, /شهادات وودائع/)
+  assert.match(seen.detail, /العائد السنوي 27%/)
+  assert.match(seen.detail, /صرف شهري/)
+  assert.match(seen.detail, /الاستحقاق 01\/01\/2029/)
+  assert.match(seen.detail, /العائد في السنة 27,000 ج\.م/)
+  assert.match(seen.detail, /الصرف الجاي \d\d\/\d\d\/\d{4}/)
+  assert.doesNotMatch(seen.detail, /تحديث السعر/)
+})

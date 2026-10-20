@@ -593,12 +593,99 @@ var __monos = (() => {
     );
   }
 
+  // plugins/monos-portfolio/src/deposit.js
+  var DEPOSIT_KIND = "deposit";
+  var PAYOUT_CHOICES = [["monthly", "شهري"], ["quarterly", "ربع سنوي"], ["annual", "سنوي"], ["maturity", "في الآخر"]];
+  var ratePct = (rate) => `${Number((rate * 100).toFixed(2))}%`;
+  function useDepositForm() {
+    const [bank, setBank] = useState("");
+    const [amount, setAmount] = useState("");
+    const [rate, setRate] = useState("");
+    const [start, setStart] = useState("");
+    const [maturity, setMaturity] = useState("");
+    const [payout, setPayout] = useState("monthly");
+    const [note, setNote] = useState("");
+    const field = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const fields = h(
+      "div",
+      { className: "l-fields" },
+      field("البنك", text(bank, setBank, { maxLength: 60 })),
+      field("المبلغ (ج.م)", text(amount, setAmount, { inputMode: "decimal", className: "q-input num" })),
+      field("العائد السنوي %", text(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
+      field("تاريخ البداية", text(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field("تاريخ الاستحقاق", text(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field("صرف العائد", h(
+        "select",
+        { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
+        PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
+      )),
+      field("ملاحظة (اختياري)", text(note, setNote, { maxLength: 200 }))
+    );
+    function build() {
+      const principal = parseNumberInput(amount);
+      const percent = parseNumberInput(rate);
+      const from = parseDayInput(start);
+      const to = parseDayInput(maturity);
+      if (!(principal > 0)) return { error: "اكتب مبلغ الشهادة." };
+      if (!(percent > 0) || percent > 100) return { error: "اكتب العائد السنوي بالنسبة المئوية، زي 27." };
+      if (!from) return { error: "اكتب تاريخ البداية بصيغة يوم/شهر/سنة." };
+      if (!to) return { error: "اكتب تاريخ الاستحقاق بصيغة يوم/شهر/سنة." };
+      if (to <= from) return { error: "تاريخ الاستحقاق لازم يكون بعد تاريخ البداية." };
+      return {
+        body: {
+          amount: principal,
+          buy_price: 1,
+          currency: "EGP",
+          note: note.trim() || null,
+          deposit: { rate: Number((percent / 100).toFixed(6)), start_date: from, maturity_date: to, payout, bank: bank.trim() || null }
+        }
+      };
+    }
+    return { fields, build };
+  }
+  function depositSub(asset, hidden = false) {
+    const d = asset.deposit;
+    if (!d) return null;
+    return frag(
+      h("span", null, N(hidden ? MASK : ratePct(d.rate)), " · ", d.payout_label),
+      d.status === "matured" ? h("span", null, "منتهية") : null
+    );
+  }
+  function DepositInfo({ asset }) {
+    const hidden = usePrivacy();
+    const d = asset.deposit;
+    if (!d) return null;
+    const item = (key, ...children) => h("span", { key }, ...children);
+    return h(
+      "div",
+      null,
+      h("h3", null, "الشهادة"),
+      h(
+        "div",
+        { className: "l-lot" },
+        d.bank ? item("bank", d.bank) : null,
+        item("rate", "العائد السنوي ", N(hidden ? MASK : ratePct(d.rate))),
+        item("payout", "صرف ", d.payout_label),
+        item("start", "من ", N(fmtDate(d.start_date))),
+        item("maturity", "الاستحقاق ", N(fmtDate(d.maturity_date)))
+      ),
+      h(
+        "div",
+        { className: "l-lot" },
+        item("year", "العائد في السنة ", N(hidden ? MASK : fmtNumber(d.interest_per_year, 0)), " ج.م"),
+        d.status === "matured" ? item("state", "الشهادة انتهت") : item("next", d.payout === "maturity" ? "العائد يتصرف في " : "الصرف الجاي ", N(fmtDate(d.next_payout_date))),
+        d.payout === "maturity" ? item("earned", "العائد المتراكم داخل القيمة ", N(hidden ? MASK : fmtNumber(d.interest_to_date, 0)), " ج.م") : null
+      )
+    );
+  }
+
   // plugins/monos-portfolio/src/ledger.css
   var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var CURRENCY_SIGN = { EGP: "ج.م", USD: "$", EUR: "€", GBP: "£", SAR: "ر.س", AED: "د.إ" };
-  var KIND_CHOICES = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"]];
+  var KIND_CHOICES = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"]];
   var QTY_LABEL = { stock: "عدد الأسهم", fund: "عدد الوثائق" };
   var money = (v) => fmtNumber(v, 0);
   var sign = (currency) => CURRENCY_SIGN[currency] || currency;
@@ -706,6 +793,8 @@ var __monos = (() => {
     const [symbol, setSymbol] = useState("");
     const [current, setCurrent] = useState("");
     const kindNow = custom ? kind : entry.kind;
+    const isDeposit = custom && kind === DEPOSIT_KIND;
+    const dep = useDepositForm();
     const isPound = !custom && entry.key === "EGP";
     const fixedEgp = kindNow === "currency";
     const [currency, setCurrency] = useState(custom || fixedEgp ? "EGP" : entry.currency);
@@ -748,6 +837,20 @@ var __monos = (() => {
     async function submit(e) {
       e.preventDefault();
       setError("");
+      if (isDeposit) {
+        const built = dep.build();
+        if (built.error) return setError(built.error);
+        setBusy(true);
+        try {
+          const lot = await api("POST", "/egx/api/holdings", built.body);
+          onDone(lot.symbol);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+        return void 0;
+      }
       if (custom && !name.trim()) return setError("اكتب اسم الأصل.");
       if (!(q > 0)) return setError(mode === "qty" ? "اكتب الكمية." : "اكتب المبلغ.");
       if (!isPound && !(p > 0)) return setError("اكتب سعر الشرا.");
@@ -788,7 +891,7 @@ var __monos = (() => {
         "div",
         { className: "l-add-head" },
         custom ? h(Logo, { mark: "+" }) : h(Logo, { symbol: entry.kind === "stock" ? entry.symbol : null, mark: entry.mark }),
-        h("b", null, custom ? "أصل جديد بالاسم" : entry.name),
+        h("b", null, custom ? isDeposit ? "شهادة أو وديعة جديدة" : "أصل جديد بالاسم" : entry.name),
         custom ? null : h("span", { className: "q-meta" }, entry.kind_label)
       ),
       custom ? h(
@@ -799,17 +902,17 @@ var __monos = (() => {
           { className: "q-input", value: kind, onChange: (e) => setKind(e.target.value) },
           KIND_CHOICES.map(([k, l]) => h("option", { key: k, value: k }, l))
         )),
-        field("الاسم", input(name, setName, { maxLength: 80 })),
-        h(
+        isDeposit ? null : field("الاسم", input(name, setName, { maxLength: 80 })),
+        isDeposit ? null : h(
           "label",
           { className: "q-stack" },
           h("span", { className: "q-label" }, "الرمز (اختياري)"),
           input(symbol, setSymbol, { maxLength: 16, dir: "ltr" }),
           kind === "stock" ? h("small", { className: "q-meta" }, "لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة") : null
         ),
-        field("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
+        isDeposit ? null : field("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
       ) : null,
-      h(
+      isDeposit ? dep.fields : h(
         "div",
         { className: "l-fields" },
         h(
@@ -906,8 +1009,8 @@ var __monos = (() => {
       return h(
         "div",
         { className: "l-lot" },
-        box("الكمية", qty, setQty, { inputMode: "decimal", style: { width: 110 } }),
-        asset.key === "EGP" ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: "decimal", style: { width: 110 } }),
+        box(asset.kind === DEPOSIT_KIND ? "المبلغ" : "الكمية", qty, setQty, { inputMode: "decimal", style: { width: 110 } }),
+        asset.key === "EGP" || asset.kind === DEPOSIT_KIND ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: "decimal", style: { width: 110 } }),
         lot.currency !== "EGP" ? box("المدفوع بالجنيه", cost, setCost, { inputMode: "decimal", style: { width: 120 } }) : null,
         box("التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
         h(
@@ -928,7 +1031,7 @@ var __monos = (() => {
     return h(
       "div",
       { className: "l-lot" },
-      asset.key === "EGP" ? h("span", null, hid(hidden, money(lot.quantity)), " ج.م") : h("span", null, hid(hidden, fmtQty(lot.quantity)), " ", asset.unit, " × ", hidden ? frag(N(MASK), " ", sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
+      asset.key === "EGP" || asset.kind === DEPOSIT_KIND ? h("span", null, hid(hidden, money(lot.quantity)), " ج.م") : h("span", null, hid(hidden, fmtQty(lot.quantity)), " ", asset.unit, " × ", hidden ? frag(N(MASK), " ", sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
       lot.currency !== "EGP" ? h("span", { className: "q-sec" }, lot.cost_egp == null ? "التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها" : frag("التكلفة ", hid(hidden, money(lot.cost_egp)), " ج.م")) : null,
       h("span", { className: "q-sec" }, lot.buy_date ? N(fmtDate(lot.buy_date)) : "من غير تاريخ"),
       lot.note ? h("span", { className: "q-sec" }, lot.note) : null,
@@ -1064,6 +1167,7 @@ var __monos = (() => {
             { className: "l-sub" },
             asset.key === "EGP" ? null : h("span", null, hidden ? frag(N(MASK), " ", asset.unit) : quantityText(asset)),
             asset.kind === "stock" && asset.symbol ? h("span", { className: "q-sym" }, asset.symbol) : null,
+            asset.kind === DEPOSIT_KIND ? depositSub(asset, hidden) : null,
             !priced ? h("span", null, "من غير سعر") : asset.stale && asset.price_as_of ? h("span", null, "سعر ", N(fmtDayMonth(asset.price_as_of))) : null
           )
         ),
@@ -1083,7 +1187,8 @@ var __monos = (() => {
           h("h3", null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : "العملية"),
           asset.lots.map((lot) => h(LotItem, { key: `${lot.id}:${lot.updated_at}`, lot, asset, onChanged }))
         ),
-        asset.key === "EGP" ? null : h(
+        asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
+        asset.key === "EGP" || asset.kind === DEPOSIT_KIND ? null : h(
           "div",
           null,
           h("h3", null, "السعر"),

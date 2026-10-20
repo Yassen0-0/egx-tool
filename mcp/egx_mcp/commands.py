@@ -22,9 +22,9 @@ def _db():
 
 
 def portfolio_summary() -> dict:
-    """The ledger in EGP: total value, cost, growth, today's move, and the assets in four groups
-    (currencies with gold, bitcoin, stocks, funds), each with its purchases (lots), its price and
-    that price's date and source. Describe these numbers; never turn them into buy or sell advice."""
+    """The ledger in EGP: total value, cost, growth, today's move, and the assets in five groups
+    (currencies with gold, bitcoin, stocks, funds, bank certificates and deposits), each with its
+    purchases (lots), its price and that price's date and source (a certificate has its terms instead). Describe these numbers; never turn them into buy or sell advice."""
     with _db() as conn:
         return portfolio.portfolio_summary(conn)
 
@@ -51,15 +51,18 @@ def catalog_search(query: str) -> dict:
 
 def portfolio_add(asset: str | None = None, buy_price: float | None = None, quantity: float | None = None,
                   amount: float | None = None, currency: str | None = None, cost_egp: float | None = None,
-                  buy_date: str | None = None, note: str | None = None, custom: dict | None = None) -> dict:
+                  buy_date: str | None = None, note: str | None = None, custom: dict | None = None,
+                  deposit: dict | None = None) -> dict:
     """Add one purchase: `asset` is a catalog key (EGX ticker, USD, XAU-G, XAU-OZ, BTC, ...) or `custom`
     = {kind, name, symbol, currency, price} for an asset added by name. Give quantity or the amount
     paid, the unit price in `currency` (a currency's price is in EGP), the date (YYYY-MM-DD), and the
-    EGP actually paid (cost_egp) when the price is not in EGP and the user knows it. Confirm with the
-    user before calling."""
+    EGP actually paid (cost_egp) when the price is not in EGP and the user knows it. A bank certificate
+    or deposit is `deposit` = {rate (annual, as a fraction: 27% is 0.27), start_date, maturity_date
+    (YYYY-MM-DD), payout (monthly | quarterly | annual | maturity), bank} with the principal in EGP as
+    `amount`, and no asset, price or custom. Confirm with the user before calling."""
     with _db() as conn:
         return portfolio.add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date,
-                                     note, custom)
+                                     note, custom, deposit)
 
 
 def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,

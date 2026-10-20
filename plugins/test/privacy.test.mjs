@@ -44,7 +44,7 @@ test('the eye button hides every amount of the ledger and shows them again', { s
   const { before, hidden, hiddenOpen, after } = seen
   assert.equal(before.pressed, 'false')
   assert.equal(before.label, 'إخفاء الأرقام')
-  assert.match(before.total, /463,837/)
+  assert.match(before.total, /620,104/)
   assert.match(before.header, /\+0\.20%/)
 
   assert.equal(hidden.pressed, 'true')

@@ -30,7 +30,7 @@ test('every screen renders from the built plugin clients', { skip: !harness && '
   assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
   const text = r.html['main:egx-portfolio'].replace(/<style>[\s\S]*?<\/style>/g, '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ')
   assert.match(text, /Monos \/ السجل/)
-  for (const heading of ['عملات', 'بتكوين', 'أسهم', 'صناديق']) assert.match(text, new RegExp(heading))
+  for (const heading of ['عملات', 'بتكوين', 'أسهم', 'صناديق', 'شهادات وودائع']) assert.match(text, new RegExp(heading))
   assert.match(text, /TMGH/)
   assert.match(r.html['conversation.hero.brand.mark:conversation.hero.brand.mark'], /<svg/)
 })
@@ -58,15 +58,17 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.deepEqual(r.unknownRequests, [])
   const html = r.html['main:egx-portfolio']
   const t = ledgerText(html)
-  assert.match(t, /463,837 جنيه/)
-  assert.match(t, /التكلفة 355,393/)
-  assert.match(t, /النمو \+32\.0%/)
+  assert.match(t, /620,104 جنيه/)
+  assert.match(t, /التكلفة 505,393/)
+  assert.match(t, /النمو \+23\.7%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
   assert.match(t, /اليوم \+0\.20%/)
   assert.match(t, /≈ [\d,]+ دولار/)  // the total in dollars, under the big number
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle
+  assert.match(t, /شهادة البنك الأهلي 27% 100,000 جنيه 27% · شهري 100,000 0\.0%/)  // paid monthly: worth its principal
+  assert.match(t, /شهادة بنك مصر 25% 50,000 جنيه 25% · في الآخر 56,267 \+12\.5%/)  // interest at the end stays inside
   assert.ok(r.slots.includes('sidebar.panellist:egx-portfolio'))
 })
 
@@ -85,7 +87,7 @@ test('«تطوّر ثروتي» draws the total and the cost under the total, an
   for (const body of [one, { points: [], first: null, last: null, change: null, change_pct: null }]) {
     const quiet = await harness.renderClient([clientPath('monos-portfolio')], { fixtures: { '/egx/api/history?days=365': body } })
     assert.doesNotMatch(quiet.html['main:egx-portfolio'], /h-chart/)
-    assert.match(ledgerText(quiet.html['main:egx-portfolio']), /463,837 جنيه/)
+    assert.match(ledgerText(quiet.html['main:egx-portfolio']), /620,104 جنيه/)
   }
 })
 

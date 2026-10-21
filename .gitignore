@@ -24,3 +24,6 @@ egx-api*
 # Word files at the root are where keys and notes get dropped (egx-api.docx holds the EODHD key):
 # keep them out of git; project documents live in docs/.
 /*.docx
+
+# Throwaway databases a probe or test leaves next to the code
+mcp/tmp*/

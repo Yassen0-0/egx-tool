@@ -5,7 +5,7 @@ from datetime import datetime
 
 import pytest
 
-from egx_mcp.errors import ValuationInputError
+from egx_mcp.errors import LedgerInputError
 from egx_mcp.market.calendar import CAIRO
 from egx_mcp.store import portfolio
 from egx_mcp.store.db import connect
@@ -47,7 +47,7 @@ def test_bitcoin_cost_uses_the_rate_of_the_buy_day_and_keeps_it(conn):
 
 
 def test_egp_paid_sets_the_rate_and_no_known_rate_asks_for_it(conn):
-    with pytest.raises(ValuationInputError, match="بالجنيه"):
+    with pytest.raises(LedgerInputError, match="بالجنيه"):
         portfolio.add_holding(conn, "BTC", buy_price=60000, quantity=0.01)
     lot = portfolio.add_holding(conn, "BTC", buy_price=60000, quantity=0.01, cost_egp=31000)
     assert lot["cost_egp"] == pytest.approx(31000) and lot["fx_egp"] == pytest.approx(31000 / 600)
@@ -70,7 +70,7 @@ def test_fund_components_are_shown_and_never_summed(conn):
     fund = summary["groups"][0]["assets"][0]
     assert fund["components"][0]["asset"] == "COMI" and fund["components"][0]["weight"] == 0.32
     assert summary["totals"]["value"] == pytest.approx(1200) and summary["totals"]["assets"] == 1
-    with pytest.raises(ValuationInputError):
+    with pytest.raises(LedgerInputError):
         portfolio.set_fund_components(conn, "custom:1", [{"asset": "COMI", "weight": 0.7},
                                                          {"asset": "TMGH", "weight": 0.4}])
     portfolio.remove_asset(conn, "custom:1")
@@ -114,7 +114,7 @@ def test_the_assistants_search_follows_the_screens_rules(conn):
 
 
 def test_a_failed_purchase_leaves_no_asset_behind_and_keys_ignore_case(conn):
-    with pytest.raises(ValuationInputError):
+    with pytest.raises(LedgerInputError):
         portfolio.add_holding(conn, None, buy_price=None, quantity=1, custom={"kind": "fund", "name": "X fund", "price": 12})
     assert conn.execute("SELECT COUNT(*) FROM custom_assets").fetchone()[0] == 0
     assert conn.execute("SELECT COUNT(*) FROM manual_prices").fetchone()[0] == 0

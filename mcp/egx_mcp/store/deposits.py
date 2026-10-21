@@ -17,7 +17,7 @@ import sqlite3
 from calendar import monthrange
 from datetime import date, datetime
 
-from ..errors import ValuationInputError
+from ..errors import LedgerInputError
 from .db import now_iso
 
 PAYOUTS = {"monthly": "شهري", "quarterly": "ربع سنوي", "annual": "سنوي", "maturity": "في الآخر"}
@@ -36,11 +36,11 @@ def _name(bank: str | None, rate: float) -> str:
 
 def _day(value, message: str) -> date:
     if not isinstance(value, str) or not value.strip():
-        raise ValuationInputError(message)
+        raise LedgerInputError(message)
     try:
         return date.fromisoformat(value.strip()[:10])
     except ValueError:
-        raise ValuationInputError("التاريخ لازم يكون بالشكل سنة-شهر-يوم") from None
+        raise LedgerInputError("التاريخ لازم يكون بالشكل سنة-شهر-يوم") from None
 
 
 def add_months(start: date, months: int) -> date:
@@ -54,19 +54,19 @@ def validate(deposit: dict) -> dict:
     """The terms as stored: rate (a fraction), start_date, maturity_date (dates), payout, bank."""
     rate = deposit.get("rate")
     if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not 0 < rate <= 1:
-        raise ValuationInputError("العائد السنوي لازم يكون أكبر من صفر و100% أو أقل، ككسر: 27% يتكتب 0.27")
+        raise LedgerInputError("العائد السنوي لازم يكون أكبر من صفر و100% أو أقل، ككسر: 27% يتكتب 0.27")
     start = _day(deposit.get("start_date"), "اكتب تاريخ بداية الشهادة")
     maturity = _day(deposit.get("maturity_date"), "اكتب تاريخ استحقاق الشهادة")
     if maturity <= start:
-        raise ValuationInputError("تاريخ الاستحقاق لازم يكون بعد تاريخ البداية")
+        raise LedgerInputError("تاريخ الاستحقاق لازم يكون بعد تاريخ البداية")
     if maturity > add_months(start, MAX_YEARS * 12):
-        raise ValuationInputError(f"مدة الشهادة أطول من {MAX_YEARS} سنة؛ راجع التواريخ")
+        raise LedgerInputError(f"مدة الشهادة أطول من {MAX_YEARS} سنة؛ راجع التواريخ")
     payout = deposit.get("payout")
     if payout not in PAYOUTS:
-        raise ValuationInputError("اختار طريقة صرف العائد: شهري، أو ربع سنوي، أو سنوي، أو في الآخر")
+        raise LedgerInputError("اختار طريقة صرف العائد: شهري، أو ربع سنوي، أو سنوي، أو في الآخر")
     bank = str(deposit.get("bank") or "").strip() or None
     if bank and len(bank) > 60:
-        raise ValuationInputError("اسم البنك أطول من اللازم")
+        raise LedgerInputError("اسم البنك أطول من اللازم")
     return {"rate": float(rate), "start_date": start.isoformat(), "maturity_date": maturity.isoformat(),
             "payout": payout, "bank": bank}
 

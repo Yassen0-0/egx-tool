@@ -6,7 +6,7 @@ from mcp.server.mcpserver import MCPServer
 from mcp.server.mcpserver.exceptions import ToolError
 
 from . import commands
-from .errors import ValuationInputError
+from .errors import LedgerInputError
 
 INSTRUCTIONS = """\
 The user's ledger of assets in EGP («السجل»): read it, find assets, and add or edit purchases and prices.
@@ -24,7 +24,7 @@ def tool(fn):
     def wrapper(*args, **kwargs):
         try:
             return fn(*args, **kwargs)
-        except ValuationInputError as exc:
+        except LedgerInputError as exc:
             raise ToolError(str(exc)) from exc
 
     return server.tool()(wrapper)

@@ -8,7 +8,7 @@ import sys
 import pytest
 
 from egx_mcp import cli, commands
-from egx_mcp.errors import ValuationInputError
+from egx_mcp.errors import LedgerInputError
 
 
 @pytest.fixture(autouse=True)
@@ -37,9 +37,9 @@ def test_catalog_search_and_price_commands():
 
 
 def test_unknown_command_and_bad_arguments():
-    with pytest.raises(ValuationInputError, match="unknown command"):
+    with pytest.raises(LedgerInputError, match="unknown command"):
         cli.run("nope", None)
-    with pytest.raises(ValuationInputError, match="JSON object"):
+    with pytest.raises(LedgerInputError, match="JSON object"):
         cli.run("portfolio-add", "[1]")
 
 

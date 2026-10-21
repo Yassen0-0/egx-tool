@@ -23,14 +23,14 @@ import sys
 from pydantic import ValidationError, validate_call
 
 from .commands import CLI_COMMANDS
-from .errors import ValuationInputError
+from .errors import LedgerInputError
 from .market.eodhd import MarketDataError
 
 
 def _args(raw: str | None) -> dict:
     args = json.loads(raw) if raw else {}
     if not isinstance(args, dict):
-        raise ValuationInputError("arguments must be a JSON object")
+        raise LedgerInputError("arguments must be a JSON object")
     return args
 
 
@@ -40,7 +40,7 @@ def run(command: str, raw: str | None) -> object:
     are ignored (the screens send whole form objects)."""
     fn = CLI_COMMANDS.get(command)
     if fn is None:
-        raise ValuationInputError(f"unknown command {command}")
+        raise LedgerInputError(f"unknown command {command}")
     accepted = inspect.signature(fn).parameters
     args = {k: (None if v == "" else v) for k, v in _args(raw).items() if k in accepted}
     return validate_call(fn)(**args)
@@ -59,7 +59,7 @@ def main() -> None:
     except ValidationError as exc:
         print(json.dumps({"error": _validation_message(exc)}, ensure_ascii=False))
         sys.exit(2)
-    except (ValuationInputError, MarketDataError, KeyError, ValueError, json.JSONDecodeError) as exc:
+    except (LedgerInputError, MarketDataError, KeyError, ValueError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
         sys.exit(2)
     print(json.dumps(result, ensure_ascii=False))

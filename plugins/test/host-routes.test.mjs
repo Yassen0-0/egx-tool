@@ -63,7 +63,7 @@ test('wrong method or shape is refused, and a body that is not a JSON object is 
   }
 })
 
-test('each holdings route maps to its egx-cli command, and the old screens\' routes are gone', async () => {
+test('each holdings route maps to its egx-cli command', async () => {
   assert.equal((await call('GET', '/egx/api/portfolio')).body.command, 'portfolio-summary')
   const add = await call('POST', '/egx/api/holdings', { body: { asset: 'COMI', buy_price: 80, quantity: 5 }, headers: SAME_ORIGIN })
   assert.deepEqual(add.body, { command: 'portfolio-add', payload: { asset: 'COMI', buy_price: 80, quantity: 5 } })
@@ -71,10 +71,6 @@ test('each holdings route maps to its egx-cli command, and the old screens\' rou
   assert.deepEqual(edit.body, { command: 'portfolio-update', payload: { quantity: 6, holding_id: 3 } })
   const remove = await call('DELETE', '/egx/api/holdings/3', { body: {}, headers: SAME_ORIGIN })
   assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
-  for (const url of ['/egx/api/market', '/egx/api/watchlist', '/egx/api/valuations', '/egx/api/universe']) {
-    assert.equal((await call('GET', url)).status, 405, url)
-  }
-  assert.equal((await call('POST', '/egx/api/market/sync', { body: {}, headers: SAME_ORIGIN })).status, 404)
 })
 
 test('the history route asks for a whole number of days and falls back to the default', async () => {

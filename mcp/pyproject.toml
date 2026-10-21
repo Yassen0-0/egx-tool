@@ -1,7 +1,7 @@
 [project]
 name = "egx-mcp"
 version = "0.1.0"
-description = "EGX30 valuation, risk and portfolio tools exposed over MCP for the Monos desktop app"
+description = "«السجل»: the Monos ledger of assets in EGP — prices, storage and the assistant's MCP tools"
 requires-python = ">=3.11"
 dependencies = [
     "mcp>=1.9",

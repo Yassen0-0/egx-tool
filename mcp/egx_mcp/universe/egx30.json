@@ -2,7 +2,7 @@
   "index": "EGX30",
   "as_of": "2026-10-13",
   "source": "https://www.egx.com.eg/en/CurrentIndexConstituntes.aspx?type=1&Nav=1",
-  "note": "Constituents, ISINs and weights are from the EGX page. valuation_model and sector are the tool's own starting classification; entries with needs_review=true must be checked before a first valuation. name_ar and sector_ar are the common Arabic names used in the UI (added 2026-10-15); check them against the EGX Arabic constituents page when it next changes.",
+  "note": "EGX30 constituents, ISINs and weights from the EGX page; name_ar and sector_ar are the common Arabic names shown in «السجل». VLMR is the USD line of Valmore Holding (formerly Egypt Kuwait Holding), VLMRA its EGP line.",
   "constituents": [
     {
       "symbol": "ABUK",
@@ -11,10 +11,8 @@
       "name": "Abou Kir Fertilizers",
       "name_ar": "أبوقير للأسمدة",
       "weight_pct": 3.25,
-      "valuation_model": "operating",
       "sector": "basic_resources_fertilizers",
-      "sector_ar": "أسمدة",
-      "needs_review": false
+      "sector_ar": "أسمدة"
     },
     {
       "symbol": "ADIB",
@@ -23,10 +21,8 @@
       "name": "Abu Dhabi Islamic Bank- Egypt",
       "name_ar": "مصرف أبوظبي الإسلامي",
       "weight_pct": 2.64,
-      "valuation_model": "bank",
       "sector": "banks",
-      "sector_ar": "بنوك",
-      "needs_review": false
+      "sector_ar": "بنوك"
     },
     {
       "symbol": "ALCN",
@@ -35,10 +31,8 @@
       "name": "Alexandria Containers and goods",
       "name_ar": "الإسكندرية لتداول الحاويات",
       "weight_pct": 1.52,
-      "valuation_model": "operating",
       "sector": "transport_ports",
-      "sector_ar": "نقل وموانئ",
-      "needs_review": false
+      "sector_ar": "نقل وموانئ"
     },
     {
       "symbol": "AMOC",
@@ -47,10 +41,8 @@
       "name": "Alexandria Mineral Oils Company",
       "name_ar": "الإسكندرية للزيوت المعدنية",
       "weight_pct": 1.33,
-      "valuation_model": "operating",
       "sector": "energy_refining",
-      "sector_ar": "تكرير بترول",
-      "needs_review": false
+      "sector_ar": "تكرير بترول"
     },
     {
       "symbol": "BTFH",
@@ -59,11 +51,8 @@
       "name": "Beltone Holding",
       "name_ar": "بلتون القابضة",
       "weight_pct": 1.32,
-      "valuation_model": "nonbank_financial",
       "sector": "nonbank_financial_services",
-      "sector_ar": "خدمات مالية",
-      "needs_review": true,
-      "note": "Non-bank financial group: value with P/B-ROE or sum-of-the-parts by business line."
+      "sector_ar": "خدمات مالية"
     },
     {
       "symbol": "CLHO",
@@ -72,10 +61,8 @@
       "name": "Cleopatra Hospital Company",
       "name_ar": "مستشفى كليوباترا",
       "weight_pct": 0.91,
-      "valuation_model": "operating",
       "sector": "healthcare",
-      "sector_ar": "رعاية صحية",
-      "needs_review": false
+      "sector_ar": "رعاية صحية"
     },
     {
       "symbol": "COMI",
@@ -84,10 +71,8 @@
       "name": "Commercial International Bank-Egypt (CIB)",
       "name_ar": "البنك التجاري الدولي",
       "weight_pct": 28.76,
-      "valuation_model": "bank",
       "sector": "banks",
-      "sector_ar": "بنوك",
-      "needs_review": false
+      "sector_ar": "بنوك"
     },
     {
       "symbol": "EAST",
@@ -96,10 +81,8 @@
       "name": "Eastern Company",
       "name_ar": "الشرقية للدخان",
       "weight_pct": 4.83,
-      "valuation_model": "operating",
       "sector": "food_beverage_tobacco",
-      "sector_ar": "أغذية وتبغ",
-      "needs_review": false
+      "sector_ar": "أغذية وتبغ"
     },
     {
       "symbol": "EFID",
@@ -108,10 +91,8 @@
       "name": "Edita Food Industries S.A.E",
       "name_ar": "إيديتا للصناعات الغذائية",
       "weight_pct": 1.9,
-      "valuation_model": "operating",
       "sector": "food_beverage_tobacco",
-      "sector_ar": "أغذية وتبغ",
-      "needs_review": false
+      "sector_ar": "أغذية وتبغ"
     },
     {
       "symbol": "HRHO",
@@ -120,11 +101,8 @@
       "name": "EFG Holding",
       "name_ar": "إي إف جي القابضة",
       "weight_pct": 3.01,
-      "valuation_model": "nonbank_financial",
       "sector": "nonbank_financial_services",
-      "sector_ar": "خدمات مالية",
-      "needs_review": true,
-      "note": "Investment bank plus banking/NBFI arms: sum-of-the-parts is the usual approach."
+      "sector_ar": "خدمات مالية"
     },
     {
       "symbol": "EFIH",
@@ -133,10 +111,8 @@
       "name": "E-finance For Digital and Financial Investments",
       "name_ar": "إي فاينانس",
       "weight_pct": 4.99,
-      "valuation_model": "operating",
       "sector": "it_fintech",
-      "sector_ar": "تكنولوجيا مالية",
-      "needs_review": false
+      "sector_ar": "تكنولوجيا مالية"
     },
     {
       "symbol": "EGAL",
@@ -145,10 +121,8 @@
       "name": "Egypt Aluminum",
       "name_ar": "مصر للألومنيوم",
       "weight_pct": 1.23,
-      "valuation_model": "operating",
       "sector": "basic_resources_metals",
-      "sector_ar": "معادن",
-      "needs_review": false
+      "sector_ar": "معادن"
     },
     {
       "symbol": "EMFD",
@@ -157,10 +131,8 @@
       "name": "Emaar Misr for Development",
       "name_ar": "إعمار مصر للتنمية",
       "weight_pct": 0.73,
-      "valuation_model": "real_estate",
       "sector": "real_estate",
-      "sector_ar": "تطوير عقاري",
-      "needs_review": false
+      "sector_ar": "تطوير عقاري"
     },
     {
       "symbol": "FWRY",
@@ -169,10 +141,8 @@
       "name": "Fawry For Banking Technology And Electronic Payment",
       "name_ar": "فوري",
       "weight_pct": 5.74,
-      "valuation_model": "operating",
       "sector": "it_fintech",
-      "sector_ar": "تكنولوجيا مالية",
-      "needs_review": false
+      "sector_ar": "تكنولوجيا مالية"
     },
     {
       "symbol": "GBCO",
@@ -181,11 +151,8 @@
       "name": "GB Corp",
       "name_ar": "جي بي كورب",
       "weight_pct": 1.41,
-      "valuation_model": "operating",
       "sector": "autos_and_consumer_finance",
-      "sector_ar": "سيارات وتمويل استهلاكي",
-      "needs_review": true,
-      "note": "Auto business plus consumer-finance arm: consider sum-of-the-parts."
+      "sector_ar": "سيارات وتمويل استهلاكي"
     },
     {
       "symbol": "HELI",
@@ -194,10 +161,8 @@
       "name": "Heliopolis Housing",
       "name_ar": "مصر الجديدة للإسكان والتعمير",
       "weight_pct": 0.94,
-      "valuation_model": "real_estate",
       "sector": "real_estate",
-      "sector_ar": "تطوير عقاري",
-      "needs_review": false
+      "sector_ar": "تطوير عقاري"
     },
     {
       "symbol": "ISPH",
@@ -206,10 +171,8 @@
       "name": "Ibnsina Pharma",
       "name_ar": "ابن سينا فارما",
       "weight_pct": 0.93,
-      "valuation_model": "operating",
       "sector": "healthcare_pharma_distribution",
-      "sector_ar": "توزيع أدوية",
-      "needs_review": false
+      "sector_ar": "توزيع أدوية"
     },
     {
       "symbol": "JUFO",
@@ -218,10 +181,8 @@
       "name": "Juhayna Food Industries",
       "name_ar": "جهينة للصناعات الغذائية",
       "weight_pct": 0.88,
-      "valuation_model": "operating",
       "sector": "food_beverage_tobacco",
-      "sector_ar": "أغذية وتبغ",
-      "needs_review": false
+      "sector_ar": "أغذية وتبغ"
     },
     {
       "symbol": "MCQE",
@@ -230,10 +191,8 @@
       "name": "Misr Cement (Qena)",
       "name_ar": "مصر للأسمنت قنا",
       "weight_pct": 0.9,
-      "valuation_model": "operating",
       "sector": "building_materials",
-      "sector_ar": "مواد بناء",
-      "needs_review": false
+      "sector_ar": "مواد بناء"
     },
     {
       "symbol": "MFPC",
@@ -242,10 +201,8 @@
       "name": "Misr Fertilizers Production Company - Mopco",
       "name_ar": "موبكو",
       "weight_pct": 2.12,
-      "valuation_model": "operating",
       "sector": "basic_resources_fertilizers",
-      "sector_ar": "أسمدة",
-      "needs_review": false
+      "sector_ar": "أسمدة"
     },
     {
       "symbol": "ORAS",
@@ -254,11 +211,8 @@
       "name": "Orascom Construction PLC",
       "name_ar": "أوراسكوم كونستراكشون",
       "weight_pct": 2.83,
-      "valuation_model": "operating",
       "sector": "contracting_construction",
-      "sector_ar": "مقاولات",
-      "needs_review": true,
-      "note": "Verify the reporting currency of the financial statements before discounting."
+      "sector_ar": "مقاولات"
     },
     {
       "symbol": "ORHD",
@@ -267,10 +221,8 @@
       "name": "Orascom Development Egypt",
       "name_ar": "أوراسكوم للتنمية مصر",
       "weight_pct": 1.16,
-      "valuation_model": "real_estate",
       "sector": "real_estate_tourism",
-      "sector_ar": "عقارات وسياحة",
-      "needs_review": false
+      "sector_ar": "عقارات وسياحة"
     },
     {
       "symbol": "PHDC",
@@ -279,10 +231,8 @@
       "name": "Palm Hills Development Company",
       "name_ar": "بالم هيلز للتعمير",
       "weight_pct": 1.43,
-      "valuation_model": "real_estate",
       "sector": "real_estate",
-      "sector_ar": "تطوير عقاري",
-      "needs_review": false
+      "sector_ar": "تطوير عقاري"
     },
     {
       "symbol": "CCAP",
@@ -291,10 +241,8 @@
       "name": "QALAA For Financial Investments",
       "name_ar": "القلعة للاستثمارات المالية",
       "weight_pct": 2.12,
-      "valuation_model": "holding",
       "sector": "holding",
-      "sector_ar": "شركات قابضة",
-      "needs_review": false
+      "sector_ar": "شركات قابضة"
     },
     {
       "symbol": "RAYA",
@@ -303,10 +251,8 @@
       "name": "Raya Holding For Financial Investments",
       "name_ar": "راية القابضة",
       "weight_pct": 0.64,
-      "valuation_model": "holding",
       "sector": "holding",
-      "sector_ar": "شركات قابضة",
-      "needs_review": false
+      "sector_ar": "شركات قابضة"
     },
     {
       "symbol": "SKPC",
@@ -315,10 +261,8 @@
       "name": "Sidi Kerir Petrochemicals - SIDPEC",
       "name_ar": "سيدي كرير للبتروكيماويات",
       "weight_pct": 0.96,
-      "valuation_model": "operating",
       "sector": "basic_resources_petrochemicals",
-      "sector_ar": "بتروكيماويات",
-      "needs_review": false
+      "sector_ar": "بتروكيماويات"
     },
     {
       "symbol": "TMGH",
@@ -327,10 +271,8 @@
       "name": "T M G Holding",
       "name_ar": "طلعت مصطفى القابضة",
       "weight_pct": 9.72,
-      "valuation_model": "real_estate",
       "sector": "real_estate",
-      "sector_ar": "تطوير عقاري",
-      "needs_review": false
+      "sector_ar": "تطوير عقاري"
     },
     {
       "symbol": "ETEL",
@@ -339,11 +281,8 @@
       "name": "Telecom Egypt",
       "name_ar": "المصرية للاتصالات",
       "weight_pct": 8.94,
-      "valuation_model": "operating",
       "sector": "telecom",
-      "sector_ar": "اتصالات",
-      "needs_review": true,
-      "note": "Holds a stake in another operator: consider adding it as a NAV component."
+      "sector_ar": "اتصالات"
     },
     {
       "symbol": "RMDA",
@@ -352,10 +291,8 @@
       "name": "Tenth Of Ramadan Pharmaceutical Industries&Diagnostic-Rameda",
       "name_ar": "العاشر من رمضان للصناعات الدوائية (راميدا)",
       "weight_pct": 0.67,
-      "valuation_model": "operating",
       "sector": "healthcare_pharma",
-      "sector_ar": "أدوية",
-      "needs_review": false
+      "sector_ar": "أدوية"
     },
     {
       "symbol": "VLMR",
@@ -364,11 +301,8 @@
       "name": "Valmore Holding",
       "name_ar": "فالمور القابضة للاستثمار",
       "weight_pct": 1.65,
-      "valuation_model": "holding",
       "sector": "holding",
-      "sector_ar": "شركات قابضة",
-      "needs_review": true,
-      "note": "Second trading line of the same company as VLMRA; verify business profile before choosing a model."
+      "sector_ar": "شركات قابضة"
     },
     {
       "symbol": "VLMRA",
@@ -377,11 +311,8 @@
       "name": "Valmore Holding-EGP",
       "name_ar": "فالمور القابضة للاستثمار (بالجنيه)",
       "weight_pct": 0.54,
-      "valuation_model": "holding",
       "sector": "holding",
-      "sector_ar": "شركات قابضة",
-      "needs_review": true,
-      "note": "Second trading line of the same company as VLMR; verify business profile before choosing a model."
+      "sector_ar": "شركات قابضة"
     }
   ]
 }

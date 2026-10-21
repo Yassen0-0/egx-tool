@@ -7,7 +7,7 @@ from datetime import date, datetime
 import pytest
 
 from egx_mcp import cli
-from egx_mcp.errors import ValuationInputError
+from egx_mcp.errors import LedgerInputError
 from egx_mcp.market.calendar import CAIRO
 from egx_mcp.store import deposits, portfolio
 from egx_mcp.store.db import SCHEMA_VERSION, connect
@@ -141,7 +141,7 @@ def test_removing_the_holding_removes_its_terms(conn):
 
 def test_a_deposit_has_no_price_to_type(conn):
     key = add(conn)["symbol"]
-    with pytest.raises(ValuationInputError, match="مفيش سعر"):
+    with pytest.raises(LedgerInputError, match="مفيش سعر"):
         portfolio.set_price(conn, key, 1.2)
 
 
@@ -165,19 +165,19 @@ def test_the_principal_can_be_edited_and_the_price_stays_one(conn):
     ({"payout": None}, "طريقة صرف"),
 ])
 def test_bad_terms_are_rejected_in_arabic_and_write_nothing(conn, body, message):
-    with pytest.raises(ValuationInputError, match=message):
+    with pytest.raises(LedgerInputError, match=message):
         portfolio.add_holding(conn, amount=1000, deposit=terms(**body))
     assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 0
 
 
 def test_the_principal_and_the_other_fields_are_checked(conn):
-    with pytest.raises(ValuationInputError, match="مبلغ الشهادة"):
+    with pytest.raises(LedgerInputError, match="مبلغ الشهادة"):
         portfolio.add_holding(conn, amount=0, deposit=terms())
-    with pytest.raises(ValuationInputError, match="مرة واحدة"):
+    with pytest.raises(LedgerInputError, match="مرة واحدة"):
         portfolio.add_holding(conn, deposit=terms())
-    with pytest.raises(ValuationInputError, match="بالجنيه"):
+    with pytest.raises(LedgerInputError, match="بالجنيه"):
         portfolio.add_holding(conn, amount=1000, currency="USD", deposit=terms())
-    with pytest.raises(ValuationInputError, match="لوحدها"):
+    with pytest.raises(LedgerInputError, match="لوحدها"):
         portfolio.add_holding(conn, "USD", amount=1000, deposit=terms())
     assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 0
 

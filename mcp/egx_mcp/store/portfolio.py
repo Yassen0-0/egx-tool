@@ -20,7 +20,7 @@ import sqlite3
 from datetime import date, datetime
 
 from ..catalog import CURRENCY_CODES, DEPOSIT_PREFIX, GROUPS, catalog, custom_key, deposit_entry, egx_ticker, find
-from ..errors import ValuationInputError
+from ..errors import LedgerInputError
 from ..market import store
 from ..market.calendar import now_cairo
 from ..market.prices import formula_price, formula_price_on, price_state
@@ -32,7 +32,7 @@ DISCLAIMER = "الأرقام كما أدخلها المستخدم، والأسع
 
 def _positive(value: float | None, message: str) -> float:
     if value is None or not value > 0:
-        raise ValuationInputError(message)
+        raise LedgerInputError(message)
     return float(value)
 
 
@@ -42,13 +42,13 @@ def _day(value: str | None) -> str | None:
     try:
         return date.fromisoformat(value[:10]).isoformat()
     except ValueError:
-        raise ValuationInputError("التاريخ لازم يكون بالشكل سنة-شهر-يوم") from None
+        raise LedgerInputError("التاريخ لازم يكون بالشكل سنة-شهر-يوم") from None
 
 
 def _entry(conn: sqlite3.Connection, key: str) -> dict:
     entry = find(conn, key)
     if entry is None:
-        raise ValuationInputError(f"الأصل {key} مش في الفهرس؛ أضفه بالاسم")
+        raise LedgerInputError(f"الأصل {key} مش في الفهرس؛ أضفه بالاسم")
     return entry
 
 
@@ -121,7 +121,7 @@ def fx_rate(conn: sqlite3.Connection, currency: str, day: str | None = None) -> 
     """What the add form shows: the EGP rate it would use for a purchase in `currency` on `day`."""
     currency = currency.strip().upper()
     if currency not in CURRENCY_CODES:
-        raise ValuationInputError(f"عملة غير معروفة: {currency}")
+        raise LedgerInputError(f"عملة غير معروفة: {currency}")
     day = _day(day) or now_cairo().date().isoformat()
     found = rate_on(conn, currency, day)
     return {"currency": currency, "date": day, "rate": found["rate"] if found else None,
@@ -132,18 +132,18 @@ def set_price(conn: sqlite3.Connection, asset: str, price: float, currency: str 
               day: str | None = None) -> dict:
     """The user's price for an asset on a day (default today); a newer market close wins over it."""
     if asset.startswith(DEPOSIT_PREFIX):
-        raise ValuationInputError("الشهادة والوديعة قيمتها بتتحسب من شروطها، مفيش سعر تكتبه")
+        raise LedgerInputError("الشهادة والوديعة قيمتها بتتحسب من شروطها، مفيش سعر تكتبه")
     entry = _entry(conn, asset)
     if entry["key"] == "EGP":
-        raise ValuationInputError("الجنيه سعره ثابت")
+        raise LedgerInputError("الجنيه سعره ثابت")
     price = _positive(price, "السعر لازم يكون أكبر من صفر")
     currency = (currency or entry["currency"]).strip().upper()
     if currency not in CURRENCY_CODES:
-        raise ValuationInputError(f"عملة غير معروفة: {currency}")
+        raise LedgerInputError(f"عملة غير معروفة: {currency}")
     if entry["kind"] == "currency" and currency != "EGP":
-        raise ValuationInputError("سعر العملة بيتكتب بالجنيه")
+        raise LedgerInputError("سعر العملة بيتكتب بالجنيه")
     if currency == entry["key"]:
-        raise ValuationInputError("سعر الأصل ما ينفعش يكون بنفس عملته")
+        raise LedgerInputError("سعر الأصل ما ينفعش يكون بنفس عملته")
     day = _day(day) or now_cairo().date().isoformat()
     conn.execute(
         "INSERT INTO manual_prices (asset, date, price, currency, created_at) VALUES (?, ?, ?, ?, ?)"
@@ -175,14 +175,14 @@ def priced_catalog(conn: sqlite3.Connection, at: datetime | None = None) -> list
 def _custom_asset(conn: sqlite3.Connection, custom: dict) -> dict:
     kind = custom.get("kind")
     if kind not in ("currency", "gold", "bitcoin", "stock", "fund"):
-        raise ValuationInputError("اختار نوع الأصل")
+        raise LedgerInputError("اختار نوع الأصل")
     name = (custom.get("name") or "").strip()
     if not name:
-        raise ValuationInputError("اكتب اسم الأصل")
+        raise LedgerInputError("اكتب اسم الأصل")
     symbol = (custom.get("symbol") or "").strip().upper() or None
     currency = (custom.get("currency") or "EGP").strip().upper()
     if currency not in CURRENCY_CODES:
-        raise ValuationInputError(f"عملة غير معروفة: {currency}")
+        raise LedgerInputError(f"عملة غير معروفة: {currency}")
     row = conn.execute("SELECT id FROM custom_assets WHERE kind = ? AND lower(name) = lower(?)", (kind, name)).fetchone()
     if row is None:
         row_id = conn.execute(
@@ -212,7 +212,7 @@ def add_holding(
     if deposit is not None:
         return _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     if (asset is None) == (custom is None):
-        raise ValuationInputError("اختار أصل من البحث أو أضفه بالاسم")
+        raise LedgerInputError("اختار أصل من البحث أو أضفه بالاسم")
     try:
         return _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom)
     except Exception:
@@ -222,11 +222,11 @@ def add_holding(
 
 def _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit) -> dict:
     if asset is not None or custom is not None:
-        raise ValuationInputError("الشهادة أو الوديعة بتتضاف لوحدها، من غير أصل من البحث")
+        raise LedgerInputError("الشهادة أو الوديعة بتتضاف لوحدها، من غير أصل من البحث")
     if (currency or "EGP").strip().upper() != "EGP":
-        raise ValuationInputError("الشهادة والوديعة بالجنيه المصري بس")
+        raise LedgerInputError("الشهادة والوديعة بالجنيه المصري بس")
     if (quantity in (None, "")) == (amount in (None, "")):
-        raise ValuationInputError("اكتب مبلغ الشهادة، مرة واحدة")
+        raise LedgerInputError("اكتب مبلغ الشهادة، مرة واحدة")
     principal = _positive(amount if quantity in (None, "") else quantity, "مبلغ الشهادة لازم يكون أكبر من صفر")
     try:
         holding_id = deposits.add(conn, principal, note, deposit)
@@ -245,10 +245,10 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
     if entry["kind"] == "currency":
         currency = "EGP"  # a currency's price is what one unit cost in EGP
     if currency not in CURRENCY_CODES:
-        raise ValuationInputError(f"عملة غير معروفة: {currency}")
+        raise LedgerInputError(f"عملة غير معروفة: {currency}")
     buy_price = _positive(buy_price, "سعر الشرا لازم يكون أكبر من صفر")
     if (quantity in (None, "")) == (amount in (None, "")):
-        raise ValuationInputError("اكتب الكمية أو المبلغ، واحد منهم بس")
+        raise LedgerInputError("اكتب الكمية أو المبلغ، واحد منهم بس")
     quantity = _positive(quantity, "الكمية لازم تكون أكبر من صفر") if quantity not in (None, "") \
         else _positive(amount, "المبلغ لازم يكون أكبر من صفر") / buy_price
     buy_date = _day(buy_date)
@@ -260,7 +260,7 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
     else:
         found = rate_on(conn, currency, buy_date or now_cairo().date().isoformat())
         if found is None:
-            raise ValuationInputError(f"مفيش سعر {currency} معروف في اليوم ده؛ اكتب المبلغ اللي دفعته بالجنيه")
+            raise LedgerInputError(f"مفيش سعر {currency} معروف في اليوم ده؛ اكتب المبلغ اللي دفعته بالجنيه")
         fx = found["rate"]
     stamp = now_iso()
     cursor = conn.execute(
@@ -278,7 +278,7 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
 def get_holding(conn: sqlite3.Connection, holding_id: int) -> dict:
     row = conn.execute("SELECT * FROM holdings WHERE id = ?", (holding_id,)).fetchone()
     if row is None:
-        raise ValuationInputError(f"العملية {holding_id} مش موجودة")
+        raise LedgerInputError(f"العملية {holding_id} مش موجودة")
     return dict(row)
 
 
@@ -324,7 +324,7 @@ def remove_asset(conn: sqlite3.Connection, asset: str) -> dict:
     """Every purchase of an asset, and a fund's components with it. Its manual prices stay."""
     rows = [dict(r) for r in conn.execute("SELECT * FROM holdings WHERE symbol = ?", (asset,))]
     if not rows:
-        raise ValuationInputError(f"مفيش عمليات للأصل {asset}")
+        raise LedgerInputError(f"مفيش عمليات للأصل {asset}")
     conn.execute("DELETE FROM holdings WHERE symbol = ?", (asset,))
     conn.execute("DELETE FROM fund_components WHERE fund = ?", (asset,))
     conn.commit()
@@ -335,19 +335,19 @@ def set_fund_components(conn: sqlite3.Connection, fund: str, components: list[di
     """Replace what a fund holds: stocks with their weight (0–1). Display only, never summed."""
     entry = _entry(conn, fund)
     if entry["kind"] != "fund":
-        raise ValuationInputError("المكونات للصناديق بس")
+        raise LedgerInputError("المكونات للصناديق بس")
     rows, seen = [], set()
     for c in components:
         part = _entry(conn, str(c.get("asset") or ""))
         if part["kind"] != "stock":
-            raise ValuationInputError("مكون الصندوق لازم يكون سهم")
+            raise LedgerInputError("مكون الصندوق لازم يكون سهم")
         weight = _positive(c.get("weight"), "نسبة المكون لازم تكون أكبر من صفر")
         if weight > 1 or part["key"] in seen:
-            raise ValuationInputError("كل مكون مرة واحدة، ونسبته 100% أو أقل")
+            raise LedgerInputError("كل مكون مرة واحدة، ونسبته 100% أو أقل")
         seen.add(part["key"])
         rows.append((entry["key"], part["key"], weight, now_iso()))
     if sum(r[2] for r in rows) > 1 + 1e-9:
-        raise ValuationInputError("مجموع نسب المكونات أكبر من 100%")
+        raise LedgerInputError("مجموع نسب المكونات أكبر من 100%")
     conn.execute("DELETE FROM fund_components WHERE fund = ?", (entry["key"],))
     conn.executemany("INSERT INTO fund_components (fund, asset, weight, updated_at) VALUES (?, ?, ?, ?)", rows)
     conn.commit()

@@ -7,7 +7,7 @@
 - `scripts/rebrand-desktop.sh` بيبني `/Applications/Monos.app`، وبيقفل التحديث التلقائي، وبيعيد التوقيع.
 - `scripts/asar-brand.py` بيعدّل نصوص الواجهة جوه `app.asar`.
 - `scripts/strip-deepseek-profile.py` بيقفل إضافات DeepSeek في ملف الإعدادات.
-- الشرح والتاريخ الكامل في `docs/REBRAND-MONOS.md`، وأصول الأيقونة في `assets/monos/`.
+- أصول الأيقونة في `assets/monos/`، وبناء التطبيق في `scripts/rebrand-desktop.sh`.
 
 ## شكلها
 مربع أخضر `#37B77A` جواه خط صاعد أبيض. مقاسه 34px، وهو نفس رسمة `MonosIcon` في `shared/identity.js`.

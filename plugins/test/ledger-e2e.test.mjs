@@ -682,3 +682,69 @@ test('«استيراد CSV»: the ledger\'s own export read back adds nothing tw
   assert.deepEqual(seen.buttons, ['تمام'])
   assert.match(seen.error, /مش ملف تصدير من Monos/)
 })
+
+test('«سجّل»: N opens it, a kind is picked, yesterday is one chip away, the save says so, Esc closes it', { skip }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const setValue = async (el, value) => {
+        const proto = el.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+          el.dispatchEvent(new window.Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
+        })
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const press = async (el, code, k) => { await act(async () => { el.dispatchEvent(new window.KeyboardEvent('keydown', { bubbles: true, code, key: k })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const composer = () => host.querySelector('section.l-composer')
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.querySelector('.l-name').textContent === name)
+
+      await wait(() => row('الجنيه المصري'), 'the ledger from the earlier tests')
+      seen.header = text(host.querySelector('header'))
+      await press(host.querySelector('.qm'), 'KeyN', 'n')
+      await wait(composer, 'the composer from N')
+      seen.kinds = [...composer().querySelectorAll('[role="radio"]')].map((b) => b.textContent)
+      await click(button('خروج', composer()))
+      await wait(() => composer().querySelector('form[aria-label="خروج"]'), 'the expense form')
+      seen.from = composer().querySelector('select').value
+      await setValue(composer().querySelector('input[aria-label="الكمية اللي خرجت"]'), '100')
+      await click(button('امبارح', composer()))
+      seen.date = composer().querySelector('input[name="date"]').value
+      await click(button('سجّل', composer()))
+      await wait(() => !composer() && host.querySelector('.q-toast'), 'the toast')
+      seen.toast = text(host.querySelector('.q-toast'))
+      await click(button('افتح', host.querySelector('.q-toast')))
+      await wait(() => row('الجنيه المصري').getAttribute('aria-expanded') === 'true' && text(row('الجنيه المصري').nextElementSibling).includes('−100 ج.م خروج'),
+        'the pounds opened from the toast, with the expense')
+      seen.pounds = text(row('الجنيه المصري').nextElementSibling)
+
+      await click(button('+ سجّل'))
+      await wait(composer, 'the composer from the button')
+      await click(button('دين', composer()))
+      await wait(() => composer().querySelector('form.l-add'), 'the debt form')
+      seen.debtForm = [...composer().querySelectorAll('form.l-add label .q-label')].map((l) => l.textContent)
+      await press(composer().querySelector('input'), 'Escape', 'Escape')
+      await wait(() => !composer(), 'Esc to close')
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.match(seen.header, /\+ سجّل/)
+  assert.deepEqual(seen.kinds, ['شرا', 'تحويل', 'خروج', 'توزيعات', 'دين', 'سداد', 'شهادة'])
+  assert.equal(seen.from, 'EGP')  // pounds first
+  assert.match(seen.date, /^\d{2}\/\d{2}\/\d{4}$/)
+  assert.match(seen.toast, /اتسجّل الخروج/)
+  assert.match(seen.pounds, /−100 ج\.م خروج/)
+  assert.ok(seen.debtForm.includes('اسمه (لمين أو إيه هو)') && !seen.debtForm.includes('النوع'))
+})

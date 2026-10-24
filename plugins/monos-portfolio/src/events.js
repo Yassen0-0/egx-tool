@@ -2,7 +2,8 @@
 // bonus shares and splits, and «الجاي قريب» (payouts, maturities, installments in the coming weeks).
 // Every amount and date comes from Python (store/deposits.py, store/portfolio.py). ES module.
 import { N, api, frag, h, useState } from '../../shared/runtime.js'
-import { fmtDate, fmtQty, parseDayInput, parseNumberInput } from '../../shared/format.mjs'
+import { fmtDate, fmtQty, parseNumberInput, resolveDay } from '../../shared/format.mjs'
+import { DateField } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { money } from './units.mjs'
 
@@ -48,7 +49,7 @@ export function StockEventForm({ asset, kind, onDone, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
-    const v = parseNumberInput(value), d = parseDayInput(day)
+    const v = parseNumberInput(value), d = resolveDay(day)
     if (!(v > 0)) return setError('اكتب الرقم.')
     if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
     setBusy(true)
@@ -58,11 +59,12 @@ export function StockEventForm({ asset, kind, onDone, onCancel }) {
       onDone()
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': kind === 'dividend' ? 'توزيعات' : 'أسهم مجانية أو تقسيم' },
+  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': kind === 'dividend' ? 'توزيعات' : 'أسهم مجانية أو تقسيم',
+      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
     h('b', null, kind === 'dividend' ? `توزيعات ${asset.name}` : kind === 'bonus' ? `أسهم مجانية من ${asset.name}` : `تقسيم ${asset.name}`),
     h('div', { className: 'l-fields' },
       field(label, text(value, setValue, { inputMode: 'decimal', className: 'q-input num', 'aria-label': label })),
-      field('التاريخ (اختياري)', text(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
+      h(DateField, { value: day, onChange: setDay, noDate: false }),
       field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
     h('div', { className: 'l-actions' },
       h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل'),

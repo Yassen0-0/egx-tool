@@ -2,7 +2,8 @@
 // installment, the payments) and the line that pays it from an asset. What is left and the next
 // due day come from Python (store/debts.py); a payment is a movement of kind repay. ES module.
 import { N, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
-import { fmtDate, fmtNumber, parseDayInput, parseNumberInput } from '../../shared/format.mjs'
+import { fmtDate, fmtNumber, parseDayInput, parseNumberInput, resolveDay } from '../../shared/format.mjs'
+import { DateField } from '../../shared/form.js'
 import { Logo } from '../../shared/logo.js'
 import { Chevron } from '../../shared/components.js'
 import { Collapse, canMove, land } from '../../shared/motion.js'
@@ -72,7 +73,7 @@ export function RepayForm({ debt, assets, onDone, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
-    const t = parseNumberInput(taken), dn = parseNumberInput(down), d = parseDayInput(day)
+    const t = parseNumberInput(taken), dn = parseNumberInput(down), d = resolveDay(day)
     if (!source) return setError('مفيش أصل تسدّد منه.')
     if (!(t > 0)) return setError('اكتب المبلغ اللي دفعته.')
     if (from !== 'EGP' && !(dn > 0)) return setError('اكتب الدين قل قد إيه بالجنيه.')
@@ -84,14 +85,15 @@ export function RepayForm({ debt, assets, onDone, onCancel }) {
       onDone()
     } catch (err) { setError(err.message) } finally { setBusy(false) }
   }
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': 'سداد' },
+  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': 'سداد',
+      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
     h('b', null, `سداد «${debt.name}»`),
     h('div', { className: 'l-fields' },
       field('من', h('select', { className: 'q-input', value: from, onChange: (e) => setFrom(e.target.value) },
         payable.map((a) => h('option', { key: a.key, value: a.key }, a.name)))),
       field(`دفعت كام (${source && source.key !== 'EGP' ? source.unit : 'ج.م'})`, text(taken, setTaken, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'المبلغ اللي دفعته' })),
       field(from === 'EGP' ? 'الدين قل كام (اختياري: نفس المبلغ)' : 'الدين قل كام (ج.م)', text(down, setDown, { inputMode: 'decimal', className: 'q-input num' })),
-      field('التاريخ (اختياري)', text(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
+      h(DateField, { value: day, onChange: setDay, noDate: false }),
       field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
     h('div', { className: 'l-actions' },
       h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل السداد'),

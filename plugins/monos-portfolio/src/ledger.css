@@ -155,3 +155,22 @@
   border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }
 .qm .l-import-plan p { margin: 0; }
 .qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }
+
+/* «سجّل»: one card, the kind of entry on top, then its form */
+.qm .l-composer { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-4) var(--q-5) var(--q-5); background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }
+.qm .l-composer-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-3); }
+.qm .l-composer-head > b { font-size: 16px; }
+.qm .l-composer-x { margin-inline-start: auto; }
+.qm .l-composer .l-add { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+.qm .l-composer-pick { max-width: 320px; }
+.qm .l-big-input { height: 48px; font-size: 20px; font-weight: 600; }
+.qm .l-main { grid-column: span 1; }
+.qm .l-more > summary { cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; list-style: none; }
+.qm .l-more > summary::-webkit-details-marker { display: none; }
+.qm .l-more > summary::before { content: '▸ '; }
+.qm .l-more[open] > summary::before { content: '▾ '; }
+.qm .l-more > .l-fields { margin-top: var(--q-2); }
+.qm .l-fields > .l-more { grid-column: 1 / -1; }
+.qm .q-date .q-chips { margin-top: 2px; }

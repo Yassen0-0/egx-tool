@@ -108,3 +108,19 @@ test('form inputs: numbers and dates as people type them', async () => {
   assert.equal(parseDayInput('31/02/2026'), undefined)
 })
 
+
+test('a date field: empty is today, the day words, «من غير تاريخ», and a typed number keeps its decimals', async () => {
+  const { resolveDay, parseDayInput, todayCairo, shiftDay, groupTyped, NO_DATE } = await import('../shared/format.mjs')
+  const today = todayCairo()
+  assert.match(today, /^\d{4}-\d{2}-\d{2}$/)
+  assert.equal(resolveDay(''), today)
+  assert.equal(resolveDay('النهارده'), today)
+  assert.equal(resolveDay('امبارح'), shiftDay(today, -1))
+  assert.equal(resolveDay(NO_DATE), null)
+  assert.equal(resolveDay('31/02/2026'), undefined)
+  assert.equal(parseDayInput(''), null)  // the parser itself still reads empty as nothing
+  assert.equal(shiftDay('2026-03-01', -1), '2026-02-28')
+  assert.equal(groupTyped('100000.5'), '100,000.5')
+  assert.equal(groupTyped('١٢٣٤٥'), '12,345')
+  assert.equal(groupTyped('abc'), 'abc')
+})

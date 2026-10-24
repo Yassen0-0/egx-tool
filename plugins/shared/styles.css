@@ -136,3 +136,17 @@
   .qm .q-btn:active:not(:disabled) { transform: none; }
 }
 .qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }
+
+/* A date field's chips, toasts */
+.qm .q-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.qm .q-toasts { position: sticky; bottom: var(--q-4); z-index: 6; display: flex; flex-direction: column; align-items: center; gap: var(--q-2);
+  pointer-events: none; margin-top: calc(var(--q-4) * -1); }
+.qm .q-toast { pointer-events: auto; display: inline-flex; align-items: center; gap: var(--q-3); min-height: 44px; padding: 0 var(--q-2) 0 var(--q-4);
+  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); font-size: 13px;
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 14%, transparent);
+  animation: q-toast-in var(--q-d-base) var(--q-ease-spring) backwards; }
+@keyframes q-toast-in { from { opacity: 0; transform: translateY(8px); } }
+.qm .q-toast-x { appearance: none; border: 0; background: transparent; width: 32px; height: 32px; border-radius: var(--dsw-radius-sm); cursor: pointer;
+  color: var(--dsw-alias-label-secondary); font-size: 16px; }
+.qm .q-toast-x:hover { background: var(--dsw-alias-interactive-bg-hover); }
+@media (prefers-reduced-motion: reduce) { .qm .q-toast { animation: q-fade var(--q-d-micro) linear backwards; } }

@@ -3,7 +3,8 @@
 // cost and gain comes from Python (store/movements.py); this only shows them and sends what the user
 // typed. The search comes in as a prop, so this file does not import portfolio.js back. ES module.
 import { N, api, frag, h, useState } from '../../shared/runtime.js'
-import { fmtDate, fmtNumber, fmtQty, fmtSigned, parseDayInput, parseNumberInput, toneOf } from '../../shared/format.mjs'
+import { fmtDate, fmtNumber, fmtQty, fmtSigned, parseDayInput, parseNumberInput, resolveDay, toneOf } from '../../shared/format.mjs'
+import { DateField, NumberInput } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { money } from './units.mjs'
 
@@ -43,7 +44,7 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
   const dest = within ? asset : to
   // null while the catalog loads, so the search waits instead of offering «add by name».
   const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== 'deposit') : null
-  const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = parseDayInput(day), v = parseNumberInput(value)
+  const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = resolveDay(day), v = parseNumberInput(value)
   const neitherPound = kind === 'transfer' && to && asset.key !== 'EGP' && to.key !== 'EGP'
 
   async function submit(e) {
@@ -69,7 +70,8 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
   }
 
   const title = within ? `نقل ${asset.name} لمكان تاني` : transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': within ? 'نقل' : transfer ? 'تحويل' : 'خروج' },
+  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': within ? 'نقل' : transfer ? 'تحويل' : 'خروج',
+      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
     h('b', null, title),
     kind === 'transfer' ? (to
       ? h('div', { className: 'l-inline' }, h('span', null, 'لـ ', h('b', null, to.name)),
@@ -79,13 +81,13 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
     h('div', { className: 'l-fields' },
       h('div', { className: 'q-stack' },
         h('span', { className: 'q-label' }, `خرج كام (${unitOf(asset)})`),
-        h('input', { className: 'q-input num', inputMode: 'decimal', value: taken, 'aria-label': 'الكمية اللي خرجت', onChange: (e) => setTaken(e.target.value) }),
+        h(NumberInput, { className: 'q-input num l-big-input', value: taken, 'aria-label': 'الكمية اللي خرجت', onChange: setTaken }),
         asset.quantity > 0 ? h('button', { type: 'button', className: 'q-link', style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setTaken(String(asset.quantity)) }, 'الكل') : null),
       asset.places && asset.places.length ? field('من مكان', h('select', { className: 'q-input', value: fromPlace, onChange: (e) => setFromPlace(e.target.value) },
         h('option', { value: '' }, within ? 'اختار' : 'أي مكان'), asset.places.filter((p) => p.place).map((p) => h('option', { key: p.place, value: p.place }, p.place)))) : null,
       transfer && dest ? field(`دخل كام (${unitOf(dest)})`, text(arrived, setArrived, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'الكمية اللي دخلت' })) : null,
       transfer && dest ? field(within ? 'لمكان' : 'لمكان (اختياري)', text(toPlace, setToPlace, { maxLength: 40, list: 'l-places' })) : null,
-      field('التاريخ (اختياري)', text(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
+      h(DateField, { value: day, onChange: setDay, noDate: false }),
       neitherPound ? field('كانت تساوي كام بالجنيه (اختياري)', text(value, setValue, { inputMode: 'decimal', className: 'q-input num', placeholder: 'ج.م' })) : null,
       field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
     h('label', { className: 'l-inline q-sec' },

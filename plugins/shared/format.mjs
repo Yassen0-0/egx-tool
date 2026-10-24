@@ -87,6 +87,35 @@ function parts(iso) {
 
 const two = (n) => String(n).padStart(2, '0')
 
+/** Today in Cairo, 'YYYY-MM-DD'. */
+export const todayCairo = () => cairoDate.format(new Date())
+
+/** The calendar day `n` days after `iso` (negative: before). */
+export function shiftDay(iso, n) {
+  const [y, m, d] = iso.split('-').map(Number)
+  const date = new Date(Date.UTC(y, m - 1, d + n))
+  return `${date.getUTCFullYear()}-${two(date.getUTCMonth() + 1)}-${two(date.getUTCDate())}`
+}
+
+export const NO_DATE = 'من غير تاريخ'
+
+/** What a date field means: empty is today, «من غير تاريخ» is none (null), anything else as typed
+ *  (undefined when it is not a real date). */
+export function resolveDay(text) {
+  const raw = String(text || '').trim()
+  if (!raw) return todayCairo()
+  if (raw === NO_DATE) return null
+  return parseDayInput(raw) || undefined
+}
+
+/** A typed number shown back with thousands separators, its decimals kept («100000.5» → «100,000.5»). */
+export function groupTyped(text) {
+  const n = parseNumberInput(text)
+  return Number.isFinite(n) ? n.toLocaleString('en-US', { maximumFractionDigits: 8 }) : text
+}
+
+const DAY_WORDS = { النهارده: 0, النهاردة: 0, اليوم: 0, امبارح: -1, إمبارح: -1, أمس: -1, امس: -1 }
+
 /** 14/10 */
 export function fmtDayMonth(iso) {
   const p = parts(iso)
@@ -138,12 +167,13 @@ export function parseNumberInput(text) {
 }
 
 /**
- * The execution date typed as «يوم/شهر/سنة» (or ISO). Empty → null (the server keeps it empty and
- * the UI reads that as today). Returns 'YYYY-MM-DD', null, or undefined when it is not a real date.
+ * The execution date typed as «يوم/شهر/سنة» (or ISO), or «النهارده» / «امبارح». Empty → null (the
+ * forms send today then; the server keeps an empty date empty). Returns 'YYYY-MM-DD', null, or undefined when it is not a real date.
  */
 export function parseDayInput(text) {
   const raw = String(text || '').trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660))
   if (!raw) return null
+  if (Object.hasOwn(DAY_WORDS, raw)) return shiftDay(todayCairo(), DAY_WORDS[raw])
   let y, m, d
   let match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw)
   if (match) { [, d, m, y] = match.map(Number) } else if ((match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(raw))) { [, y, m, d] = match.map(Number) } else return undefined

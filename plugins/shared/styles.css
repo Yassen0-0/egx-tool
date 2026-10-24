@@ -150,3 +150,11 @@
   color: var(--dsw-alias-label-secondary); font-size: 16px; }
 .qm .q-toast-x:hover { background: var(--dsw-alias-interactive-bg-hover); }
 @media (prefers-reduced-motion: reduce) { .qm .q-toast { animation: q-fade var(--q-d-micro) linear backwards; } }
+
+/* A number counting to its new value keeps its place; numbers blur to the mask and back. */
+.qm .num.q-count { display: inline-block; text-align: end; }
+.qm .num { transition: color var(--q-d-base) var(--q-ease-standard); }
+@keyframes q-swap { from { opacity: 0; filter: blur(3px); } }
+.qm[data-privacy-swap] .q-swap { animation: q-swap var(--q-d-small) var(--q-ease-enter) backwards; }
+.qm[data-privacy-swap] .l-big.q-swap { animation-duration: var(--q-d-large); }
+@media (prefers-reduced-motion: reduce) { .qm[data-privacy-swap] .q-swap { animation: q-fade var(--q-d-micro) linear backwards; } }

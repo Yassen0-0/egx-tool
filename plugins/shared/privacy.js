@@ -3,7 +3,8 @@
 // and layout stay. One store for the page (pageShared), so the header button and the sidebar row
 // agree although they are different plugins. The choice is remembered across restarts in
 // localStorage; without storage (a private window) it simply lives until the page closes.
-import { h, pageShared, useEffect, useState } from './runtime.js'
+import { h, pageShared, useEffect, useRef, useState } from './runtime.js'
+import { liveDom, useCountUp } from './motion.js'
 
 export const MASK = '•••••'
 const STORAGE_KEY = 'monos.privacy.hidden'
@@ -23,6 +24,12 @@ export const privacy = pageShared('privacy', () => ({
     if (hidden === this.hidden) return
     this.hidden = hidden
     writeStored(hidden)
+    if (liveDom()) {  // the numbers blur in and out for a moment (CSS .qm[data-privacy-swap] .q-swap)
+      const roots = document.querySelectorAll('.qm')
+      roots.forEach((r) => r.setAttribute('data-privacy-swap', ''))
+      clearTimeout(this.swapTimer)
+      this.swapTimer = setTimeout(() => roots.forEach((r) => r.removeAttribute('data-privacy-swap')), 400)
+    }
     this.listeners.forEach((listener) => listener())
   },
   toggle() { this.set(!this.hidden) },
@@ -37,6 +44,16 @@ export function usePrivacy() {
     return () => { privacy.listeners.delete(listener) }
   }, [])
   return privacy.hidden
+}
+
+/** One number that counts to `value` when it changes (motion.js useCountUp), «•••••» while hidden
+ *  (the tone dropped, as hid() does). The two states are different elements, so the mask never counts. */
+export function CountNum({ value, format, hidden, className, duration }) {
+  const ref = useRef(null)
+  useCountUp(ref, value, format, { duration, disabled: hidden })
+  return hidden
+    ? h('span', { key: 'h', className: 'num q-swap' }, MASK)
+    : h('span', { key: 's', ref, className: `num q-count q-swap${className ? ` ${className}` : ''}` }, format(value))
 }
 
 /** The text to show for `shown`: the mask while hidden, `shown` itself otherwise. */

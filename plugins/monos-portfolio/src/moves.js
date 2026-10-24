@@ -152,7 +152,7 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
   }
 
   const spread = incoming && event.market_value_egp != null && event.value_egp != null && Math.abs(event.value_egp - event.market_value_egp) >= 1
-  return h('div', { className: 'l-lot l-move-item' },
+  return h('div', { className: 'l-lot l-move-item', 'data-kind': within ? 'place' : incoming ? 'in' : event.kind },
     within
       ? h('span', null, incoming ? '+' : '−', amount(incoming ? event.to_quantity : event.from_quantity, asset.key, asset.unit, hidden), ' نقل', placeText)
       : incoming

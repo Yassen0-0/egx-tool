@@ -79,7 +79,7 @@ test('«تطوّر ثروتي» draws the total and the cost under the total, an
   assert.deepEqual(r.unknownRequests, [])
   const html = r.html['main:egx-portfolio']
   assert.ok(r.requests.includes('GET /egx/api/history?days=365'))
-  assert.match(html, /<svg class="h-chart"[^>]*viewBox="0 0 720 120"/)
+  assert.match(html, /<svg class="h-chart"[^>]*viewBox="0 0 720 160"/)
   assert.match(html, /<polyline class="h-value" points="[\d.]+,[\d.]+ [\d.]+,[\d.]+/)
   assert.match(html, /<polyline class="h-cost"/)
   assert.ok(html.indexOf('l-total') < html.indexOf('h-chart'))

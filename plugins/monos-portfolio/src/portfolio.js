@@ -7,9 +7,9 @@ import { DASH, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, parseD
 import { DateField, NumberInput, focusField } from '../../shared/form.js'
 import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Chevron, SkeletonPage } from '../../shared/components.js'
-import { Collapse, canMove, land } from '../../shared/motion.js'
+import { Collapse, FlipList, canMove, land } from '../../shared/motion.js'
 import { Logo } from '../../shared/logo.js'
-import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
+import { CountNum, MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
 import { ExportButton } from './export.js'
@@ -31,7 +31,7 @@ const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' 
 const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
 /** A number span that reads «•••••» while the numbers are hidden (shared/privacy.js); the tone
  * colour is dropped too, so a red or green figure does not give the sign away. */
-const hid = (hidden, text, cls) => (hidden ? N(MASK) : N(text, cls))
+const hid = (hidden, text, cls) => (hidden ? N(MASK, 'q-swap') : N(text, cls ? `${cls} q-swap` : 'q-swap'))
 
 /** «سعر الجرام وقت الشرا», so a gram is never priced as an ounce. */
 function priceLabel(kind, unit, key) {
@@ -329,7 +329,7 @@ function LotItem({ lot, asset, onChanged }) {
         h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')),
       error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
   }
-  return h('div', { className: 'l-lot' },
+  return h('div', { className: 'l-lot', 'data-kind': lot.origin && lot.origin.startsWith('dividend:') ? 'dividend' : 'lot' },
     asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? h('span', null, hid(hidden, money(lot.quantity)), ' ج.م')
       : h('span', null, hid(hidden, fmtQty(lot.quantity)), ' ', asset.unit, ' × ', hidden ? frag(N(MASK), ' ', sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
     lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, lot.cost_egp == null ? 'التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها' : frag('التكلفة ', hid(hidden, money(lot.cost_egp)), ' ج.م')) : null,
@@ -417,7 +417,36 @@ function Timeline({ asset, onChanged, onOpen }) {
           : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen })))
 }
 
-export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) {
+/** Two actions in sight, the rest in «كمان» (a native disclosure: its buttons stay in the page). */
+function Actions({ asset, entry, onPick }) {
+  const stockLike = asset.kind === 'stock' || asset.kind === 'fund'
+  const all = [
+    entry && asset.kind !== 'currency' ? ['buy', 'اشتريت تاني'] : null,
+    ['transfer', 'تحويل منه'],
+    ['expense', 'خروج', 'صرفت أو سحبت'],
+    ['place', 'نقل لمكان تاني'],
+    stockLike ? ['dividend', 'توزيعات'] : null,
+    stockLike ? ['bonus', 'أسهم مجانية'] : null,
+    stockLike ? ['split', 'تقسيم'] : null,
+  ].filter(Boolean)
+  const shown = all.slice(0, 2)
+  const more = all.slice(2)
+  const menu = React.useRef(null)
+  const pick = (id) => { if (menu.current) menu.current.open = false; onPick(id) }
+  useEffect(() => {  // a click anywhere else closes «كمان»
+    const away = (e) => { if (menu.current && menu.current.open && !menu.current.contains(e.target)) menu.current.open = false }
+    document.addEventListener('pointerdown', away)
+    return () => document.removeEventListener('pointerdown', away)
+  }, [])
+  return h('div', { className: 'l-inline l-actions-bar' },
+    shown.map(([id, label, title], i) => h('button', { key: id, type: 'button', className: `q-btn q-btn-sm${i ? ' q-btn-quiet' : ''}`, title, onClick: () => pick(id) }, label)),
+    more.length ? h('details', { ref: menu, className: 'q-menu' },
+      h('summary', { className: 'q-btn q-btn-sm q-btn-quiet' }, 'كمان ▾'),
+      h('div', { className: 'q-menu-list' }, more.map(([id, label, title]) => h('button', { key: id, type: 'button', className: 'q-btn q-btn-sm', title, onClick: () => pick(id) }, label)))) : null)
+}
+
+export function AssetRow({ asset, catalog, places, fresh, focused, onChanged, onOpen }) {
+  const entry = (catalog || []).find((e) => e.key === asset.key) || null
   const hidden = usePrivacy()
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
@@ -440,7 +469,7 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
   }
   const sourceText = asset.price_source === 'manual' ? 'كتبته أنت' : asset.price_source === 'EODHD' ? 'إغلاق EODHD' : null
   return h(React.Fragment, null,
-    h('button', { type: 'button', ref: rowRef, className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open,
+    h('button', { type: 'button', ref: rowRef, className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open, 'data-flip': asset.key, 'data-flip-enter': '',
       'aria-controls': open ? detailId : undefined, onClick: () => setOpen(!open) },
       h(Logo, { symbol: asset.kind === 'stock' ? asset.symbol : null, mark: asset.mark }),
       h('span', { className: 'q-stack' },
@@ -452,10 +481,10 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
           asset.kind === DEPOSIT_KIND ? depositSub(asset, hidden) : null,
           closed ? null : !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
       h('span', { className: 'l-value' },
-        priced ? hid(hidden, money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
+        priced ? h(CountNum, { value: asset.value_egp, format: money, hidden, duration: 400 }) : h('span', { className: 'num q-ter' }, DASH),
         priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null),
       h(Chevron)),
-    h(Collapse, { open, id: detailId }, h('div', { className: 'l-detail' },
+    h(Collapse, { open, id: detailId, 'data-flip': `${asset.key}:d` }, h('div', { className: 'l-detail' },
       asset.places && asset.places.length
         ? h('p', { className: 'l-hint' }, 'فين: ', asset.places.map((p, i) => h(React.Fragment, { key: p.place || '' }, i ? ' · ' : '', p.place || 'من غير مكان', ' ', hid(hidden, asset.key === 'EGP' ? money(p.quantity) : fmtQty(p.quantity))))) : null,
       h(Timeline, { asset, onChanged, onOpen }),
@@ -465,16 +494,11 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
         ? h('p', { className: 'l-hint' }, 'توزيعات استلمتها ', hid(hidden, money(asset.dividends_egp)), ' ج.م') : null,
       movable ? (['dividend', 'bonus', 'split'].includes(moving)
         ? h(StockEventForm, { asset, kind: moving, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
+        : moving === 'buy' && entry
+        ? h(AddLine, { entry, places, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : moving
         ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
-        : h('div', { className: 'l-inline' },
-          h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => setMoving('transfer') }, 'تحويل منه'),
-          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('expense') }, 'خروج (صرفت أو سحبت)'),
-          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('place') }, 'نقل لمكان تاني'),
-          asset.kind === 'stock' || asset.kind === 'fund' ? frag(
-            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('dividend') }, 'توزيعات'),
-            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('bonus') }, 'أسهم مجانية'),
-            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('split') }, 'تقسيم')) : null)) : null,
+        : h(Actions, { asset, entry, onPick: setMoving })) : null,
       asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
       asset.key === 'EGP' || asset.kind === DEPOSIT_KIND || closed ? null : h('div', null,
         h('h3', null, 'السعر'),
@@ -539,7 +563,7 @@ export function TotalBlock({ totals, onFixPrice }) {
   const owes = totals.debts > 0
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
     h('div', { className: 'l-eyebrow' }, h('span', null, owes ? 'صافي ثروتك بعد الديون' : 'صافي ثروتك'), h(Today, { totals, hidden })),
-    h('span', { className: 'l-hero' }, hid(hidden, money(owes ? totals.net_worth : totals.value || 0), 'l-big'), ' ',
+    h('span', { className: 'l-hero' }, h(CountNum, { value: owes ? totals.net_worth : totals.value || 0, format: money, hidden, className: 'l-big' }), ' ',
       h('span', { className: 'l-unit' }, owes ? 'جنيه صافي (بعد الديون)' : 'جنيه')),
     h(UsdLine, { totals, hidden }),
     totals.assets ? h('div', { className: 'l-kpis' },
@@ -551,6 +575,28 @@ export function TotalBlock({ totals, onFixPrice }) {
     h(Allocation, { allocation: totals.allocation, hidden }),
     unpriced ? h('button', { type: 'button', className: 'l-warn', onClick: onFixPrice },
       N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي', ' · اكتب سعره') : null)
+}
+
+/** «الأصول» / «الحركات»: real tabs (arrow keys move between them) with an underline that slides. */
+function Tabs({ view, setView }) {
+  const bar = React.useRef(null)
+  const ink = React.useRef(null)
+  const first = React.useRef(true)
+  React.useLayoutEffect(() => {
+    const on = bar.current && bar.current.querySelector('[aria-selected="true"]')
+    if (!on || !on.offsetWidth || !ink.current) return  // nothing measured (jsdom): the border underline stays
+    ink.current.style.transition = !first.current && canMove() ? '' : 'none'
+    ink.current.style.transform = `translateX(${on.offsetLeft}px) scaleX(${on.offsetWidth})`
+    bar.current.classList.add('has-ink')
+    first.current = false
+  }, [view])
+  const tab = (id, label) => h('button', {
+    key: id, id: `l-tab-${id}`, type: 'button', role: 'tab', 'aria-selected': view === id, 'aria-controls': `l-panel-${id}`,
+    tabIndex: view === id ? 0 : -1, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
+    onKeyDown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setView(view === 'assets' ? 'activity' : 'assets') } },
+  }, label)
+  return h('div', { ref: bar, className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
+    tab('assets', 'الأصول'), tab('activity', 'الحركات'), h('span', { ref: ink, className: 'l-tab-ink', 'aria-hidden': true }))
 }
 
 export function PortfolioPage() {
@@ -596,17 +642,13 @@ export function PortfolioPage() {
     const assets = ledger.groups.flatMap((g) => g.assets)
     const shares = Object.fromEntries((totals.allocation || []).map((a) => [a.group, a]))
     const unpricedAsset = assets.find((a) => a.value_egp == null)
-    const tab = (id, label) => h('button', {
-      key: id, id: `l-tab-${id}`, type: 'button', role: 'tab', 'aria-selected': view === id, 'aria-controls': `l-panel-${id}`,
-      tabIndex: view === id ? 0 : -1, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
-      onKeyDown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setView(view === 'assets' ? 'activity' : 'assets') } },
-    }, label)
+
     body = h('div', { className: 'l-col' },
       h(PlaceList, { id: 'l-places', places: totals.places }),
       h(TotalBlock, { totals, onFixPrice: unpricedAsset ? () => openAsset(unpricedAsset.key) : undefined }),
       h(HistoryChart),
       h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
-      h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' }, tab('assets', 'الأصول'), tab('activity', 'الحركات')),
+      h(Tabs, { view, setView }),
       view === 'activity' ? h('div', { id: 'l-panel-activity', role: 'tabpanel', 'aria-labelledby': 'l-tab-activity', className: 'l-panel' },
         h(ActivityView, { onOpen: openAsset })) : null,
       view === 'activity' ? null : h('div', { id: 'l-panel-assets', role: 'tabpanel', 'aria-labelledby': 'l-tab-assets', className: 'l-panel' },
@@ -617,11 +659,11 @@ export function PortfolioPage() {
         h(Collapse, { open: Boolean(picked) }, picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
           places: totals.places, onDone: (key) => added(key), onCancel: () => setPicked(null) }) : null)),
       ledger.groups.length || (ledger.debts && ledger.debts.length)
-        ? h('div', { className: 'l-list' },
-          ledger.groups.map((g) => h('section', { key: g.group, id: `l-g-${g.group}`, className: 'l-group', 'aria-label': g.label },
+        ? h(FlipList, { version: ledger, className: 'l-list' },
+          ledger.groups.map((g) => h('section', { key: g.group, id: `l-g-${g.group}`, className: 'l-group', 'aria-label': g.label, 'data-flip': `g:${g.group}` },
             h('h2', null, h('span', null, g.label), shares[g.group]
               ? h('span', { className: 'l-group-total' }, hid(hidden, money(shares[g.group].value_egp)), ' · ', hid(hidden, fmtPct(shares[g.group].share, { digits: 0 }))) : null),
-            g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
+            g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, places: totals.places, fresh: a.key === fresh, onChanged: refresh,
               focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset })))),
           !ledger.debts || !ledger.debts.length ? null : h('section', { id: 'l-g-debts', className: 'l-group', 'aria-label': 'ديون وأقساط' },
             h('h2', null, h('span', null, 'ديون وأقساط')),

@@ -174,3 +174,30 @@
 .qm .l-more > .l-fields { margin-top: var(--q-2); }
 .qm .l-fields > .l-more { grid-column: 1 / -1; }
 .qm .q-date .q-chips { margin-top: 2px; }
+
+/* The tabs' underline slides from one tab to the other (measured in Tabs; jsdom keeps the border) */
+.qm .l-tabs { position: relative; }
+.qm .l-tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; transform-origin: 0 0; opacity: 0;
+  background: var(--dsw-alias-state-business-primary); transition: transform var(--q-d-base) var(--q-ease-standard); pointer-events: none; }
+.qm .l-tabs.has-ink .l-tab-ink { opacity: 1; }
+.qm .l-tabs.has-ink .l-tab-on { border-bottom-color: transparent; }
+@media (prefers-reduced-motion: reduce) { .qm .l-tab-ink { transition: none; } }
+
+/* The timeline: a rail, an icon per kind, the line's actions dimmed until it is pointed at */
+.qm .l-detail .l-lot[data-kind] { position: relative; padding-inline-start: 36px; }
+.qm .l-detail .l-lot[data-kind]::before { position: absolute; inset-inline-start: 0; top: 6px; width: 24px; height: 24px; display: grid; place-items: center;
+  border-radius: 50%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 1;
+  color: var(--dsw-alias-label-secondary); content: '+'; }
+.qm .l-detail .l-lot[data-kind]:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 11.5px; top: 30px; bottom: -6px; width: 1px;
+  background: var(--dsw-alias-border-l2); }
+.qm .l-lot[data-kind='in']::before { content: '↓'; }
+.qm .l-lot[data-kind='transfer']::before { content: '⇄'; }
+.qm .l-lot[data-kind='expense']::before { content: '↑'; }
+.qm .l-lot[data-kind='repay']::before { content: '✓'; }
+.qm .l-lot[data-kind='place']::before { content: '⇆'; }
+.qm .l-lot[data-kind='paid']::before, .qm .l-lot[data-kind='dividend']::before { content: '٪'; }
+.qm .l-lot[data-kind='bonus']::before { content: '★'; }
+.qm .l-lot[data-kind='split']::before { content: '÷'; }
+.qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }
+.qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }
+.qm .l-actions-bar { gap: var(--q-2); }

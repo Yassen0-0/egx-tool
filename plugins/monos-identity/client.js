@@ -68,6 +68,78 @@ var __monos = (() => {
   // plugins/shared/format.mjs
   var cairoDate = new Intl.DateTimeFormat("en-CA", { timeZone: "Africa/Cairo", year: "numeric", month: "2-digit", day: "2-digit" });
 
+  // plugins/shared/motion.js
+  var DUR = { press: 80, micro: 120, small: 180, base: 240, large: 320, slow: 600 };
+  var EASE = {
+    standard: "cubic-bezier(0.2, 0, 0, 1)",
+    enter: "cubic-bezier(0.05, 0.7, 0.1, 1)",
+    exit: "cubic-bezier(0.3, 0, 0.8, 0.15)",
+    spring: "cubic-bezier(0.34, 1.3, 0.64, 1)"
+  };
+  function liveDom() {
+    if (globalThis.__MONOS_MOTION__ === false) return false;
+    const d = globalThis.document;
+    return Boolean(d && d.documentElement && typeof d.documentElement.animate === "function");
+  }
+  function reducedMotion() {
+    try {
+      return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  }
+  var canMove = () => liveDom() && !reducedMotion();
+  function animate(el, keyframes, options) {
+    if (!el || !liveDom()) return null;
+    try {
+      return el.animate(keyframes, options);
+    } catch {
+      return null;
+    }
+  }
+  var FlipList = class extends import_react.default.Component {
+    constructor(props) {
+      super(props);
+      this.box = import_react.default.createRef();
+    }
+    measure() {
+      const root = this.box.current;
+      const out = /* @__PURE__ */ new Map();
+      if (!root) return out;
+      const rects = /* @__PURE__ */ new Map();
+      for (const el of root.querySelectorAll("[data-flip]")) rects.set(el, el.getBoundingClientRect());
+      const top = root.getBoundingClientRect().top;
+      for (const [el, r] of rects) {
+        const parent = el.parentElement && el.parentElement.closest("[data-flip]");
+        out.set(el.dataset.flip, { el, y: r.top - (parent && rects.has(parent) ? rects.get(parent).top : top) });
+      }
+      return out;
+    }
+    getSnapshotBeforeUpdate(prev) {
+      return prev.version !== this.props.version && canMove() ? this.measure() : null;
+    }
+    componentDidUpdate(_props, _state, before) {
+      if (!before) return;
+      let i = 0;
+      for (const [key, { el, y }] of this.measure()) {
+        const was = before.get(key);
+        if (was) {
+          const dy = was.y - y;
+          if (Math.abs(dy) >= 1) animate(el, [{ transform: `translateY(${dy}px)` }, { transform: "none" }], { duration: DUR.large, easing: EASE.standard });
+        } else if (el.hasAttribute("data-flip-enter")) {
+          animate(
+            el,
+            [{ opacity: 0, transform: "translateY(-4px)" }, { opacity: 1, transform: "none" }],
+            { duration: DUR.base, easing: EASE.enter, delay: Math.min(i++, 5) * 30 }
+          );
+        }
+      }
+    }
+    render() {
+      return h("div", { ref: this.box, className: this.props.className }, this.props.children);
+    }
+  };
+
   // plugins/shared/privacy.js
   var STORAGE_KEY = "monos.privacy.hidden";
   function readStored() {
@@ -91,6 +163,12 @@ var __monos = (() => {
       if (hidden === this.hidden) return;
       this.hidden = hidden;
       writeStored(hidden);
+      if (liveDom()) {
+        const roots = document.querySelectorAll(".qm");
+        roots.forEach((r) => r.setAttribute("data-privacy-swap", ""));
+        clearTimeout(this.swapTimer);
+        this.swapTimer = setTimeout(() => roots.forEach((r) => r.removeAttribute("data-privacy-swap")), 400);
+      }
       this.listeners.forEach((listener) => listener());
     },
     toggle() {

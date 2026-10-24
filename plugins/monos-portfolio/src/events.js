@@ -13,7 +13,7 @@ const text = (value, set, extra = {}) => h('input', { className: 'q-input', valu
 /** A payout or a principal a certificate paid into the pounds: worked out from its terms, never typed. */
 export function PaidItem({ event, onOpen }) {
   const hidden = usePrivacy()
-  return h('div', { className: 'l-lot l-move-item' },
+  return h('div', { className: 'l-lot l-move-item', 'data-kind': 'paid' },
     h('span', null, '+', hidden ? N(MASK) : N(money(event.quantity)), ' ج.م ',
       h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(event.origin) }, event.note)),
     h('span', { className: 'q-sec' }, N(fmtDate(event.date))),
@@ -27,7 +27,7 @@ export function ActionItem({ event, asset, onChanged }) {
   const remove = async () => {
     try { await api('DELETE', `/egx/api/actions/${event.id}`, {}); onChanged() } catch (e) { setError(e.message) }
   }
-  return h('div', { className: 'l-lot l-move-item' },
+  return h('div', { className: 'l-lot l-move-item', 'data-kind': event.kind },
     h('span', null, '+', hidden ? N(MASK) : N(fmtQty(event.quantity)), ' ', asset.unit,
       event.kind === 'bonus' ? ' أسهم مجانية' : frag(' تقسيم (كل سهم بقى ', N(fmtQty(event.ratio)), ')')),
     h('span', { className: 'q-sec' }, N(fmtDate(event.date))),

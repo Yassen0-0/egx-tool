@@ -46,3 +46,16 @@ def test_null_when_the_ledger_is_empty(conn):
     portfolio.set_price(conn, "USD", 50, day="2026-10-15")
     totals = portfolio.portfolio_summary(conn, at=AT)["totals"]
     assert totals["value"] is None and totals["value_usd"] is None
+
+
+def test_the_total_in_gold_and_each_groups_share(tmp_path):
+    conn = connect(tmp_path / "g.sqlite")
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=3000)
+    portfolio.set_price(conn, "XAU-G", 6000)  # the gram of 24 karat the total is counted in
+    portfolio.add_holding(conn, "COMI", buy_price=100, quantity=10)
+    portfolio.set_price(conn, "COMI", 100)
+    totals = portfolio.portfolio_summary(conn)["totals"]
+    assert totals["value"] == pytest.approx(4000)
+    assert totals["value_gold_g"] == pytest.approx(4000 / 6000) and totals["gold_gram_egp"] == 6000
+    assert [(a["group"], a["share"]) for a in totals["allocation"]] == [("currencies", 0.75), ("stocks", 0.25)]
+    conn.close()

@@ -67,17 +67,14 @@ def main() -> None:
     portfolio.add_holding(conn, amount=50000, deposit={**deposit, "rate": 0.25, "bank": "بنك مصر",
                                                        "start_date": "2026-04-15", "payout": "maturity"})
 
-    # A few daily snapshots for «تطوّر ثروتي»: the total grew from 440,000 to the day's 463,837.
-    for day, value, cost in (("2026-10-08", 440000.0, 355393.0), ("2026-10-11", 447500.0, 355393.0),
-                             ("2026-10-13", 452300.0, 355393.0), ("2026-10-14", 463000.0, 355393.0)):
-        conn.execute("INSERT INTO ledger_snapshots (date, value_egp, cost_egp, assets, recorded_at) VALUES (?, ?, ?, 8, ?)",
-                     (day, value, cost, f"{day}T18:00:00+00:00"))
-    conn.commit()
-
-    from egx_mcp.store import history
+    # «تطوّر ثروتي» is worked out from the purchases above and the stored bars (store/wealth.py),
+    # with two months of inflation for the «بعد التضخم» column.
+    (tmp / "manual" / "inflation.csv").write_text("month,monthly_pct,source\n2026-09,1.3,synthetic\n2026-10,0.8,synthetic\n",
+                                                  encoding="utf-8")
+    from egx_mcp.store import wealth
 
     api = {
-        "/egx/api/history?days=365": history.wealth_history(conn, 365, at=at),
+        "/egx/api/history?days=365": wealth.wealth_history(conn, 365, at=at),
         "/egx/api/portfolio": portfolio.portfolio_summary(conn, at=at),
         "/egx/api/catalog": {"assets": portfolio.priced_catalog(conn, at)},
         "/egx/api/fx?currency=USD&date=": portfolio.fx_rate(conn, "USD", "2026-10-15"),

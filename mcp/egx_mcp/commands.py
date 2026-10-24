@@ -13,7 +13,7 @@ from .catalog import search as catalog_find
 from .config import db_path
 from .market.eodhd import EodhdClient, resolve_api_key
 from .market.sync import sync_market
-from .store import activity, history, portfolio
+from .store import activity, portfolio, wealth
 from .store.db import connect
 from .store.export import ledger_csv
 
@@ -131,10 +131,12 @@ def fx_rate(currency: str, date: str | None = None) -> dict:
 
 
 def wealth_history(days: int = 365) -> dict:
-    """The ledger's total value and cost in EGP per day (one snapshot a day), oldest first, with how
-    the last day compares with the first in range. Describe the movement; never advise on it."""
+    """The ledger's total value and cost in EGP per day, worked out from its purchases, movements and
+    stored prices, oldest first; how the range moved without the money that came in; and the
+    periods (month, 3 months, year, from the start) in EGP, dollars, grams of gold and against
+    inflation. Describe the movement; never advise on it."""
     with _db() as conn:
-        return history.wealth_history(conn, days)
+        return wealth.wealth_history(conn, days)
 
 
 def fund_components_set(fund: str, components: list[dict]) -> dict:

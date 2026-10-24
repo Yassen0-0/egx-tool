@@ -420,11 +420,26 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
 
 // ── the page ─────────────────────────────────────────────────────────────────
 function UsdLine({ totals, hidden }) {
-  if (totals.value_usd == null) return null
+  if (totals.value_usd == null && totals.value_gold_g == null) return null
   const rate = totals.usd_rate != null ? `سعر الدولار ${fmtPrice(totals.usd_rate)} ج.م` : ''
   const day = totals.usd_rate_as_of ? ` · ${fmtDate(totals.usd_rate_as_of.slice(0, 10))}` : ''
-  return h('div', { className: 'l-usd', title: rate + day },
-    '≈ ', hid(hidden, money(Math.round(totals.value_usd))), ' دولار')
+  const gram = totals.gold_gram_egp != null ? `جرام الدهب عيار 24 بـ ${fmtPrice(totals.gold_gram_egp)} ج.م` : ''
+  return h('div', { className: 'l-usd' },
+    totals.value_usd != null ? h('span', { title: rate + day }, '≈ ', hid(hidden, money(Math.round(totals.value_usd))), ' دولار') : null,
+    totals.value_usd != null && totals.value_gold_g != null ? ' · ' : null,
+    totals.value_gold_g != null ? h('span', { title: gram }, '≈ ', hid(hidden, fmtQty(Math.round(totals.value_gold_g * 10) / 10)), ' جرام دهب خالص') : null)
+}
+
+/** Each group's share of the total as one bar (one colour, a lighter step per group) and a legend. */
+export function Allocation({ allocation, hidden }) {
+  if (!allocation || allocation.length < 2) return null
+  const step = (i) => Math.max(0.25, 1 - i * 0.18)
+  return h('div', { className: 'l-alloc', role: 'img', 'aria-label': `التوزيع: ${allocation.map((a) => `${a.label} ${fmtPct(a.share, { digits: 0 })}`).join('، ')}` },
+    h('div', { className: 'l-alloc-bar' },
+      allocation.map((a, i) => h('span', { key: a.group, style: { flexGrow: a.share, opacity: step(i) } }))),
+    h('div', { className: 'l-alloc-keys' },
+      allocation.map((a, i) => h('span', { key: a.group },
+        h('i', { style: { opacity: step(i) } }), a.label, ' ', hid(hidden, fmtPct(a.share, { digits: 0 }))))))
 }
 
 export function TotalBlock({ totals }) {
@@ -433,6 +448,7 @@ export function TotalBlock({ totals }) {
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
     h('span', null, hid(hidden, money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
     h(UsdLine, { totals, hidden }),
+    h(Allocation, { allocation: totals.allocation, hidden }),
     totals.assets ? h('div', { className: 'l-line' },
       h('span', null, 'التكلفة ', hid(hidden, money(totals.cost))),
       totals.growth != null ? h('span', null, 'النمو ', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,

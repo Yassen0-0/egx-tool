@@ -200,11 +200,11 @@ def test_budget_from_an_earlier_gmt_day_is_fresh_and_a_refusal_stops_the_run(db)
         portfolio.add_holding(db, symbol, buy_price=40, quantity=1)
     client = Client(limit=20, used=20, counted_on="2026-10-15")
     sync_market(db, client, at=MONDAY)  # the 2026-10-15..19 freeze: an old count is not today's
-    assert client.calls_made == 5
+    assert client.calls_made == 6  # four stocks, the dollar and gold
     portfolio.add_holding(db, "FWRY", buy_price=40, quantity=1)
     tight = Client(limit=3 + RESERVE_CALLS, used=0, counted_on="2026-10-20")
     result = sync_market(db, tight, at=MONDAY + timedelta(days=1))
-    assert tight.calls_made == 3 and len(result["skipped_for_budget"]) == 3
+    assert tight.calls_made == 3 and len(result["skipped_for_budget"]) == 4
     refusing = Client(refuse_after=1)
     result = sync_market(db, refusing, at=MONDAY + timedelta(days=2))
     assert len(refusing.requests) == 2 and "limit_refused" in result
@@ -299,4 +299,4 @@ def test_a_us_fund_is_its_close_in_dollars_and_a_weekend_is_not_stale(db):
     portfolio.add_holding(db, "SPY.US", buy_price=690, quantity=2, cost_egp=69000)
     spy = asset(db, "SPY.US", monday)
     assert spy["group"] == "funds" and spy["value_egp"] == pytest.approx(2 * 700 * 52)
-    assert ledger_feeds(db) == ["USDEGP.FOREX", "SPY.US"]
+    assert ledger_feeds(db) == ["USDEGP.FOREX", "XAUUSD.FOREX", "SPY.US"]

@@ -10,6 +10,13 @@
 .qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }
 .qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }
+.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }
+.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }
+.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }
+.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }
+.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }
 .qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }
 
 /* Search */

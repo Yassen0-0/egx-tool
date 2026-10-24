@@ -576,6 +576,23 @@ def _usd_total(conn: sqlite3.Connection, value: float | None, at: datetime) -> d
     return {"value_usd": value / rate["rate"], "usd_rate": rate["rate"], "usd_rate_as_of": rate["as_of"]}
 
 
+def _gold_total(conn: sqlite3.Connection, value: float | None, at: datetime) -> dict:
+    """The EGP total in grams of 24 karat gold at the latest gram price; None when either is unknown."""
+    entry = find(conn, "XAU-G")
+    price = resolve_price(conn, entry, at) if entry else None
+    if value is None or price is None or not price["price"]:
+        return {"value_gold_g": None, "gold_gram_egp": None}
+    return {"value_gold_g": value / price["price"], "gold_gram_egp": price["price"]}
+
+
+def _allocation(groups: list[dict], value: float) -> list[dict]:
+    """Each group's share of the priced total, largest first (the closed group has nothing left)."""
+    out = [{"group": g["group"], "label": g["label"], "value_egp": sum(a["value_egp"] or 0 for a in g["assets"])}
+           for g in groups if g["group"] != CLOSED_GROUP[0]]
+    out = [{**g, "share": g["value_egp"] / value} for g in out if g["value_egp"] > 0] if value > 0 else []
+    return sorted(out, key=lambda g: -g["value_egp"])
+
+
 def _deposit_asset(entry: dict, rows: list[dict], terms: dict, at: datetime) -> dict:
     """A certificate or deposit as a ledger row: no price, a value from its terms (store/deposits.py)."""
     principal = sum(r["quantity"] for r in rows)
@@ -682,10 +699,13 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             members.sort(key=lambda a: (a["value_egp"] is None, -(a["value_egp"] or 0), a["name"]))
             groups.append({"group": group, "label": label, "assets": members})
     usd = _usd_total(conn, value if priced else None, at)
+    gold = _gold_total(conn, value if priced else None, at)
     return {
         "as_of": at.isoformat(timespec="minutes"),
         "totals": {
             **usd,
+            **gold,
+            "allocation": _allocation(groups, value),
             "assets": sum(1 for a in assets if a["group"] != CLOSED_GROUP[0]),
             "realized": sum(a["realized_egp"] for a in assets),
             "value": value if priced else None,

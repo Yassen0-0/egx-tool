@@ -63,7 +63,9 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   assert.match(t, /النمو \+23\.7%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
   assert.match(t, /اليوم \+0\.20%/)
-  assert.match(t, /≈ [\d,]+ دولار/)  // the total in dollars, under the big number
+  assert.match(t, /≈ [\d,]+ دولار · ≈ 96\.8 جرام دهب خالص/)  // the total in dollars and in gold, under the big number
+  assert.match(t, /عملات 40% بتكوين 26% شهادات وودائع 25% صناديق 6% أسهم 2%/)  // each group's share
+  assert.match(html, /class="l-alloc-bar"/)
   assert.match(t, /سعر 08\/10/)  // the fund's price is a week old
   assert.match(html, /<img class="l-logo"[^>]*src="data:image\/svg\+xml/)  // a company mark
   assert.match(t, /USD/)  // a currency's letters on the same circle
@@ -81,8 +83,13 @@ test('«تطوّر ثروتي» draws the total and the cost under the total, an
   assert.match(html, /<polyline class="h-value" points="[\d.]+,[\d.]+ [\d.]+,[\d.]+/)
   assert.match(html, /<polyline class="h-cost"/)
   assert.ok(html.indexOf('l-total') < html.indexOf('h-chart'))
-  assert.match(ledgerText(html), /من 08\/10 ?: \+5\.2%/)
-  assert.match(html, /<span class="num">08\/10<\/span>/)
+  const t = ledgerText(html)
+  // A year back from the fixture's day, the market's move kept apart from the money that came in.
+  assert.match(t, /من 15\/10 ?: \+48\.1% من حركة الأسعار، ودخل 193,343 ج\.م فلوس جديدة/)
+  assert.match(t, /بالجنيه بالدولار بالدهب بعد التضخم فلوس جديدة/)
+  assert.match(t, /شهر \+13\.8% \+12\.2% \+9\.0% \+12\.9% 0/)  // inflation known for the month only
+  assert.match(t, /سنة \+48\.1% \+23\.9% −13\.8% — 193,343/)
+  assert.match(html, /<span class="num">15\/10<\/span>/)
   const one = { points: [{ date: '2026-10-14', value_egp: 1, cost_egp: 1 }], first: null, last: null, change: 0, change_pct: 0 }
   for (const body of [one, { points: [], first: null, last: null, change: null, change_pct: null }]) {
     const quiet = await harness.renderClient([clientPath('monos-portfolio')], { fixtures: { '/egx/api/history?days=365': body } })

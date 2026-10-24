@@ -30,6 +30,11 @@ def lot_day(lot: dict) -> str:
     return lot["buy_date"] or lot["created_at"][:10]
 
 
+def _cost(s: dict) -> float | None:
+    """The EGP cost of what is left, None while part of it is unknown."""
+    return s["cost"] if s["cost_known"] else None
+
+
 def _blank() -> dict:
     return {"quantity": 0.0, "cost": 0.0, "cost_known": True, "realized": 0.0, "events": []}
 
@@ -51,7 +56,7 @@ def replay(lots: list[dict], moves: list[dict], value_on: ValueOn) -> dict:
             else:
                 s["cost"] += row["cost_egp"]
             s["events"].append({"type": "lot", "id": row["id"], "date": day, "quantity": row["quantity"],
-                                "cost_egp": row["cost_egp"], "balance": s["quantity"]})
+                                "cost_egp": row["cost_egp"], "balance": s["quantity"], "cost_balance": _cost(s)})
             continue
         _move(state, short, row, value_on)
     assets = {key: {"quantity": s["quantity"], "cost": s["cost"] if s["cost_known"] else None,
@@ -91,7 +96,7 @@ def _move(state: dict, short: list, m: dict, value_on: ValueOn) -> None:
             "from_asset": m["from_asset"], "from_quantity": taken, "to_asset": to, "to_quantity": arrived,
             "value_egp": value, "value_given": m["value_egp"] is not None, "note": m["note"]}
     out["events"].append({**base, "type": "out", "quantity": -taken, "cost_egp": removed, "realized": realized,
-                          "balance": out["quantity"]})
+                          "balance": out["quantity"], "cost_balance": _cost(out)})
     if m["kind"] != "transfer":
         return
     into = state.setdefault(to, _blank())
@@ -103,4 +108,4 @@ def _move(state: dict, short: list, m: dict, value_on: ValueOn) -> None:
     # What arrived was worth this much at market prices that day: the gap to `value` is the spread.
     market = value_on(to, arrived, day) if to != "EGP" else arrived
     into["events"].append({**base, "type": "in", "quantity": arrived, "cost_egp": value, "market_value_egp": market,
-                           "balance": into["quantity"]})
+                           "balance": into["quantity"], "cost_balance": _cost(into)})

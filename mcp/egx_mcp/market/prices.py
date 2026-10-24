@@ -19,6 +19,7 @@ from .calendar import CAIRO, expected_last_bar, previous_trading_day
 
 TROY_OUNCE_GRAMS = 31.1034768
 USD_EGP = "USDEGP.FOREX"
+GOLD_USD = "XAUUSD.FOREX"
 # Asset key → (price currency, ((feed, power), ...), factor): price = factor × Π feed^power.
 # EUR and GBP go through the major pair and the dollar: their direct EGP crosses jump around.
 # SAR and AED are pegged to the dollar by their central banks, so they need no call of their own.

@@ -4,8 +4,9 @@
   inside the holdings the stalest cache goes first, so a book larger than the daily budget takes
   turns.
 - Feeds behind the other assets (prices.FORMULAS) plus USDEGP, which converts every dollar price and
-  values purchases in dollars: one call per feed per Cairo day, fetching from the last stored day
-  again, because today's FOREX or crypto bar is still moving when it is first stored.
+  values purchases in dollars, and XAUUSD, which counts the total in grams of gold: one call per feed
+  per Cairo day, fetching from the last stored day again, because today's FOREX or crypto bar is
+  still moving when it is first stored.
 
 Each run asks EODHD how many calls remain today (the account call is free; its count is for
 apiRequestsDate, so a count from an earlier GMT day means a fresh budget) and keeps a small reserve.
@@ -20,7 +21,7 @@ from ..store.db import now_iso
 from . import store
 from .calendar import expected_last_bar, now_cairo
 from .eodhd import LIMIT_STATUSES, SOURCE, EodhdClient, MarketDataError
-from .prices import USD_EGP, feeds_of, is_feed
+from .prices import GOLD_USD, USD_EGP, feeds_of, is_feed
 
 RESERVE_CALLS = 2
 HISTORY_DAYS = 365 * 5  # the free plan answers with its one year
@@ -54,11 +55,12 @@ def held_stocks(conn: sqlite3.Connection) -> list[str]:
 
 
 def ledger_feeds(conn: sqlite3.Connection) -> list[str]:
-    """The FOREX and crypto feeds the ledger's assets need, USDEGP first (whenever anything is held)."""
+    """The FOREX and crypto feeds the ledger's assets need, USDEGP and gold first (whenever anything is
+    held: the total is shown in dollars and in grams of gold)."""
     keys = [r[0] for r in conn.execute("SELECT DISTINCT symbol FROM holdings")]
     if not keys:
         return []
-    feeds = [USD_EGP]
+    feeds = [USD_EGP, GOLD_USD]
     for key in keys:
         feeds += [f for f in feeds_of(key) if f not in feeds]
     return feeds

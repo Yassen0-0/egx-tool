@@ -7,3 +7,8 @@
 .qm .h-cost { stroke: var(--dsw-alias-label-tertiary); stroke-width: 1; stroke-dasharray: 3 3; opacity: 0.7; }
 .qm .h-value { stroke: var(--dsw-alias-state-business-primary); stroke-width: 1.75; }
 .qm .h-line { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }
+.qm .h-periods { width: 100%; border-collapse: collapse; font-size: 12px; margin-top: 4px; }
+.qm .h-periods th, .qm .h-periods td { padding: 4px 6px; text-align: start; font-weight: 400; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.qm .h-periods thead th { color: var(--dsw-alias-label-secondary); }
+.qm .h-periods tbody th { color: var(--dsw-alias-label-secondary); white-space: nowrap; }
+.qm .h-note { margin: 0; font-size: 11px; color: var(--dsw-alias-label-tertiary); }

@@ -1970,7 +1970,7 @@ var __monos = (() => {
         "div",
         { className: "q-stack" },
         h(SearchBox, { catalog, autoFocus: true, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        h("p", { className: "l-hint" }, "اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق (سبائك، بلتون ذهب، أزيموت نقدي). ومش لاقيه؟ ضيفه بالاسم.")
+        h("p", { className: "l-hint" }, "اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق باسمه أو كوده (AZG، سبائك، بلتون ذهب). ومش لاقيه؟ ضيفه بالاسم.")
       );
     } else if (type === "debt" || type === "deposit") {
       body = h(AddLine2, {

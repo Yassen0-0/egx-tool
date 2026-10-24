@@ -5,8 +5,8 @@
 - bitcoin, priced in USD;
 - EGX30 stocks from universe/egx30.json, plus any stock the user still holds after it left the index;
 - S&P 500 funds listed in New York (SPY, IVV, VOO), in dollars, priced by their own close;
-- Egyptian mutual funds from funds.json (money market, fixed income, equity, index, balanced, gold,
-  silver), with their manager and type in the label and the search;
+- Egyptian mutual funds from funds.json, named as Thndr, the exchange or their own manager lists them,
+  with their code, manager and type in the label and the search;
 - assets the user added by name (custom_assets, key custom:<id>);
 - bank certificates and deposits (kind deposit, key deposit:<holding id>): one holding each, valued by
   store/deposits.py and never searched.
@@ -124,10 +124,10 @@ def _fund(f: dict, managers: dict) -> dict:
     label, type_words = FUND_TYPES.get(f.get("type") or "", (None, ()))
     aliases = (*f.get("aliases", ()), *([manager["name"]] if manager else ()), *manager.get("aliases", ()), *type_words,
                *(ISLAMIC_ALIASES if f.get("islamic") else ()))
-    entry = _entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], None, aliases,
+    entry = _entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], f.get("symbol"), aliases,
                    f.get("currency", "EGP"))
     entry["kind_label"] = " · ".join(filter(None, (f"صندوق {label}" if label else "صندوق", manager.get("name"))))
-    entry["mark"] = manager.get("mark") or _mark(f["name"], None)
+    entry["mark"] = manager.get("mark") or _mark(f["name"], f.get("symbol"))
     return entry
 
 

@@ -133,13 +133,14 @@ def test_egyptian_funds_are_found_by_manager_type_and_name(conn):
     from egx_mcp.catalog import FUND_TYPES, FUNDS_FILE, search
     data = json.loads(FUNDS_FILE.read_text(encoding="utf-8"))
     slugs = [f["slug"] for f in data["funds"]]
-    assert len(slugs) == len(set(slugs)) and len(slugs) > 80
+    assert len(slugs) == len(set(slugs)) and len(slugs) > 70
     assert all(f.get("manager") in (None, *data["managers"]) and f.get("type") in (None, *FUND_TYPES) for f in data["funds"])
-    sabaek = search(conn, "سبائك")[0]
-    assert sabaek["key"] == "fund:beltone-sabaek" and sabaek["kind_label"] == "صندوق ذهب · بلتون" and sabaek["unit"] == "وثيقة"
-    assert {e["key"] for e in search(conn, "بلتون ذهب")} == {"fund:beltone-sabaek"}
-    assert search(conn, "az gold")[0]["key"] == "fund:az-gold"
-    assert search(conn, "azimut", 20) and all(e["key"].startswith("fund:az-") for e in search(conn, "ازيموت", 20))
+    sabayek = search(conn, "سبائك")[0]
+    assert sabayek["key"] == "fund:beltone-sabayek" and sabayek["name"] == "Beltone Sabayek" and sabayek["symbol"] == "BSB"
+    assert sabayek["kind_label"] == "صندوق ذهب · بلتون" and sabayek["unit"] == "وثيقة"
+    assert {e["key"] for e in search(conn, "بلتون ذهب")} == {"fund:beltone-sabayek"}
+    assert search(conn, "azg")[0]["key"] == "fund:az-gold" and search(conn, "az gold")[0]["key"] == "fund:az-gold"
+    assert search(conn, "azimut", 20) and all(e["kind_label"].endswith("أزيموت") for e in search(conn, "ازيموت", 20))
     assert search(conn, "يوم بيوم دولار")[0]["currency"] == "USD"
     # A fund never pushes gold itself off «دهب».
     assert all(e["kind"] == "gold" for e in search(conn, "دهب"))

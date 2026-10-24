@@ -29,7 +29,7 @@ test('symbol first, then the start of a word, then inside a name', () => {
 })
 
 test('each word of a longer query can start a different word: «بلتون ذهب»', () => {
-  const fund = { key: 'fund:beltone-sabaek', kind: 'fund', name: 'صندوق بلتون إيفولف للاستثمار في الذهب (سبائك)', aliases: ['بلتون', 'ذهب'] }
+  const fund = { key: 'fund:beltone-sabayek', kind: 'fund', name: 'صندوق بلتون إيفولف للاستثمار في الذهب (سبائك)', aliases: ['بلتون', 'ذهب'] }
   assert.equal(rank(fund, 'بلتون ذهب'), 3)
   assert.equal(rank(fund, 'ذهب بلت'), 3)
   assert.equal(rank(fund, 'بلتون فضة'), null)

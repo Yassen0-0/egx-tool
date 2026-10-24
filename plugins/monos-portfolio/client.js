@@ -47,7 +47,7 @@ var __monos = (() => {
   var import_react = __toESM(__require("react"), 1);
 
   // plugins/shared/styles.css
-  var styles_default = "/* «Monos» shared styles. host tokens only (--dsw-alias-*, --dsw-radius-*, the host font\n   stacks): they live on body and switch with the host theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n\n/* Panel header: icon + «Monos» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }\n.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }\n\n/* Skeleton */\n.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }\n@keyframes q-pulse { 50% { opacity: .45; } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }\n\n/* Empty / error blocks, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n";
+  var styles_default = "/* «Monos» shared styles. host tokens only (--dsw-alias-*, --dsw-radius-*, the host font\n   stacks): they live on body and switch with the host theme, so nothing here is redefined\n   per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */\n\n.qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);\n  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5;\n  /* spacing (not colours): 4 · 8 · 12 · 16 · 24 · 32 · 48 */\n  --q-1: 4px; --q-2: 8px; --q-3: 12px; --q-4: 16px; --q-5: 24px; --q-6: 32px; --q-7: 48px;\n  /* motion (docs/الواجهة.md): durations, easings, the rise of things arriving */\n  --q-d-press: 80ms; --q-d-micro: 120ms; --q-d-small: 180ms; --q-d-base: 240ms; --q-d-large: 320ms; --q-d-slow: 600ms;\n  --q-ease-standard: cubic-bezier(0.2, 0, 0, 1); --q-ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);\n  --q-ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15); --q-ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1); --q-rise: 4px; }\n@media (prefers-reduced-motion: reduce) {\n  .qm { --q-rise: 0px; --q-d-base: 120ms; --q-d-large: 120ms; --q-d-slow: 0ms; }\n}\n/* Base CSS is the final state: keyframes only say where things come from (fill: backwards). */\n@keyframes q-fade { from { opacity: 0; } }\n@keyframes q-rise { from { opacity: 0; transform: translateY(var(--q-rise)); } }\n.qm *, .qm *::before, .qm *::after { box-sizing: border-box; }\n.qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }\n.qm ::selection { background: var(--dsw-alias-state-business-tertiary); }\n.qm :focus-visible { outline: 2px solid var(--dsw-alias-state-business-primary); outline-offset: 1px; }\n.qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }\n.qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;\n  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap;\n  text-decoration-color: transparent; transition: text-decoration-color var(--q-d-micro); }\n\n/* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */\n.qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;\n  font-family: var(--ds-font-family-code); white-space: nowrap; }\n\n/* Type scale: 12 meta · 13 table · 14 body · 16 section · 20 page · 28–32 hero. */\n.qm .q-h1 { margin: 0; font-size: 20px; font-weight: 600; line-height: 28px; }\n.qm .q-h2 { margin: 0; font-size: 16px; font-weight: 600; line-height: 24px; }\n.qm .q-meta { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .q-sec { color: var(--dsw-alias-label-secondary); }\n.qm .q-ter { color: var(--dsw-alias-label-tertiary); }\n.qm .q-up { color: var(--dsw-alias-file-diff-added-marker); }\n.qm .q-down { color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-amber { color: var(--dsw-alias-state-warn-label); font-weight: 600; }\n.qm .q-sym { font-family: var(--ds-font-family-code); font-weight: 600; direction: ltr; unicode-bidi: isolate; }\n\n/* Layout */\n.qm .q-wrap { width: 100%; max-width: 1180px; margin: 0 auto; padding: 0 24px 24px; display: flex; flex-direction: column; gap: 12px; }\n@media (max-width: 960px) { .qm .q-wrap { padding: 0 16px 16px; } }\n.qm .q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n.qm .q-card { background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n\n/* Panel header: icon + «Monos» / screen on the right, actions on the left. */\n.qm .q-head { position: sticky; top: 0; z-index: 3; background: var(--dsw-alias-bg-base); border-bottom: 1px solid var(--dsw-alias-border-l2); }\n[data-platform='darwin'] .qm .q-head { padding-top: var(--dsh-frame-top-clearance, 0px); }\n.qm .q-head-in { max-width: 1180px; margin: 0 auto; min-height: 48px; padding: 6px 24px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }\n@media (max-width: 960px) { .qm .q-head-in { padding: 8px 16px; } }\n.qm .q-crumbs { display: flex; align-items: center; gap: 8px; min-width: 0; font-size: 16px; }\n.qm .q-crumbs .q-brand { font-weight: 600; }\n.qm .q-crumbs .q-sep { color: var(--dsw-alias-label-tertiary); }\n.qm .q-crumbs .q-here { font-weight: 600; font-size: 20px; }\n.qm .q-crumbs .q-crumb { appearance: none; border: 0; background: transparent; padding: 0; cursor: pointer; color: var(--dsw-alias-label-secondary); font-size: 16px; }\n.qm .q-crumbs .q-crumb:hover { color: var(--dsw-alias-label-primary); text-decoration: underline; text-underline-offset: 3px; }\n.qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }\n\n/* Buttons and controls (≥32px) */\n.qm .q-btn { appearance: none; position: relative; height: 36px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);\n  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap;\n  transition: background-color var(--q-d-micro) var(--q-ease-standard), border-color var(--q-d-micro), color var(--q-d-micro), transform var(--q-d-press) var(--q-ease-standard); }\n.qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-btn:active:not(:disabled) { transform: scale(0.97); }\n.qm .q-btn-lg { height: 44px; padding: 0 20px; font-size: 14px; border-radius: var(--dsw-radius-md); }\n/* A small button keeps a 44px target: the hit area reaches past its 32px box. */\n.qm .q-btn-sm::before, .qm .q-chip::before { content: ''; position: absolute; inset: -6px 0; }\n.qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }\n.qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }\n.qm .q-btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }\n.qm .q-btn-quiet { border-color: transparent; }\n.qm .q-btn-danger:hover { background: var(--dsw-alias-interactive-bg-hover-danger, var(--dsw-alias-interactive-bg-hover)); color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-btn:disabled, .qm .q-btn[aria-disabled='true'] { opacity: .5; cursor: default; }\n.qm .q-btn:disabled:hover { background: transparent; }\n.qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }\n.qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }\n.qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }\n.qm .q-input { height: 40px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 14px; min-width: 0; outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .q-input:focus, .qm .q-input:focus-visible { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .q-input[aria-invalid='true'] { border-color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm select.q-input { padding-inline-end: 8px; }\n\n/* Chips, a segmented choice, a «كمان» menu (native <details>), a field's error, hidden text */\n.qm .q-chip { appearance: none; position: relative; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2);\n  background: transparent; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;\n  transition: background-color var(--q-d-micro), border-color var(--q-d-micro); }\n.qm .q-chip:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .q-chip[aria-pressed='true'], .qm .q-chip[aria-checked='true'] { background: var(--dsw-alias-state-business-tertiary); border-color: var(--dsw-alias-state-business-primary); }\n.qm .q-seg { display: inline-flex; flex-wrap: wrap; padding: 2px; gap: 2px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-module-platform); }\n.qm .q-seg > button { appearance: none; position: relative; height: 32px; padding: 0 12px; border: 0; border-radius: var(--dsw-radius-sm); background: transparent;\n  color: var(--dsw-alias-label-secondary); font-size: 13px; cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .q-seg > button:hover { color: var(--dsw-alias-label-primary); }\n.qm .q-seg > button[aria-checked='true'], .qm .q-seg > button[aria-selected='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);\n  font-weight: 600; box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }\n.qm .q-menu { position: relative; display: inline-block; }\n.qm .q-menu > summary { list-style: none; }\n.qm .q-menu > summary::-webkit-details-marker { display: none; }\n.qm .q-menu-list { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 4; min-width: 180px; padding: 4px; display: flex; flex-direction: column;\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-menu-list > .q-btn { justify-content: flex-start; height: 36px; border-color: transparent; }\n.qm .q-field-err { font-size: 12px; color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .q-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }\n\n/* Skeleton: shaped like what it stands for, a soft shimmer travelling right → left (reading order).\n   Nothing shows for a load under 150ms. */\n.qm .q-skel { display: inline-block; position: relative; overflow: hidden; height: 10px; border-radius: var(--dsw-radius-xs);\n  background: var(--dsw-alias-bg-skeleton); animation: q-fade 1ms linear 150ms backwards; }\n.qm .q-skel::after { content: ''; position: absolute; inset: 0; transform: translateX(100%);\n  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent), transparent);\n  animation: q-shimmer 1.4s var(--q-ease-standard) infinite; }\n@keyframes q-shimmer { to { transform: translateX(-100%); } }\n@media (prefers-reduced-motion: reduce) { .qm .q-skel::after { display: none; } }\n\n/* Empty / error blocks, footer */\n.qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }\n.qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }\n.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n\n/* Height in and out without measuring: grid rows 0fr ↔ 1fr (motion.js Collapse). */\n.qm .q-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--q-d-base) var(--q-ease-standard); }\n.qm .q-collapse[data-state='closed'] { grid-template-rows: 0fr; }\n.qm .q-collapse > .q-collapse-in { min-height: 0; transition: opacity var(--q-d-small) var(--q-ease-enter), transform var(--q-d-base) var(--q-ease-enter); }\n.qm .q-collapse[data-state] > .q-collapse-in { overflow: hidden; }\n.qm .q-collapse[data-state='closed'] > .q-collapse-in { opacity: 0; transform: translateY(calc(var(--q-rise) * -1)); }\n@media (prefers-reduced-motion: reduce) {\n  .qm .q-collapse { transition: none; }\n  .qm .q-collapse > .q-collapse-in { transition: opacity var(--q-d-micro) linear; }\n  .qm .q-btn:active:not(:disabled) { transform: none; }\n}\n.qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }\n";
 
   // plugins/shared/runtime.js
   function pageShared(key, create) {
@@ -55,7 +55,7 @@ var __monos = (() => {
     const store = globalThis[_a = Symbol.for("monos.page-shared.v1")] ?? (globalThis[_a] = {});
     return store[key] ?? (store[key] = create());
   }
-  var { useState, useEffect, useCallback } = import_react.default;
+  var { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } = import_react.default;
   var h = import_react.default.createElement;
   var PANEL_ID = "egx-portfolio";
   var N = (text4, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text4);
@@ -378,8 +378,104 @@ var __monos = (() => {
   }
 
   // plugins/shared/components.js
-  function Skeleton({ width = 80 }) {
-    return h("span", { className: "q-skel", style: { width } });
+  function Skeleton({ width = 80, height, radius }) {
+    return h("span", { className: "q-skel", style: { width, height, borderRadius: radius } });
+  }
+  function SkeletonRow() {
+    return h(
+      "div",
+      { className: "q-skel-row" },
+      h(Skeleton, { width: 32, height: 32, radius: "50%" }),
+      h("span", { className: "q-stack", style: { flex: 1, gap: 8 } }, h(Skeleton, { width: 140, height: 12 }), h(Skeleton, { width: 90 })),
+      h(Skeleton, { width: 70, height: 12 })
+    );
+  }
+  function SkeletonPage() {
+    return h(
+      "div",
+      { className: "q-skel-page" },
+      h(
+        "div",
+        { className: "l-total" },
+        h(Skeleton, { width: 90 }),
+        h(Skeleton, { width: 240, height: 36 }),
+        h(Skeleton, { width: 180 }),
+        h("div", { className: "q-row", style: { gap: 24, marginTop: 8 } }, h(Skeleton, { width: 90, height: 20 }), h(Skeleton, { width: 90, height: 20 }), h(Skeleton, { width: 90, height: 20 }))
+      ),
+      h("div", { className: "l-list", style: { padding: "8px 16px" } }, [0, 1, 2, 3, 4].map((i) => h(SkeletonRow, { key: i })))
+    );
+  }
+  function Chevron() {
+    return h(
+      "svg",
+      { className: "l-chev", width: 12, height: 12, viewBox: "0 0 12 12", "aria-hidden": true },
+      h("path", { d: "M3 4.5 6 7.5 9 4.5", fill: "none", stroke: "currentColor", strokeWidth: 1.5, strokeLinecap: "round", strokeLinejoin: "round" })
+    );
+  }
+
+  // plugins/shared/motion.js
+  var DUR = { press: 80, micro: 120, small: 180, base: 240, large: 320, slow: 600 };
+  function liveDom() {
+    if (globalThis.__MONOS_MOTION__ === false) return false;
+    const d = globalThis.document;
+    return Boolean(d && d.documentElement && typeof d.documentElement.animate === "function");
+  }
+  function reducedMotion() {
+    try {
+      return globalThis.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    } catch {
+      return false;
+    }
+  }
+  var canMove = () => liveDom() && !reducedMotion();
+  var canFade = liveDom;
+  function animate(el, keyframes, options) {
+    if (!el || !liveDom()) return null;
+    try {
+      return el.animate(keyframes, options);
+    } catch {
+      return null;
+    }
+  }
+  function Collapse({ open, className = "", children, ...rest }) {
+    const box = useRef(null);
+    const kept = useRef(children);
+    if (open) kept.current = children;
+    const [exiting, setExiting] = useState(false);
+    const [was, setWas] = useState(open);
+    if (was !== open) {
+      setWas(open);
+      setExiting(!open && canFade());
+    }
+    useLayoutEffect(() => {
+      const el = box.current;
+      if (!el || !canFade()) return void 0;
+      if (open) {
+        el.dataset.state = "closed";
+        void el.offsetHeight;
+        el.dataset.state = "open";
+        const t2 = setTimeout(() => {
+          delete el.dataset.state;
+        }, DUR.base + 40);
+        return () => clearTimeout(t2);
+      }
+      el.dataset.state = "closed";
+      const t = setTimeout(() => setExiting(false), (canMove() ? DUR.base : DUR.micro) + 40);
+      return () => clearTimeout(t);
+    }, [open]);
+    if (!open && !exiting) return null;
+    return h(
+      "div",
+      { ref: box, className: `q-collapse${className ? ` ${className}` : ""}`, ...open ? {} : { inert: "" }, ...rest },
+      h("div", { className: "q-collapse-in" }, open ? children : kept.current)
+    );
+  }
+  function land(el) {
+    return animate(
+      el,
+      [{ opacity: canMove() ? 0.55 : 0.35 }, { opacity: 0 }],
+      { duration: canMove() ? 1200 : 600, easing: "ease-out", pseudoElement: "::after" }
+    );
   }
 
   // plugins/shared/logos/ABUK.svg
@@ -1303,7 +1399,8 @@ var __monos = (() => {
     useEffect(() => {
       if (!focused) return;
       setOpen(true);
-      rowRef.current?.scrollIntoView?.({ block: "nearest" });
+      rowRef.current?.scrollIntoView?.({ block: "nearest", behavior: canMove() ? "smooth" : "auto" });
+      land(rowRef.current);
     }, [focused]);
     const done = () => {
       setMode(null);
@@ -1350,9 +1447,10 @@ var __monos = (() => {
           { className: "l-value" },
           hidden ? N(MASK) : N(money(debt.remaining_egp)),
           h("span", { className: "l-growth q-sec" }, "باقي من ", hidden ? N(MASK) : N(money(debt.principal)))
-        )
+        ),
+        h(Chevron)
       ),
-      open ? h(
+      h(Collapse, { open }, h(
         "div",
         { className: "l-detail" },
         h(
@@ -1401,7 +1499,7 @@ var __monos = (() => {
           h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف الدين")
         ),
         error ? h("span", { className: "q-error", role: "alert" }, error) : null
-      ) : null
+      ))
     );
   }
 
@@ -1521,7 +1619,7 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/ledger.css
-  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; }\n.qm .l-upcoming > h2 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n";
+  var ledger_default = "/* «Monos / السجل» (docs/الواجهة.md): one column, the money first. Host tokens only (--dsw-alias-*),\n   so light and dark follow the app; spacing and motion come from shared/styles.css (--q-*). */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--q-6) var(--q-5) var(--q-7); display: flex; flex-direction: column; gap: var(--q-5); }\n@media (max-width: 760px) { .qm .l-col { padding: var(--q-4) var(--q-4) var(--q-5); } }\n/* The column arrives once: its sections rise in turn (on mount only; a refresh does not remount). */\n.qm .l-col > * { animation: q-rise var(--q-d-large) var(--q-ease-enter) backwards; }\n.qm .l-col > :nth-child(2) { animation-delay: 30ms; }\n.qm .l-col > :nth-child(3) { animation-delay: 60ms; }\n.qm .l-col > :nth-child(4) { animation-delay: 90ms; }\n.qm .l-col > :nth-child(5) { animation-delay: 120ms; }\n.qm .l-col > :nth-child(n+6) { animation-delay: 150ms; }\n\n/* The hero: «صافي ثروتك», the number, dollars and gold, the figures, the shares */\n.qm .l-total { display: flex; flex-direction: column; gap: var(--q-1); }\n.qm .l-eyebrow { display: flex; align-items: center; gap: var(--q-3); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-hero { display: inline-flex; align-items: baseline; gap: var(--q-2); flex-wrap: wrap; }\n.qm .l-total .l-big { font-size: 36px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }\n.qm .l-total .l-unit { font-size: 16px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: var(--q-3); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--q-3) var(--q-3) var(--q-2); border-inline-start: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi:first-child { border-inline-start: 0; padding-inline-start: 0; }\n.qm .l-kpi-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpi .num { font-size: 20px; font-weight: 600; }\n.qm .l-warn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: var(--q-2); padding: 6px 10px;\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 40%, transparent); border-radius: var(--dsw-radius-sm);\n  background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent); color: var(--dsw-alias-state-warn-label);\n  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--q-d-micro); }\n.qm .l-warn:hover { background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 14%, transparent); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: var(--q-2); margin-top: var(--q-3); }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 10px; border-radius: var(--dsw-radius-sm); overflow: hidden;\n  animation: l-grow var(--q-d-slow) var(--q-ease-enter) 200ms backwards; }\n@keyframes l-grow { from { clip-path: inset(0 0 0 100% round 4px); } }  /* opens from the right: the reading start */\n.qm .l-alloc-bar span, .qm .l-alloc-keys i {\n  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) var(--mix, 100%), var(--dsw-alias-bg-base)); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 4px; transition: flex-grow var(--q-d-large) var(--q-ease-standard); }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: var(--q-1) var(--q-2); }\n.qm .l-alloc-key { appearance: none; position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;\n  border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: transparent; font-size: 12px;\n  color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .l-alloc-key:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 10px; border-radius: 999px;\n  background: var(--dsw-alias-bg-module-platform); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n@media (prefers-reduced-motion: reduce) { .qm .l-alloc-bar { animation: none; } .qm .l-alloc-bar span { transition: none; } }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 44px; padding: 0 16px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);\n  animation: q-rise var(--q-d-micro) var(--q-ease-enter) backwards; }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer;\n  transition: background-color 80ms linear; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3); padding: var(--q-4) var(--q-5);\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-detail .l-add { margin-top: 0; padding: var(--q-4); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--q-3) var(--q-4); align-items: end; }\n.qm .l-fields > .l-inline { grid-column: 1 / -1; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* The list: one card, a heading per group that stays while its rows scroll by */\n.qm .l-list { display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-md); overflow: clip; }\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group + .l-group { border-top: 1px solid var(--dsw-alias-border-l2); }\n.qm .l-group > h2 { position: sticky; top: 48px; z-index: 1; margin: 0; display: flex; align-items: center; gap: var(--q-2); height: 36px; padding: 0 var(--q-4);\n  background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n[data-platform='darwin'] .qm .l-group > h2 { top: calc(48px + var(--dsh-frame-top-clearance, 0px)); }\n.qm .l-group-total { margin-inline-start: auto; font-weight: 400; font-size: 12px; }\n.qm .l-row { appearance: none; position: relative; isolation: isolate; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; display: flex; align-items: center; gap: var(--q-3); min-height: 60px; padding: var(--q-2) var(--q-4);\n  cursor: pointer; transition: background-color var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-group > .l-row:last-of-type, .qm .l-group > :last-child > .l-detail { border-bottom: 0; }\n.qm .l-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-row[aria-expanded='true'] { background: var(--dsw-alias-bg-module-platform); border-bottom-color: transparent; }\n/* a one-shot tint when a row arrives or is jumped to (motion.js land) */\n.qm .l-row::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dsw-alias-state-business-tertiary); opacity: 0; pointer-events: none; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 15px; font-weight: 600; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-chev { flex: none; color: var(--dsw-alias-label-tertiary); transform: rotate(90deg); transition: transform var(--q-d-base) var(--q-ease-standard); }\n.qm .l-row[aria-expanded='true'] .l-chev { transform: none; color: var(--dsw-alias-label-secondary); }\n.qm .l-group[aria-label='اتصرفت بالكامل'] .l-row { color: var(--dsw-alias-label-secondary); }\n.qm .l-new { animation: q-rise var(--q-d-base) var(--q-ease-enter) backwards; }\n.qm .l-empty { display: flex; flex-direction: column; gap: var(--q-2); padding: var(--q-5); text-align: center; background: var(--dsw-alias-bg-layer-1);\n  border: 1px dashed var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-empty b { font-size: 16px; }\n.qm .l-panel { display: flex; flex-direction: column; gap: var(--q-4); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-skel-page { display: flex; flex-direction: column; gap: var(--q-5); }\n.qm .q-skel-row { display: flex; align-items: center; gap: var(--q-3); min-height: 60px; }\n@media (prefers-reduced-motion: reduce) { .qm .l-chev { transition: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; padding: var(--q-3) var(--q-4); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-upcoming > h2 { margin: 0 0 var(--q-1); font-size: 15px; font-weight: 600; }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 10px 14px; font-size: 14px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--q-d-micro), border-color var(--q-d-base); }\n.qm .l-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-2) var(--q-4) var(--q-5); padding-inline-start: 60px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 var(--q-1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n/* the detail's parts rise in turn while it opens (motion.js Collapse marks it with data-state) */\n.qm .q-collapse[data-state] .l-detail > * { animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(2) { animation-delay: 30ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(3) { animation-delay: 60ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(n+4) { animation-delay: 90ms; }\n@media (max-width: 560px) { .qm .l-detail { padding-inline-start: var(--q-4); } }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: var(--q-2) 0 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
@@ -2028,8 +2126,13 @@ var __monos = (() => {
     useEffect(() => {
       if (!focused) return;
       setOpen(true);
-      rowRef.current?.scrollIntoView?.({ block: "nearest" });
+      rowRef.current?.scrollIntoView?.({ block: "nearest", behavior: canMove() ? "smooth" : "auto" });
+      land(rowRef.current);
     }, [focused]);
+    useEffect(() => {
+      if (fresh) land(rowRef.current);
+    }, [fresh]);
+    const detailId = `l-detail-${asset.key.replace(/[^A-Za-z0-9_-]/g, "_")}`;
     const closed = asset.group === "closed";
     const movable = asset.kind !== DEPOSIT_KIND && asset.quantity > 0;
     const priced = asset.value_egp != null;
@@ -2047,7 +2150,14 @@ var __monos = (() => {
       null,
       h(
         "button",
-        { type: "button", ref: rowRef, className: `l-row${fresh ? " l-new" : ""}`, "aria-expanded": open, onClick: () => setOpen(!open) },
+        {
+          type: "button",
+          ref: rowRef,
+          className: `l-row${fresh ? " l-new" : ""}`,
+          "aria-expanded": open,
+          "aria-controls": open ? detailId : void 0,
+          onClick: () => setOpen(!open)
+        },
         h(Logo, { symbol: asset.kind === "stock" ? asset.symbol : null, mark: asset.mark }),
         h(
           "span",
@@ -2068,9 +2178,10 @@ var __monos = (() => {
           { className: "l-value" },
           priced ? hid(hidden, money(asset.value_egp)) : h("span", { className: "num q-ter" }, DASH),
           priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null
-        )
+        ),
+        h(Chevron)
       ),
-      open ? h(
+      h(Collapse, { open, id: detailId }, h(
         "div",
         { className: "l-detail" },
         asset.places && asset.places.length ? h("p", { className: "l-hint" }, "فين: ", asset.places.map((p, i) => h(import_react.default.Fragment, { key: p.place || "" }, i ? " · " : "", p.place || "من غير مكان", " ", hid(hidden, asset.key === "EGP" ? money(p.quantity) : fmtQty(p.quantity))))) : null,
@@ -2122,7 +2233,7 @@ var __monos = (() => {
           ] : h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => setConfirm(true) }, "حذف الأصل"),
           error ? h("span", { className: "q-error", role: "alert" }, error) : null
         )
-      ) : null
+      ))
     );
   }
   function UsdLine({ totals, hidden }) {
@@ -2138,24 +2249,30 @@ var __monos = (() => {
       totals.value_gold_g != null ? h("span", { title: gram }, "≈ ", hid(hidden, fmtQty(Math.round(totals.value_gold_g * 10) / 10)), " جرام دهب خالص") : null
     );
   }
+  var ALLOC_MIX = [100, 74, 54, 40, 30, 24];
   function Allocation({ allocation, hidden }) {
     if (!allocation || allocation.length < 2) return null;
-    const step = (i) => Math.max(0.25, 1 - i * 0.18);
+    const mix = (i) => ({ "--mix": `${ALLOC_MIX[Math.min(i, ALLOC_MIX.length - 1)]}%` });
+    const go = (group) => document.getElementById(`l-g-${group}`)?.scrollIntoView?.({ block: "start", behavior: canMove() ? "smooth" : "auto" });
     return h(
       "div",
-      { className: "l-alloc", role: "img", "aria-label": `التوزيع: ${allocation.map((a) => `${a.label} ${fmtPct(a.share, { digits: 0 })}`).join("، ")}` },
+      { className: "l-alloc" },
       h(
         "div",
-        { className: "l-alloc-bar" },
-        allocation.map((a, i) => h("span", { key: a.group, style: { flexGrow: a.share, opacity: step(i) } }))
+        { className: "l-alloc-bar", role: "img", "aria-label": `التوزيع: ${allocation.map((a) => `${a.label} ${fmtPct(a.share, { digits: 0 })}`).join("، ")}` },
+        allocation.map((a, i) => h("span", {
+          key: a.group,
+          style: { flexGrow: a.share, ...mix(i) },
+          title: hidden ? a.label : `${a.label} · ${money(a.value_egp)} ج.م · ${fmtPct(a.share, { digits: 0 })}`
+        }))
       ),
       h(
         "div",
         { className: "l-alloc-keys" },
         allocation.map((a, i) => h(
-          "span",
-          { key: a.group },
-          h("i", { style: { opacity: step(i) } }),
+          "button",
+          { key: a.group, type: "button", className: "l-alloc-key", onClick: () => go(a.group) },
+          h("i", { style: mix(i) }),
           a.label,
           " ",
           hid(hidden, fmtPct(a.share, { digits: 0 }))
@@ -2163,30 +2280,49 @@ var __monos = (() => {
       )
     );
   }
-  function TotalBlock({ totals }) {
+  function Today({ totals, hidden }) {
+    if (!totals.today_has_fresh) return null;
+    return h(
+      "span",
+      { className: "l-today", title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : void 0 },
+      "اليوم",
+      " ",
+      hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change))
+    );
+  }
+  var kpi = (label, value) => h("div", { className: "l-kpi" }, h("span", { className: "l-kpi-label" }, label), " ", value);
+  function TotalBlock({ totals, onFixPrice }) {
     const hidden = usePrivacy();
     const unpriced = totals.unpriced.length;
     const owes = totals.debts > 0;
     return h(
       "section",
       { className: "l-total", "aria-label": "الإجمالي" },
+      h("div", { className: "l-eyebrow" }, h("span", null, owes ? "صافي ثروتك بعد الديون" : "صافي ثروتك"), h(Today, { totals, hidden })),
       h(
         "span",
-        null,
+        { className: "l-hero" },
         hid(hidden, money(owes ? totals.net_worth : totals.value || 0), "l-big"),
         " ",
         h("span", { className: "l-unit" }, owes ? "جنيه صافي (بعد الديون)" : "جنيه")
       ),
-      owes ? h("div", { className: "l-usd" }, "أصول ", hid(hidden, money(totals.value || 0)), " · ديون ", hid(hidden, money(totals.debts))) : null,
       h(UsdLine, { totals, hidden }),
-      h(Allocation, { allocation: totals.allocation, hidden }),
       totals.assets ? h(
         "div",
-        { className: "l-line" },
-        h("span", null, "التكلفة ", hid(hidden, money(totals.cost))),
-        totals.growth != null ? h("span", null, "النمو ", hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
-        totals.realized && Math.abs(totals.realized) >= 1 ? h("span", null, "ربح محقق ", hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null,
-        unpriced ? h("span", null, N(String(unpriced)), unpriced === 1 ? " أصل من غير سعر، خارج الإجمالي" : " أصول من غير سعر، خارج الإجمالي") : null
+        { className: "l-kpis" },
+        owes ? kpi("أصول", hid(hidden, money(totals.value || 0))) : null,
+        owes ? kpi("ديون", hid(hidden, money(totals.debts))) : null,
+        kpi("التكلفة", hid(hidden, money(totals.cost))),
+        totals.growth != null ? kpi("النمو", hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+        totals.realized && Math.abs(totals.realized) >= 1 ? kpi("ربح محقق", hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null
+      ) : null,
+      h(Allocation, { allocation: totals.allocation, hidden }),
+      unpriced ? h(
+        "button",
+        { type: "button", className: "l-warn", onClick: onFixPrice },
+        N(String(unpriced)),
+        unpriced === 1 ? " أصل من غير سعر، خارج الإجمالي" : " أصول من غير سعر، خارج الإجمالي",
+        " · اكتب سعره"
       ) : null
     );
   }
@@ -2215,22 +2351,9 @@ var __monos = (() => {
     const loading = ledger === void 0;
     const failed = ledger === null;
     const totals = ledger && ledger.totals;
-    const today = totals && totals.today_has_fresh ? h(
-      "span",
-      { className: "l-today", title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : void 0 },
-      "اليوم",
-      hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change))
-    ) : null;
     let body;
     if (loading) {
-      body = h(
-        "div",
-        { className: "l-col", "aria-busy": true },
-        h("div", { className: "l-total" }, h(Skeleton, { width: 220 }), h(Skeleton, { width: 160 })),
-        h(Skeleton, { width: "100%" }),
-        h(Skeleton, { width: "90%" }),
-        h(Skeleton, { width: "80%" })
-      );
+      body = h("div", { className: "l-col", "aria-busy": true }, h(SkeletonPage));
     } else if (failed) {
       body = h("div", { className: "l-col" }, h(
         "div",
@@ -2240,64 +2363,84 @@ var __monos = (() => {
       ));
     } else {
       const assets = ledger.groups.flatMap((g) => g.assets);
+      const shares = Object.fromEntries((totals.allocation || []).map((a) => [a.group, a]));
+      const unpricedAsset = assets.find((a) => a.value_egp == null);
+      const tab = (id, label) => h("button", {
+        key: id,
+        id: `l-tab-${id}`,
+        type: "button",
+        role: "tab",
+        "aria-selected": view === id,
+        "aria-controls": `l-panel-${id}`,
+        tabIndex: view === id ? 0 : -1,
+        className: `l-tab${view === id ? " l-tab-on" : ""}`,
+        onClick: () => setView(id),
+        onKeyDown: (e) => {
+          if (e.key === "ArrowLeft" || e.key === "ArrowRight") {
+            e.preventDefault();
+            setView(view === "assets" ? "activity" : "assets");
+          }
+        }
+      }, label);
       body = h(
         "div",
         { className: "l-col" },
         h(PlaceList, { id: "l-places", places: totals.places }),
-        h(TotalBlock, { totals }),
+        h(TotalBlock, { totals, onFixPrice: unpricedAsset ? () => openAsset(unpricedAsset.key) : void 0 }),
         h(HistoryChart),
         h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
-        h(
+        h("div", { className: "l-tabs", role: "tablist", "aria-label": "العرض" }, tab("assets", "الأصول"), tab("activity", "الحركات")),
+        view === "activity" ? h(
           "div",
-          { className: "l-tabs", role: "tablist", "aria-label": "العرض" },
-          [["assets", "الأصول"], ["activity", "الحركات"]].map(([id, label]) => h("button", {
-            key: id,
-            type: "button",
-            role: "tab",
-            "aria-selected": view === id,
-            className: `l-tab${view === id ? " l-tab-on" : ""}`,
-            onClick: () => setView(id)
-          }, label))
-        ),
-        view === "activity" ? h(ActivityView, { onOpen: openAsset }) : null,
+          { id: "l-panel-activity", role: "tabpanel", "aria-labelledby": "l-tab-activity", className: "l-panel" },
+          h(ActivityView, { onOpen: openAsset })
+        ) : null,
         view === "activity" ? null : h(
           "div",
-          null,
-          h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-          picked ? h(AddLine, {
-            key: picked.entry ? picked.entry.key : `custom:${picked.name}`,
-            entry: picked.entry || null,
-            customName: picked.name,
-            onDone: added,
-            onCancel: () => setPicked(null)
-          }) : null
-        ),
-        view === "activity" ? null : ledger.groups.length || ledger.debts && ledger.debts.length ? ledger.groups.map((g) => h(
-          "section",
-          { key: g.group, className: "l-group", "aria-label": g.label },
-          h("h2", null, g.label),
-          g.assets.map((a) => h(AssetRow, {
-            key: a.key,
-            asset: a,
-            catalog,
-            fresh: a.key === fresh,
-            onChanged: refresh,
-            focused: focus && focus.key === a.key ? focus.at : null,
-            onOpen: openAsset
-          }))
-        )) : h("p", { className: "l-hint" }, "ابحث عن أصل وأضفه."),
-        view === "activity" || !ledger.debts || !ledger.debts.length ? null : h(
-          "section",
-          { className: "l-group", "aria-label": "ديون وأقساط" },
-          h("h2", null, "ديون وأقساط"),
-          ledger.debts.map((d) => h(DebtRow, {
-            key: d.key,
-            debt: d,
-            assets,
-            onChanged: refresh,
-            onOpen: openAsset,
-            focused: focus && focus.key === d.key ? focus.at : null
-          }))
+          { id: "l-panel-assets", role: "tabpanel", "aria-labelledby": "l-tab-assets", className: "l-panel" },
+          h(
+            "div",
+            null,
+            h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
+            h(Collapse, { open: Boolean(picked) }, picked ? h(AddLine, {
+              key: picked.entry ? picked.entry.key : `custom:${picked.name}`,
+              entry: picked.entry || null,
+              customName: picked.name,
+              onDone: added,
+              onCancel: () => setPicked(null)
+            }) : null)
+          ),
+          ledger.groups.length || ledger.debts && ledger.debts.length ? h(
+            "div",
+            { className: "l-list" },
+            ledger.groups.map((g) => h(
+              "section",
+              { key: g.group, id: `l-g-${g.group}`, className: "l-group", "aria-label": g.label },
+              h("h2", null, h("span", null, g.label), shares[g.group] ? h("span", { className: "l-group-total" }, hid(hidden, money(shares[g.group].value_egp)), " · ", hid(hidden, fmtPct(shares[g.group].share, { digits: 0 }))) : null),
+              g.assets.map((a) => h(AssetRow, {
+                key: a.key,
+                asset: a,
+                catalog,
+                fresh: a.key === fresh,
+                onChanged: refresh,
+                focused: focus && focus.key === a.key ? focus.at : null,
+                onOpen: openAsset
+              }))
+            )),
+            !ledger.debts || !ledger.debts.length ? null : h(
+              "section",
+              { id: "l-g-debts", className: "l-group", "aria-label": "ديون وأقساط" },
+              h("h2", null, h("span", null, "ديون وأقساط")),
+              ledger.debts.map((d) => h(DebtRow, {
+                key: d.key,
+                debt: d,
+                assets,
+                onChanged: refresh,
+                onOpen: openAsset,
+                focused: focus && focus.key === d.key ? focus.at : null
+              }))
+            )
+          ) : h("div", { className: "l-empty" }, h("b", null, "سجلك لسه فاضي"), h("p", { className: "l-hint" }, "ابحث عن أصل وأضفه."))
         ),
         h(
           "p",
@@ -2311,7 +2454,7 @@ var __monos = (() => {
       "div",
       { className: "qm", dir: "rtl", lang: "ar" },
       h("style", null, styles_default + ledger_default),
-      h(PanelHeader, { here: "السجل", actions: frag(today, h(ImportButton, { onDone: () => {
+      h(PanelHeader, { here: "السجل", actions: frag(h(ImportButton, { onDone: () => {
         reloadCatalog();
         refresh();
       } }), h(ExportButton), h(PrivacyToggle)) }),

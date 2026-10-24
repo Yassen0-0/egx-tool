@@ -25,7 +25,7 @@ test('the eye button hides every amount of the ledger and shows them again', { s
       const press = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }); await settle() }
       const snap = () => ({
         total: text(host.querySelector('.l-total')),
-        header: text(host.querySelector('header')),
+        today: text(host.querySelector('.l-today')),  // «اليوم» sits beside the big number
         rows: [...host.querySelectorAll('.l-row')].map((row) => ({ name: row.querySelector('.l-name').textContent, nums: [...row.querySelectorAll('.num')].map((n) => n.textContent) })),
         detail: host.querySelector('.l-detail') ? text(host.querySelector('.l-detail')) : '',
         label: button().getAttribute('aria-label'), pressed: button().getAttribute('aria-pressed'),
@@ -45,15 +45,15 @@ test('the eye button hides every amount of the ledger and shows them again', { s
   assert.equal(before.pressed, 'false')
   assert.equal(before.label, 'إخفاء الأرقام')
   assert.match(before.total, /620,104/)
-  assert.match(before.header, /\+0\.20%/)
+  assert.match(before.today, /\+0\.20%/)
 
   assert.equal(hidden.pressed, 'true')
   assert.equal(hidden.label, 'إظهار الأرقام')
-  // the total, cost and growth carry no digit but the count of unpriced assets; the header's today % none at all
+  // the total, cost and growth carry no digit but the count of unpriced assets; today's % none at all
   assert.match(hidden.total, /•••••/)
   assert.doesNotMatch(hidden.total.replace(/\d+ أصل.*$/, ''), /\d/)
-  assert.match(hidden.header, /•••••/)
-  assert.doesNotMatch(hidden.header, /\d/)
+  assert.match(hidden.today, /•••••/)
+  assert.doesNotMatch(hidden.today, /\d/)
   // names stay; every number of a row is masked (the date of a stale price is not an amount)
   assert.deepEqual(hidden.rows.map((x) => x.name), before.rows.map((x) => x.name))
   for (const row of hidden.rows) {
@@ -68,7 +68,7 @@ test('the eye button hides every amount of the ledger and shows them again', { s
   assert.equal(after.pressed, 'false')
   assert.equal(after.label, 'إخفاء الأرقام')
   assert.equal(after.total, before.total)
-  assert.equal(after.header, before.header)
+  assert.equal(after.today, before.today)
   assert.deepEqual(after.rows.map((x) => x.nums), before.rows.map((x) => x.nums))
 })
 

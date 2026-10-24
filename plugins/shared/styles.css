@@ -3,7 +3,19 @@
    per theme and no colour literal appears. Everything is scoped under .qm (the panel root). */
 
 .qm { height: 100%; overflow: auto; box-sizing: border-box; background: var(--dsw-alias-bg-base);
-  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5; }
+  color: var(--dsw-alias-label-primary); font-family: var(--dsw-font-family); font-size: 14px; line-height: 1.5;
+  /* spacing (not colours): 4 · 8 · 12 · 16 · 24 · 32 · 48 */
+  --q-1: 4px; --q-2: 8px; --q-3: 12px; --q-4: 16px; --q-5: 24px; --q-6: 32px; --q-7: 48px;
+  /* motion (docs/الواجهة.md): durations, easings, the rise of things arriving */
+  --q-d-press: 80ms; --q-d-micro: 120ms; --q-d-small: 180ms; --q-d-base: 240ms; --q-d-large: 320ms; --q-d-slow: 600ms;
+  --q-ease-standard: cubic-bezier(0.2, 0, 0, 1); --q-ease-enter: cubic-bezier(0.05, 0.7, 0.1, 1);
+  --q-ease-exit: cubic-bezier(0.3, 0, 0.8, 0.15); --q-ease-spring: cubic-bezier(0.34, 1.3, 0.64, 1); --q-rise: 4px; }
+@media (prefers-reduced-motion: reduce) {
+  .qm { --q-rise: 0px; --q-d-base: 120ms; --q-d-large: 120ms; --q-d-slow: 0ms; }
+}
+/* Base CSS is the final state: keyframes only say where things come from (fill: backwards). */
+@keyframes q-fade { from { opacity: 0; } }
+@keyframes q-rise { from { opacity: 0; transform: translateY(var(--q-rise)); } }
 .qm *, .qm *::before, .qm *::after { box-sizing: border-box; }
 .qm button, .qm input, .qm select, .qm textarea { font: inherit; color: inherit; }
 .qm ::selection { background: var(--dsw-alias-state-business-tertiary); }
@@ -11,7 +23,8 @@
 .qm a, .qm .q-link { color: var(--dsw-alias-link); text-decoration: none; cursor: pointer; }
 .qm a:hover, .qm .q-link:hover { text-decoration: underline; text-underline-offset: 3px; }
 .qm .q-link { appearance: none; border: 0; background: transparent; padding: 0 4px; min-height: 32px;
-  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 500; white-space: nowrap;
+  text-decoration-color: transparent; transition: text-decoration-color var(--q-d-micro); }
 
 /* Numbers: every number, sign and % lives in ONE left-to-right isolated span. */
 .qm .num { direction: ltr; unicode-bidi: isolate; font-variant-numeric: tabular-nums;
@@ -48,9 +61,14 @@
 .qm .q-head-actions { margin-inline-start: auto; display: flex; align-items: center; gap: 8px; }
 
 /* Buttons and controls (≥32px) */
-.qm .q-btn { appearance: none; height: 32px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);
-  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap; }
+.qm .q-btn { appearance: none; position: relative; height: 36px; padding: 0 14px; border-radius: var(--dsw-radius-sm); border: 1px solid var(--dsw-alias-border-l3);
+  background: transparent; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px; font-size: 13px; white-space: nowrap;
+  transition: background-color var(--q-d-micro) var(--q-ease-standard), border-color var(--q-d-micro), color var(--q-d-micro), transform var(--q-d-press) var(--q-ease-standard); }
 .qm .q-btn:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.qm .q-btn:active:not(:disabled) { transform: scale(0.97); }
+.qm .q-btn-lg { height: 44px; padding: 0 20px; font-size: 14px; border-radius: var(--dsw-radius-md); }
+/* A small button keeps a 44px target: the hit area reaches past its 32px box. */
+.qm .q-btn-sm::before, .qm .q-chip::before { content: ''; position: absolute; inset: -6px 0; }
 .qm .q-btn-p { background: var(--dsw-alias-button-primary-fill); border-color: var(--dsw-alias-button-primary-fill); color: var(--dsw-alias-label-primary-foreground); font-weight: 500; }
 .qm .q-btn-p:hover { background: var(--dsw-alias-button-primary-hover); border-color: var(--dsw-alias-button-primary-hover); }
 .qm .q-btn-sm { height: 32px; padding: 0 10px; font-size: 12px; }
@@ -61,17 +79,60 @@
 .qm .q-btn-p:disabled:hover { background: var(--dsw-alias-button-primary-fill); }
 .qm .q-label { font-size: 12px; color: var(--dsw-alias-label-secondary); white-space: nowrap; }
 .qm .q-stack { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
-.qm .q-input { height: 32px; padding: 0 10px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);
-  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 13px; min-width: 0; outline: none; }
-.qm .q-input:focus { border-color: var(--dsw-alias-state-business-primary); }
+.qm .q-input { height: 40px; padding: 0 12px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);
+  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); font-size: 14px; min-width: 0; outline: none;
+  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }
+.qm .q-input:focus, .qm .q-input:focus-visible { border-color: var(--dsw-alias-state-business-primary);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }
+.qm .q-input[aria-invalid='true'] { border-color: var(--dsw-alias-file-diff-deleted-marker); }
+.qm select.q-input { padding-inline-end: 8px; }
 
-/* Skeleton */
-.qm .q-skel { display: inline-block; height: 10px; border-radius: var(--dsw-radius-xs); background: var(--dsw-alias-bg-skeleton); animation: q-pulse 1.4s ease-in-out infinite; }
-@keyframes q-pulse { 50% { opacity: .45; } }
-@media (prefers-reduced-motion: reduce) { .qm .q-skel { animation: none; } }
+/* Chips, a segmented choice, a «كمان» menu (native <details>), a field's error, hidden text */
+.qm .q-chip { appearance: none; position: relative; height: 28px; padding: 0 10px; border-radius: 999px; border: 1px solid var(--dsw-alias-border-l2);
+  background: transparent; font-size: 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap;
+  transition: background-color var(--q-d-micro), border-color var(--q-d-micro); }
+.qm .q-chip:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.qm .q-chip[aria-pressed='true'], .qm .q-chip[aria-checked='true'] { background: var(--dsw-alias-state-business-tertiary); border-color: var(--dsw-alias-state-business-primary); }
+.qm .q-seg { display: inline-flex; flex-wrap: wrap; padding: 2px; gap: 2px; border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-module-platform); }
+.qm .q-seg > button { appearance: none; position: relative; height: 32px; padding: 0 12px; border: 0; border-radius: var(--dsw-radius-sm); background: transparent;
+  color: var(--dsw-alias-label-secondary); font-size: 13px; cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }
+.qm .q-seg > button:hover { color: var(--dsw-alias-label-primary); }
+.qm .q-seg > button[aria-checked='true'], .qm .q-seg > button[aria-selected='true'] { background: var(--dsw-alias-bg-layer-1); color: var(--dsw-alias-label-primary);
+  font-weight: 600; box-shadow: 0 0 0 1px var(--dsw-alias-border-l2); }
+.qm .q-menu { position: relative; display: inline-block; }
+.qm .q-menu > summary { list-style: none; }
+.qm .q-menu > summary::-webkit-details-marker { display: none; }
+.qm .q-menu-list { position: absolute; inset-inline-end: 0; top: calc(100% + 4px); z-index: 4; min-width: 180px; padding: 4px; display: flex; flex-direction: column;
+  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);
+  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 12%, transparent); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }
+.qm .q-menu-list > .q-btn { justify-content: flex-start; height: 36px; border-color: transparent; }
+.qm .q-field-err { font-size: 12px; color: var(--dsw-alias-file-diff-deleted-marker); }
+.qm .q-vh { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
+/* Skeleton: shaped like what it stands for, a soft shimmer travelling right → left (reading order).
+   Nothing shows for a load under 150ms. */
+.qm .q-skel { display: inline-block; position: relative; overflow: hidden; height: 10px; border-radius: var(--dsw-radius-xs);
+  background: var(--dsw-alias-bg-skeleton); animation: q-fade 1ms linear 150ms backwards; }
+.qm .q-skel::after { content: ''; position: absolute; inset: 0; transform: translateX(100%);
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--dsw-alias-bg-base) 55%, transparent), transparent);
+  animation: q-shimmer 1.4s var(--q-ease-standard) infinite; }
+@keyframes q-shimmer { to { transform: translateX(-100%); } }
+@media (prefers-reduced-motion: reduce) { .qm .q-skel::after { display: none; } }
 
 /* Empty / error blocks, footer */
 .qm .q-empty { padding: 32px 16px; text-align: center; color: var(--dsw-alias-label-secondary); display: flex; flex-direction: column; align-items: center; gap: 8px; }
 .qm .q-empty .q-h2 { color: var(--dsw-alias-label-primary); }
-.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; }
+.qm .q-error { color: var(--dsw-alias-file-diff-deleted-marker); font-size: 13px; animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }
+
+/* Height in and out without measuring: grid rows 0fr ↔ 1fr (motion.js Collapse). */
+.qm .q-collapse { display: grid; grid-template-rows: 1fr; transition: grid-template-rows var(--q-d-base) var(--q-ease-standard); }
+.qm .q-collapse[data-state='closed'] { grid-template-rows: 0fr; }
+.qm .q-collapse > .q-collapse-in { min-height: 0; transition: opacity var(--q-d-small) var(--q-ease-enter), transform var(--q-d-base) var(--q-ease-enter); }
+.qm .q-collapse[data-state] > .q-collapse-in { overflow: hidden; }
+.qm .q-collapse[data-state='closed'] > .q-collapse-in { opacity: 0; transform: translateY(calc(var(--q-rise) * -1)); }
+@media (prefers-reduced-motion: reduce) {
+  .qm .q-collapse { transition: none; }
+  .qm .q-collapse > .q-collapse-in { transition: opacity var(--q-d-micro) linear; }
+  .qm .q-btn:active:not(:disabled) { transform: none; }
+}
 .qm .q-foot { font-size: 12px; color: var(--dsw-alias-label-secondary); padding-top: 4px; }

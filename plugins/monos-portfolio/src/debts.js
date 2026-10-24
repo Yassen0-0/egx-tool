@@ -4,6 +4,8 @@
 import { N, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtNumber, parseDayInput, parseNumberInput } from '../../shared/format.mjs'
 import { Logo } from '../../shared/logo.js'
+import { Chevron } from '../../shared/components.js'
+import { Collapse, canMove, land } from '../../shared/motion.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { amount } from './moves.js'
 import { money } from './units.mjs'
@@ -133,7 +135,8 @@ export function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
   useEffect(() => {
     if (!focused) return
     setOpen(true)
-    rowRef.current?.scrollIntoView?.({ block: 'nearest' })
+    rowRef.current?.scrollIntoView?.({ block: 'nearest', behavior: canMove() ? 'smooth' : 'auto' })
+    land(rowRef.current)
   }, [focused])
   const done = () => { setMode(null); onChanged() }
   const remove = async () => {
@@ -154,8 +157,9 @@ export function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
           debt.next_due_date ? h('span', null, 'الجاي ', N(fmtDate(debt.next_due_date))) : null)),
       h('span', { className: 'l-value' },
         hidden ? N(MASK) : N(money(debt.remaining_egp)),
-        h('span', { className: 'l-growth q-sec' }, 'باقي من ', hidden ? N(MASK) : N(money(debt.principal))))),
-    open ? h('div', { className: 'l-detail' },
+        h('span', { className: 'l-growth q-sec' }, 'باقي من ', hidden ? N(MASK) : N(money(debt.principal)))),
+      h(Chevron)),
+    h(Collapse, { open }, h('div', { className: 'l-detail' },
       h('div', null,
         h('h3', null, debt.payments.length ? `السدادات (${debt.payments.length})` : 'لسه مفيش سدادات'),
         debt.payments.map((p) => {
@@ -177,5 +181,5 @@ export function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
             debt.settled ? null : h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => setMode('repay') }, 'سدّد'),
             h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
             h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: remove }, 'حذف الدين')),
-      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null) : null)
+      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)))
 }

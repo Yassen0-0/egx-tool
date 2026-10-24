@@ -50,7 +50,7 @@ var __monos = (() => {
     const store = globalThis[_a = Symbol.for("monos.page-shared.v1")] ?? (globalThis[_a] = {});
     return store[key] ?? (store[key] = create());
   }
-  var { useState, useEffect, useCallback } = import_react.default;
+  var { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } = import_react.default;
   var h = import_react.default.createElement;
   async function api(method, path, body) {
     const init = { method, headers: {} };

@@ -5,7 +5,8 @@
 import { N, QM_CSS, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
 import { DASH, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, parseDayInput, parseNumberInput, toneOf } from '../../shared/format.mjs'
 import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
-import { Skeleton } from '../../shared/components.js'
+import { Chevron, SkeletonPage } from '../../shared/components.js'
+import { Collapse, canMove, land } from '../../shared/motion.js'
 import { Logo } from '../../shared/logo.js'
 import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
@@ -396,8 +397,11 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
   useEffect(() => {
     if (!focused) return
     setOpen(true)
-    rowRef.current?.scrollIntoView?.({ block: 'nearest' })
+    rowRef.current?.scrollIntoView?.({ block: 'nearest', behavior: canMove() ? 'smooth' : 'auto' })
+    land(rowRef.current)
   }, [focused])
+  useEffect(() => { if (fresh) land(rowRef.current) }, [fresh])
+  const detailId = `l-detail-${asset.key.replace(/[^A-Za-z0-9_-]/g, '_')}`
   const closed = asset.group === 'closed'
   const movable = asset.kind !== DEPOSIT_KIND && asset.quantity > 0
   const priced = asset.value_egp != null
@@ -406,7 +410,8 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
   }
   const sourceText = asset.price_source === 'manual' ? 'كتبته أنت' : asset.price_source === 'EODHD' ? 'إغلاق EODHD' : null
   return h(React.Fragment, null,
-    h('button', { type: 'button', ref: rowRef, className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open, onClick: () => setOpen(!open) },
+    h('button', { type: 'button', ref: rowRef, className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open,
+      'aria-controls': open ? detailId : undefined, onClick: () => setOpen(!open) },
       h(Logo, { symbol: asset.kind === 'stock' ? asset.symbol : null, mark: asset.mark }),
       h('span', { className: 'q-stack' },
         h('span', { className: 'l-name' }, asset.name),
@@ -418,8 +423,9 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
           closed ? null : !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
       h('span', { className: 'l-value' },
         priced ? hid(hidden, money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
-        priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
-    open ? h('div', { className: 'l-detail' },
+        priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null),
+      h(Chevron)),
+    h(Collapse, { open, id: detailId }, h('div', { className: 'l-detail' },
       asset.places && asset.places.length
         ? h('p', { className: 'l-hint' }, 'فين: ', asset.places.map((p, i) => h(React.Fragment, { key: p.place || '' }, i ? ' · ' : '', p.place || 'من غير مكان', ' ', hid(hidden, asset.key === 'EGP' ? money(p.quantity) : fmtQty(p.quantity))))) : null,
       h(Timeline, { asset, onChanged, onOpen }),
@@ -455,7 +461,7 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
             h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', onClick: removeAll }, 'احذف'),
             h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setConfirm(false) }, 'إلغاء')]
           : h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: () => setConfirm(true) }, 'حذف الأصل'),
-        error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)) : null)
+        error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))))
 }
 
 // ── the page ─────────────────────────────────────────────────────────────────
@@ -470,33 +476,51 @@ function UsdLine({ totals, hidden }) {
     totals.value_gold_g != null ? h('span', { title: gram }, '≈ ', hid(hidden, fmtQty(Math.round(totals.value_gold_g * 10) / 10)), ' جرام دهب خالص') : null)
 }
 
-/** Each group's share of the total as one bar (one colour, a lighter step per group) and a legend. */
+// A step lighter per group: the host's accent mixed into the page colour, never below about 3:1.
+const ALLOC_MIX = [100, 74, 54, 40, 30, 24]
+
+/** Each group's share of the total as one bar (one colour, a lighter step per group) and a legend
+ *  whose chips scroll to their group. */
 export function Allocation({ allocation, hidden }) {
   if (!allocation || allocation.length < 2) return null
-  const step = (i) => Math.max(0.25, 1 - i * 0.18)
-  return h('div', { className: 'l-alloc', role: 'img', 'aria-label': `التوزيع: ${allocation.map((a) => `${a.label} ${fmtPct(a.share, { digits: 0 })}`).join('، ')}` },
-    h('div', { className: 'l-alloc-bar' },
-      allocation.map((a, i) => h('span', { key: a.group, style: { flexGrow: a.share, opacity: step(i) } }))),
+  const mix = (i) => ({ '--mix': `${ALLOC_MIX[Math.min(i, ALLOC_MIX.length - 1)]}%` })
+  const go = (group) => document.getElementById(`l-g-${group}`)?.scrollIntoView?.({ block: 'start', behavior: canMove() ? 'smooth' : 'auto' })
+  return h('div', { className: 'l-alloc' },
+    h('div', { className: 'l-alloc-bar', role: 'img', 'aria-label': `التوزيع: ${allocation.map((a) => `${a.label} ${fmtPct(a.share, { digits: 0 })}`).join('، ')}` },
+      allocation.map((a, i) => h('span', { key: a.group, style: { flexGrow: a.share, ...mix(i) },
+        title: hidden ? a.label : `${a.label} · ${money(a.value_egp)} ج.م · ${fmtPct(a.share, { digits: 0 })}` }))),
     h('div', { className: 'l-alloc-keys' },
-      allocation.map((a, i) => h('span', { key: a.group },
-        h('i', { style: { opacity: step(i) } }), a.label, ' ', hid(hidden, fmtPct(a.share, { digits: 0 }))))))
+      allocation.map((a, i) => h('button', { key: a.group, type: 'button', className: 'l-alloc-key', onClick: () => go(a.group) },
+        h('i', { style: mix(i) }), a.label, ' ', hid(hidden, fmtPct(a.share, { digits: 0 }))))))
 }
 
-export function TotalBlock({ totals }) {
+/** «اليوم +0.20%»: the move of the day's fresh market prices, beside the number it moves. */
+function Today({ totals, hidden }) {
+  if (!totals.today_has_fresh) return null
+  return h('span', { className: 'l-today', title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : undefined },
+    'اليوم', ' ', hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change)))
+}
+
+const kpi = (label, value) => h('div', { className: 'l-kpi' }, h('span', { className: 'l-kpi-label' }, label), ' ', value)
+
+export function TotalBlock({ totals, onFixPrice }) {
   const hidden = usePrivacy()
   const unpriced = totals.unpriced.length
   const owes = totals.debts > 0
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
-    h('span', null, hid(hidden, money(owes ? totals.net_worth : totals.value || 0), 'l-big'), ' ',
+    h('div', { className: 'l-eyebrow' }, h('span', null, owes ? 'صافي ثروتك بعد الديون' : 'صافي ثروتك'), h(Today, { totals, hidden })),
+    h('span', { className: 'l-hero' }, hid(hidden, money(owes ? totals.net_worth : totals.value || 0), 'l-big'), ' ',
       h('span', { className: 'l-unit' }, owes ? 'جنيه صافي (بعد الديون)' : 'جنيه')),
-    owes ? h('div', { className: 'l-usd' }, 'أصول ', hid(hidden, money(totals.value || 0)), ' · ديون ', hid(hidden, money(totals.debts))) : null,
     h(UsdLine, { totals, hidden }),
+    totals.assets ? h('div', { className: 'l-kpis' },
+      owes ? kpi('أصول', hid(hidden, money(totals.value || 0))) : null,
+      owes ? kpi('ديون', hid(hidden, money(totals.debts))) : null,
+      kpi('التكلفة', hid(hidden, money(totals.cost))),
+      totals.growth != null ? kpi('النمو', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+      totals.realized && Math.abs(totals.realized) >= 1 ? kpi('ربح محقق', hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null) : null,
     h(Allocation, { allocation: totals.allocation, hidden }),
-    totals.assets ? h('div', { className: 'l-line' },
-      h('span', null, 'التكلفة ', hid(hidden, money(totals.cost))),
-      totals.growth != null ? h('span', null, 'النمو ', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
-      totals.realized && Math.abs(totals.realized) >= 1 ? h('span', null, 'ربح محقق ', hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null,
-      unpriced ? h('span', null, N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي') : null) : null)
+    unpriced ? h('button', { type: 'button', className: 'l-warn', onClick: onFixPrice },
+      N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي', ' · اكتب سعره') : null)
 }
 
 export function PortfolioPage() {
@@ -519,51 +543,52 @@ export function PortfolioPage() {
   const loading = ledger === undefined
   const failed = ledger === null
   const totals = ledger && ledger.totals
-  const today = totals && totals.today_has_fresh
-    ? h('span', { className: 'l-today', title: totals.today_as_of ? `حتى إغلاق ${fmtDate(totals.today_as_of)}` : undefined },
-      'اليوم', hid(hidden, fmtPct(totals.today_change_pct, { digits: 2, signed: true }), toneOf(totals.today_change)))
-    : null
-
   let body
   if (loading) {
-    body = h('div', { className: 'l-col', 'aria-busy': true },
-      h('div', { className: 'l-total' }, h(Skeleton, { width: 220 }), h(Skeleton, { width: 160 })),
-      h(Skeleton, { width: '100%' }), h(Skeleton, { width: '90%' }), h(Skeleton, { width: '80%' }))
+    body = h('div', { className: 'l-col', 'aria-busy': true }, h(SkeletonPage))
   } else if (failed) {
     body = h('div', { className: 'l-col' }, h('div', { className: 'q-empty', role: 'alert' },
       h('span', { className: 'q-h2' }, 'تعذّر تحميل السجل'),
       h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة تانية')))
   } else {
     const assets = ledger.groups.flatMap((g) => g.assets)
+    const shares = Object.fromEntries((totals.allocation || []).map((a) => [a.group, a]))
+    const unpricedAsset = assets.find((a) => a.value_egp == null)
+    const tab = (id, label) => h('button', {
+      key: id, id: `l-tab-${id}`, type: 'button', role: 'tab', 'aria-selected': view === id, 'aria-controls': `l-panel-${id}`,
+      tabIndex: view === id ? 0 : -1, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
+      onKeyDown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setView(view === 'assets' ? 'activity' : 'assets') } },
+    }, label)
     body = h('div', { className: 'l-col' },
       h(PlaceList, { id: 'l-places', places: totals.places }),
-      h(TotalBlock, { totals }),
+      h(TotalBlock, { totals, onFixPrice: unpricedAsset ? () => openAsset(unpricedAsset.key) : undefined }),
       h(HistoryChart),
       h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
-      h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
-        [['assets', 'الأصول'], ['activity', 'الحركات']].map(([id, label]) => h('button', {
-          key: id, type: 'button', role: 'tab', 'aria-selected': view === id, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
-        }, label))),
-      view === 'activity' ? h(ActivityView, { onOpen: openAsset }) : null,
-      view === 'activity' ? null : h('div', null,
+      h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' }, tab('assets', 'الأصول'), tab('activity', 'الحركات')),
+      view === 'activity' ? h('div', { id: 'l-panel-activity', role: 'tabpanel', 'aria-labelledby': 'l-tab-activity', className: 'l-panel' },
+        h(ActivityView, { onOpen: openAsset })) : null,
+      view === 'activity' ? null : h('div', { id: 'l-panel-assets', role: 'tabpanel', 'aria-labelledby': 'l-tab-assets', className: 'l-panel' },
+      h('div', null,
         h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
-          onDone: added, onCancel: () => setPicked(null) }) : null),
-      view === 'activity' ? null : ledger.groups.length || (ledger.debts && ledger.debts.length)
-        ? ledger.groups.map((g) => h('section', { key: g.group, className: 'l-group', 'aria-label': g.label },
-          h('h2', null, g.label),
-          g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
-            focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset }))))
-        : h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
-      view === 'activity' || !ledger.debts || !ledger.debts.length ? null : h('section', { className: 'l-group', 'aria-label': 'ديون وأقساط' },
-        h('h2', null, 'ديون وأقساط'),
-        ledger.debts.map((d) => h(DebtRow, { key: d.key, debt: d, assets, onChanged: refresh, onOpen: openAsset,
-          focused: focus && focus.key === d.key ? focus.at : null }))),
+        h(Collapse, { open: Boolean(picked) }, picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
+          onDone: added, onCancel: () => setPicked(null) }) : null)),
+      ledger.groups.length || (ledger.debts && ledger.debts.length)
+        ? h('div', { className: 'l-list' },
+          ledger.groups.map((g) => h('section', { key: g.group, id: `l-g-${g.group}`, className: 'l-group', 'aria-label': g.label },
+            h('h2', null, h('span', null, g.label), shares[g.group]
+              ? h('span', { className: 'l-group-total' }, hid(hidden, money(shares[g.group].value_egp)), ' · ', hid(hidden, fmtPct(shares[g.group].share, { digits: 0 }))) : null),
+            g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
+              focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset })))),
+          !ledger.debts || !ledger.debts.length ? null : h('section', { id: 'l-g-debts', className: 'l-group', 'aria-label': 'ديون وأقساط' },
+            h('h2', null, h('span', null, 'ديون وأقساط')),
+            ledger.debts.map((d) => h(DebtRow, { key: d.key, debt: d, assets, onChanged: refresh, onOpen: openAsset,
+              focused: focus && focus.key === d.key ? focus.at : null }))))
+        : h('div', { className: 'l-empty' }, h('b', null, 'سجلك لسه فاضي'), h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'))),
       h('p', { className: 'l-foot' }, 'الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ',
         'القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع.'))
   }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + LEDGER_CSS),
-    h(PanelHeader, { here: 'السجل', actions: frag(today, h(ImportButton, { onDone: () => { reloadCatalog(); refresh() } }), h(ExportButton), h(PrivacyToggle)) }),
+    h(PanelHeader, { here: 'السجل', actions: frag(h(ImportButton, { onDone: () => { reloadCatalog(); refresh() } }), h(ExportButton), h(PrivacyToggle)) }),
     body)
 }

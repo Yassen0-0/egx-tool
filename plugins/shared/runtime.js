@@ -13,7 +13,7 @@ export function pageShared(key, create) {
   const store = (globalThis[Symbol.for('monos.page-shared.v1')] ??= {})
   return (store[key] ??= create())
 }
-export const { useState, useEffect, useCallback } = React
+export const { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } = React
 export const h = React.createElement
 // The ledger's panel id: kept from the first portfolio screen, so the sidebar row keeps its place.
 export const PANEL_ID = 'egx-portfolio'

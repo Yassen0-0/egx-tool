@@ -113,7 +113,7 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
     terms = deposits.load(conn)
 
     flows: dict[str, float] = {}
-    for key, (events, _) in tracks.items():
+    for events, _ in tracks.values():
         for e in events:
             if e["type"] == "lot" and e["cost_egp"] is not None:
                 flows[e["date"]] = flows.get(e["date"], 0.0) + e["cost_egp"]

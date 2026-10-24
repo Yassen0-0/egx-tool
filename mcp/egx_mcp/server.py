@@ -13,6 +13,7 @@ The user's ledger of assets in EGP («السجل»): read it, find assets, and a
 and movements (money transferred from one asset to another, or spent).
 Every number comes from these tools; never compute values yourself.
 Describe the numbers only: never buy, sell or hold advice. Confirm with the user before any change.
+web_search and web_fetch look up what the user asks to record (a price, a rate), never analysis.
 """
 
 server = MCPServer(name="egx", instructions=INSTRUCTIONS, version="0.2.0")

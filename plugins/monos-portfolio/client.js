@@ -741,7 +741,7 @@ var __monos = (() => {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
     const transfer = kind === "transfer";
-    const others = (catalog || []).filter((e) => e.key !== asset.key && e.kind !== "deposit");
+    const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== "deposit") : null;
     const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = parseDayInput(day), v = parseNumberInput(value);
     const neitherPound = transfer && to && asset.key !== "EGP" && to.key !== "EGP";
     async function submit(e) {

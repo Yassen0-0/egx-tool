@@ -5,11 +5,15 @@
 - Currencies, gold and bitcoin: formulas over EODHD feeds stored under their full ticker
   (USDEGP.FOREX, XAUUSD.FOREX, BTC-USD.CC, ...). FOREX and crypto bars exist every day, including
   today's unfinished one, so a feed is fresh when its last bar is from yesterday (UTC) or later.
+- US funds (SPY.US, IVV.US, VOO.US): the daily close in dollars, a feed of their own; they trade
+  Monday to Friday, so one is fresh when its last bar is from the last weekday before today (UTC).
+  US holidays are not listed: the day after one, the close shows as stale with its date.
 """
 
 import sqlite3
 from datetime import date, datetime, timedelta, timezone
 
+from ..catalog import US_FUNDS
 from . import store
 from .calendar import CAIRO, expected_last_bar, previous_trading_day
 
@@ -32,6 +36,8 @@ FORMULAS: dict[str, tuple[str, tuple[tuple[str, int], ...], float]] = {
                                  ("XAU-G14", 1, 14), ("XAU-COIN", 8, 21))},
     "BTC": ("USD", (("BTC-USD.CC", 1),), 1.0),
 }
+# S&P 500 funds listed in New York (catalog US_FUNDS), priced by their own close.
+FORMULAS.update({key: ("USD", ((key, 1),), 1.0) for key, *_ in US_FUNDS})
 FEED_TOLERANCE = timedelta(days=7)  # a past day's rate may come from a bar up to a week earlier
 
 
@@ -39,9 +45,14 @@ def is_feed(ticker: str) -> bool:
     return "." in ticker
 
 
-def feed_due(at: datetime) -> date:
-    """The newest finished day a FOREX or crypto bar should already exist for."""
-    return at.astimezone(timezone.utc).date() - timedelta(days=1)
+def feed_due(at: datetime, ticker: str = "") -> date:
+    """The newest finished day a feed's bar should already exist for: yesterday (UTC) for FOREX and
+    crypto, the last weekday before today for a US listing."""
+    due = at.astimezone(timezone.utc).date() - timedelta(days=1)
+    if ticker.endswith(".US"):
+        while due.weekday() >= 5:
+            due -= timedelta(days=1)
+    return due
 
 
 def price_state(conn: sqlite3.Connection, symbol: str, at: datetime, rows: list[dict] | None = None) -> dict:
@@ -86,15 +97,15 @@ def formula_price(conn: sqlite3.Connection, key: str, at: datetime) -> dict | No
     if formula is None:
         return None
     currency, parts, factor = formula
-    due = feed_due(at)
     now = before = factor
-    days, fresh_any = [], False
+    days, fresh_any, stale_any = [], False, False
     for ticker, power in parts:
         rows = store.last_bars(conn, ticker, 2)
         if not rows:
             return None
         last = rows[-1]
-        fresh = date.fromisoformat(last["date"]) >= due
+        fresh = date.fromisoformat(last["date"]) >= feed_due(at, ticker)
+        stale_any = stale_any or not fresh
         previous = rows[-2]["close"] if fresh and len(rows) > 1 else last["close"]
         fresh_any = fresh_any or (fresh and len(rows) > 1)
         now *= last["close"] ** power
@@ -102,7 +113,7 @@ def formula_price(conn: sqlite3.Connection, key: str, at: datetime) -> dict | No
         days.append(last["date"])
     day = min(days)
     return {"price": now, "currency": currency, "as_of": day, "day": day, "source": "EODHD",
-            "stale": date.fromisoformat(day) < due, "change": now - before if fresh_any else None}
+            "stale": stale_any, "change": now - before if fresh_any else None}
 
 
 def close_on(conn: sqlite3.Connection, ticker: str, day: str) -> tuple[float, str] | None:

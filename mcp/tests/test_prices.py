@@ -269,3 +269,34 @@ def test_todays_move_includes_the_dollars_own_move(db):
     totals = portfolio.portfolio_summary(db, MORNING)["totals"]
     assert totals["today_change"] == pytest.approx(66000 * 51 - 60000 * 50)
     assert totals["today_change_pct"] == pytest.approx((66000 * 51) / (60000 * 50) - 1)
+
+
+# ── S&P 500 funds listed in New York ─────────────────────────────────────────
+
+def us_bars(conn, ticker, closes, last_day):
+    """Weekday bars (New York trades Monday to Friday) ending on last_day."""
+    days, day = [], last_day
+    while len(days) < len(closes):
+        if day.weekday() < 5:
+            days.append(day)
+        day -= timedelta(days=1)
+    store.upsert_bars(conn, ticker, [{"date": d.isoformat(), "open": c, "high": c, "low": c, "close": c,
+                                      "adjusted_close": c, "volume": 1.0}
+                                     for d, c in zip(reversed(days), closes, strict=True)], "EODHD")
+
+
+def test_a_us_fund_is_its_close_in_dollars_and_a_weekend_is_not_stale(db):
+    from egx_mcp.catalog import search
+    assert [e["key"] for e in search(db, "s&p 500")[:3]] == ["SPY.US", "IVV.US", "VOO.US"]
+    assert search(db, "SPY")[0]["key"] == "SPY.US" and search(db, "اس اند بي")[0]["currency"] == "USD"
+    us_bars(db, "SPY.US", [690.0, 700.0], last_day=date(2026, 10, 16))  # Thursday, Friday
+    put(db, "USDEGP.FOREX", [50.0, 52.0], last_day=date(2026, 10, 18), every_day=True)
+    monday = datetime(2026, 10, 19, 9, 0, tzinfo=CAIRO)
+    price = formula_price(db, "SPY.US", monday)
+    assert price["price"] == 700.0 and price["currency"] == "USD" and price["stale"] is False
+    assert price["change"] == pytest.approx(10.0)
+    assert formula_price(db, "SPY.US", datetime(2026, 10, 21, 9, 0, tzinfo=CAIRO))["stale"] is True  # Tuesday's missing
+    portfolio.add_holding(db, "SPY.US", buy_price=690, quantity=2, cost_egp=69000)
+    spy = asset(db, "SPY.US", monday)
+    assert spy["group"] == "funds" and spy["value_egp"] == pytest.approx(2 * 700 * 52)
+    assert ledger_feeds(db) == ["USDEGP.FOREX", "SPY.US"]

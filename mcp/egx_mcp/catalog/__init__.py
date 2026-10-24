@@ -4,6 +4,7 @@
   price), the gold pound (8 g of 21 karat) and the ounce of pure gold (market/prices.py);
 - bitcoin, priced in USD;
 - EGX30 stocks from universe/egx30.json, plus any stock the user still holds after it left the index;
+- S&P 500 funds listed in New York (SPY, IVV, VOO), in dollars, priced by their own close;
 - funds from funds.json (empty at first);
 - assets the user added by name (custom_assets, key custom:<id>);
 - bank certificates and deposits (kind deposit, key deposit:<holding id>): one holding each, valued by
@@ -48,6 +49,13 @@ CURRENCY_CODES = tuple(code for code, *_ in CURRENCIES)
 STOCK_CURRENCY = {"VLMR": "USD"}
 
 GOLD_ALIASES = ("ذهب", "دهب", "gold", "XAU")
+# S&P 500 funds listed in New York, in dollars; the key is their EODHD ticker (market/prices.py).
+SP500_ALIASES = ("s&p 500", "s&p", "sp500", "اس اند بي", "إس آند بي", "اس اند بي 500", "صندوق امريكي")
+US_FUNDS = (
+    ("SPY.US", "SPY", "صندوق S&P 500 (SPY)", "SPDR S&P 500 ETF Trust"),
+    ("IVV.US", "IVV", "صندوق S&P 500 (IVV)", "iShares Core S&P 500 ETF"),
+    ("VOO.US", "VOO", "صندوق S&P 500 (VOO)", "Vanguard S&P 500 ETF"),
+)
 # (key, karat): a gram of gold of that karat. XAU-G is 24 karat, the key it always had. 21 comes
 # first: it is what most gold in Egypt is, so a search for «دهب» puts it on top; 22 and 14 come
 # after the ounce, so «دهب» still shows the ounce among its six results.
@@ -91,6 +99,8 @@ def builtin_catalog() -> tuple[dict, ...]:
     for c in load_universe()["constituents"]:
         entries.append(_entry(c["symbol"], "stock", c.get("name_ar") or c["name"], c["name"], c["symbol"],
                               (c["name"],), STOCK_CURRENCY.get(c["symbol"], "EGP")))
+    for key, symbol, name, name_en in US_FUNDS:
+        entries.append(_entry(key, "fund", name, name_en, symbol, SP500_ALIASES + (name_en,), "USD", "وحدة", symbol))
     for f in json.loads(FUNDS_FILE.read_text(encoding="utf-8"))["funds"]:
         entries.append(_entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], None,
                               (*f.get("aliases", ()), *([f["manager"]] if f.get("manager") else [])),

@@ -56,7 +56,7 @@ def catalog_search(query: str) -> dict:
 def portfolio_add(asset: str | None = None, buy_price: float | None = None, quantity: float | None = None,
                   amount: float | None = None, currency: str | None = None, cost_egp: float | None = None,
                   buy_date: str | None = None, note: str | None = None, custom: dict | None = None,
-                  deposit: dict | None = None, place: str | None = None) -> dict:
+                  deposit: dict | None = None, place: str | None = None, preview: bool = False) -> dict:
     """Add one purchase: `asset` is a catalog key (EGX ticker, USD, XAU-G, XAU-OZ, BTC, ...) or `custom`
     = {kind, name, symbol, currency, price} for an asset added by name. Give quantity or the amount
     paid, the unit price in `currency` (a currency's price is in EGP), the date (YYYY-MM-DD), and the
@@ -64,10 +64,11 @@ def portfolio_add(asset: str | None = None, buy_price: float | None = None, quan
     or deposit is `deposit` = {rate (annual, as a fraction: 27% is 0.27), start_date, maturity_date
     (YYYY-MM-DD), payout (monthly | quarterly | annual | maturity), bank} with the principal in EGP as
     `amount`, and no asset, price or custom. `place` is where the asset is («البنك الأهلي», «Thndr»,
-    «كاش»), when the user says. Confirm with the user before calling."""
+    «كاش»), when the user says. `preview` checks and works it out without saving (what the screen
+    reads back before the user saves). Confirm with the user before calling."""
     with _db() as conn:
         return portfolio.add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date,
-                                     note, custom, deposit, place)
+                                     note, custom, deposit, place, preview)
 
 
 def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,
@@ -102,7 +103,7 @@ def asset_kind_set(asset: str, kind: str) -> dict:
 def movement_add(kind: str = "transfer", from_asset: str | None = None, from_quantity: float | None = None,
                  to_asset: str | None = None, to_quantity: float | None = None, date: str | None = None,
                  value_egp: float | None = None, note: str | None = None, top_up: bool = False,
-                 from_place: str | None = None, to_place: str | None = None) -> dict:
+                 from_place: str | None = None, to_place: str | None = None, preview: bool = False) -> dict:
     """Record money moving: kind `transfer` takes from_quantity out of from_asset and puts to_quantity of
     to_asset in («حوّلت 1000 جنيه لـ 20 دولار»: EGP 1000 → USD 20; a sale is a transfer to EGP; the
     same asset with another to_place moves it between places, «نقلت 100 دولار من الأهلي لـ Thndr»);
@@ -111,10 +112,11 @@ def movement_add(kind: str = "transfer", from_asset: str | None = None, from_qua
     catalog_search; each quantity in its asset's own unit; date YYYY-MM-DD; places as the user names
     them. value_egp is the EGP the transfer was worth when the user knows it and neither side is EGP.
     More than the asset held that day is refused unless top_up records the gap as money from outside:
-    ask the user before setting it. Confirm with the user before calling."""
+    ask the user before setting it. `preview` checks and works it out without saving, a shortfall
+    included. Confirm with the user before calling."""
     with _db() as conn:
         return portfolio.add_movement(conn, kind, from_asset, from_quantity, to_asset, to_quantity, date,
-                                      value_egp, note, top_up, from_place, to_place)
+                                      value_egp, note, top_up, from_place, to_place, preview)
 
 
 def movement_update(movement_id: int, from_quantity: float | None = None, to_quantity: float | None = None,

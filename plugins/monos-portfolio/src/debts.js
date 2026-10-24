@@ -2,8 +2,8 @@
 // installment, the payments) and the line that pays it from an asset. What is left and the next
 // due day come from Python (store/debts.py); a payment is a movement of kind repay. ES module.
 import { N, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
-import { fmtDate, fmtNumber, parseDayInput, parseNumberInput, resolveDay } from '../../shared/format.mjs'
-import { DateField } from '../../shared/form.js'
+import { fmtDate, fmtNumber, parseNumberInput, resolveDay } from '../../shared/format.mjs'
+import { Choice, DateField, EntryCard, More, PlaceField, Question } from '../../shared/form.js'
 import { Logo } from '../../shared/logo.js'
 import { Chevron } from '../../shared/components.js'
 import { Collapse, canMove, land } from '../../shared/motion.js'
@@ -22,38 +22,49 @@ export function PlaceList({ id, places }) {
   return h('datalist', { id }, (places || []).map((p) => h('option', { key: p, value: p })))
 }
 
-/** The add line's fields for a debt and the request they make (`build()` is `{ error }` or `{ body }`). */
-export function useDebtForm() {
+/** The questions for a new debt and the request they make (`build()` is `{ error, field }` or
+ * `{ body }`). `fields(errOf)` renders them, errOf(field) being the error about that field. */
+export function useDebtForm({ places } = {}) {
   const [name, setName] = useState('')
   const [principal, setPrincipal] = useState('')
   const [start, setStart] = useState('')
+  const [plan, setPlan] = useState('monthly')
   const [installment, setInstallment] = useState('')
   const [dueDay, setDueDay] = useState('')
   const [received, setReceived] = useState(false)
   const [place, setPlace] = useState('')
   const [note, setNote] = useState('')
-  const fields = h('div', { className: 'l-fields' },
-    field('اسمه (لمين أو إيه هو)', text(name, setName, { maxLength: 80 })),
-    field('المبلغ اللي عليك (ج.م)', text(principal, setPrincipal, { inputMode: 'decimal', className: 'q-input num' })),
-    field('من تاريخ (اختياري)', text(start, setStart, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
-    field('القسط الشهري (اختياري)', text(installment, setInstallment, { inputMode: 'decimal', className: 'q-input num' })),
-    field('يوم القسط في الشهر (اختياري)', text(dueDay, setDueDay, { inputMode: 'numeric', className: 'q-input num', placeholder: '1 لـ 28' })),
-    field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 })),
-    h('label', { className: 'l-inline q-sec' },
-      h('input', { type: 'checkbox', checked: received, onChange: (e) => setReceived(e.target.checked) }),
-      'الفلوس دي دخلت عندي بالجنيه (سجّلها دخل)'),
-    received ? field('في مكان (اختياري)', text(place, setPlace, { maxLength: 40, list: 'l-places' })) : null)
+  const dayChips = ['1', '5', '10', '15'].map((d) => h('button', { key: d, type: 'button', className: 'q-chip', 'aria-pressed': dueDay === d,
+    onClick: () => setDueDay(d) }, d))
+  const fields = (errOf = () => null) => frag(
+    h(Question, { hero: true, name: 'principal', value: principal, onChange: setPrincipal, label: 'عليك كام؟', unit: 'ج.م', autoFocus: true,
+      error: errOf('principal') }),
+    h('div', { className: 'l-entry-grid' },
+      h(Question, { numeric: false, name: 'name', value: name, onChange: setName, label: 'الدين ده لمين؟', maxLength: 80,
+        placeholder: 'قرض العربية، جمعية، أحمد', error: errOf('name'), wide: true }),
+      h(Choice, { label: 'بتسدّده إزاي؟', value: plan, onChange: setPlan, wide: true,
+        options: [['monthly', 'أقساط كل شهر'], ['once', 'مرة واحدة']] }),
+      plan === 'monthly' ? h(Question, { name: 'installment', value: installment, onChange: setInstallment, label: 'القسط كام؟', unit: 'ج.م',
+        error: errOf('installment') }) : null,
+      plan === 'monthly' ? h(Question, { name: 'due', value: dueDay, onChange: setDueDay, label: 'بيتدفع يوم كام في الشهر؟', inputMode: 'numeric',
+        placeholder: '1 لـ 28', chips: dayChips, error: errOf('due') }) : null,
+      h(DateField, { label: 'من إمتى؟', name: 'start', value: start, onChange: setStart, noDate: false, error: errOf('start') }),
+      h(Choice, { label: 'استلمت فلوس الدين ده؟', value: received, onChange: setReceived, wide: true,
+        options: [[true, 'أيوه، دخلت عندي'], [false, 'لأ']] }),
+      received ? h(PlaceField, { label: 'دخلت فين؟', value: place, onChange: setPlace, places }) : null),
+    h(More, { label: 'تفاصيل أكتر · ملاحظة' },
+      h(Question, { numeric: false, name: 'note', value: note, onChange: setNote, label: 'ملاحظة', maxLength: 200, wide: true })))
 
   function build() {
-    const p = parseNumberInput(principal), i = parseNumberInput(installment), d = parseDayInput(start)
-    const day = dueDay.trim() ? Number(parseNumberInput(dueDay)) : null
-    if (!name.trim()) return { error: 'اكتب اسم الدين.' }
-    if (!(p > 0)) return { error: 'اكتب المبلغ اللي عليك.' }
-    if (d === undefined) return { error: 'اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.' }
-    if (installment.trim() && !(i > 0)) return { error: 'القسط لازم يكون أكبر من صفر.' }
-    if (day !== null && !(Number.isInteger(day) && day >= 1 && day <= 28)) return { error: 'يوم القسط من 1 لـ 28.' }
+    const p = parseNumberInput(principal), i = parseNumberInput(installment), d = resolveDay(start)
+    const day = plan === 'monthly' && dueDay.trim() ? Number(parseNumberInput(dueDay)) : null
+    if (!(p > 0)) return { error: 'اكتب عليك كام.', field: 'principal' }
+    if (!name.trim()) return { error: 'اكتب الدين ده لمين.', field: 'name' }
+    if (plan === 'monthly' && installment.trim() && !(i > 0)) return { error: 'القسط لازم يكون أكبر من صفر.', field: 'installment' }
+    if (day !== null && !(Number.isInteger(day) && day >= 1 && day <= 28)) return { error: 'اختار يوم من 1 لـ 28.', field: 'due' }
+    if (d === undefined) return { error: 'التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.', field: 'start' }
     return {
-      body: { name: name.trim(), principal: p, start_date: d, installment_egp: i > 0 ? i : null, due_day: day,
+      body: { name: name.trim(), principal: p, start_date: d, installment_egp: plan === 'monthly' && i > 0 ? i : null, due_day: day,
         note: note.trim() || null, received_into_egp: received, place: received ? place.trim() || null : null },
     }
   }
@@ -66,40 +77,48 @@ export function RepayForm({ debt, assets, onDone, onCancel }) {
   const [from, setFrom] = useState(payable.find((a) => a.key === 'EGP') ? 'EGP' : (payable[0] && payable[0].key) || '')
   const [taken, setTaken] = useState(debt.installment_egp ? String(debt.installment_egp) : '')
   const [down, setDown] = useState('')
+  const [fromPlace, setFromPlace] = useState('')
   const [day, setDay] = useState('')
   const [note, setNote] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [bad, setBad] = useState(null)
   const source = payable.find((a) => a.key === from)
+  const fail = (message, field = null) => { setError(message); setBad(field) }
+  const places = (source && source.places || []).map((p) => p.place).filter(Boolean)
   async function submit(e) {
     e.preventDefault()
-    setError('')
+    fail('')
     const t = parseNumberInput(taken), dn = parseNumberInput(down), d = resolveDay(day)
-    if (!source) return setError('مفيش أصل تسدّد منه.')
-    if (!(t > 0)) return setError('اكتب المبلغ اللي دفعته.')
-    if (from !== 'EGP' && !(dn > 0)) return setError('اكتب الدين قل قد إيه بالجنيه.')
-    if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
+    if (!source) return fail('مفيش حاجة تسدّد منها.')
+    if (!(t > 0)) return fail('اكتب دفعت كام.', 'taken')
+    if (from !== 'EGP' && !(dn > 0)) return fail('الدين هيقل كام جنيه؟ اكتبه.', 'arrived')
+    if (d === undefined) return fail('التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.', 'date')
     setBusy(true)
     try {
       await api('POST', '/egx/api/movements', { kind: 'repay', from_asset: from, from_quantity: t, to_asset: debt.key,
-        to_quantity: dn > 0 ? dn : null, date: d, note: note.trim() || null })
+        to_quantity: dn > 0 ? dn : null, date: d, note: note.trim() || null, from_place: fromPlace || null })
       onDone()
-    } catch (err) { setError(err.message) } finally { setBusy(false) }
+    } catch (err) { fail(err.message, err.field || null) } finally { setBusy(false) }
   }
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': 'سداد',
-      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
-    h('b', null, `سداد «${debt.name}»`),
-    h('div', { className: 'l-fields' },
-      field('من', h('select', { className: 'q-input', value: from, onChange: (e) => setFrom(e.target.value) },
-        payable.map((a) => h('option', { key: a.key, value: a.key }, a.name)))),
-      field(`دفعت كام (${source && source.key !== 'EGP' ? source.unit : 'ج.م'})`, text(taken, setTaken, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'المبلغ اللي دفعته' })),
-      field(from === 'EGP' ? 'الدين قل كام (اختياري: نفس المبلغ)' : 'الدين قل كام (ج.م)', text(down, setDown, { inputMode: 'decimal', className: 'q-input num' })),
-      h(DateField, { value: day, onChange: setDay, noDate: false }),
-      field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
-    h('div', { className: 'l-actions' },
-      h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل السداد'),
-      h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
-      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
+  const errOf = (f) => (bad === f ? error : null)
+  const unit = source && source.key !== 'EGP' ? source.unit : 'ج.م'
+  return h(EntryCard, { className: 'l-add l-move', ariaLabel: 'سداد', title: frag(`سداد «${debt.name}»`), onSubmit: submit, onCancel, busy,
+    aside: debt.remaining_egp != null ? h('span', { className: 'q-meta l-entry-aside' }, 'باقي ', N(money(debt.remaining_egp)), ' ج.م') : null,
+    alert: error && !bad ? error : null, submitLabel: 'سجّل السداد' },
+  h(Question, { hero: true, name: 'taken', value: taken, onChange: setTaken, label: 'دفعت كام؟', unit, 'aria-label': 'المبلغ اللي دفعته', error: errOf('taken'),
+    chips: debt.installment_egp ? [h('button', { key: 'i', type: 'button', className: 'q-chip', onClick: () => setTaken(String(debt.installment_egp)) },
+      'القسط ', N(money(debt.installment_egp)))] : null }),
+  h('div', { className: 'l-entry-grid' },
+    h(Choice, { label: 'دفعت منين؟', value: from, onChange: (k) => { setFrom(k); setFromPlace('') }, wide: true,
+      options: payable.map((a) => [a.key, a.name]) }),
+    places.length > 1 ? h(Choice, { label: 'من أنهي مكان؟', value: fromPlace, onChange: setFromPlace, wide: true,
+      options: [['', 'أي مكان'], ...places.map((p) => [p, p])] }) : null,
+    from !== 'EGP' ? h(Question, { name: 'arrived', value: down, onChange: setDown, label: 'الدين هيقل كام جنيه؟', unit: 'ج.م', error: errOf('arrived') }) : null,
+    h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf('date') })),
+  h(More, { label: from === 'EGP' ? 'تفاصيل أكتر · الدين قل كام، ملاحظة' : 'تفاصيل أكتر · ملاحظة' },
+    from === 'EGP' ? h(Question, { name: 'arrived', value: down, onChange: setDown, label: 'الدين قل كام؟ (لو غير اللي دفعته)', unit: 'ج.م' }) : null,
+    h(Question, { numeric: false, name: 'note', value: note, onChange: setNote, label: 'ملاحظة', maxLength: 200, wide: true })))
 }
 
 function DebtEdit({ debt, onDone, onCancel }) {

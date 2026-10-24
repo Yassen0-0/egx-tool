@@ -2,15 +2,17 @@
 // dividend, a debt, a payment, a certificate. A type switch on top, then the form for that type.
 // The forms are the screen's own (AddLine, MoveForm, StockEventForm, RepayForm), passed in so this
 // file does not import portfolio.js back; every check and every number stays theirs and Python's.
-import { h, useState } from '../../shared/runtime.js'
+import { frag, h, useState } from '../../shared/runtime.js'
 import { DEBT_KIND, RepayForm } from './debts.js'
 import { DEPOSIT_KIND } from './deposit.js'
 import { StockEventForm } from './events.js'
-import { MoveForm } from './moves.js'
+import { MoveForm, amount } from './moves.js'
+import { Choice } from '../../shared/form.js'
 
+// What the person did, in their words, the most used first.
 const TYPES = [
-  ['buy', 'شرا'], ['transfer', 'تحويل'], ['expense', 'خروج'], ['dividend', 'توزيعات'],
-  ['debt', 'دين'], ['repay', 'سداد'], ['deposit', 'شهادة'],
+  ['buy', 'اشتريت'], ['expense', 'صرفت'], ['transfer', 'حوّلت'], ['dividend', 'قبضت توزيعات'],
+  ['repay', 'دفعت قسط'], ['debt', 'عليّ دين'], ['deposit', 'فتحت شهادة'],
 ]
 
 /** Which types make sense for this ledger: nothing to move, no stock, no debt left → not offered. */
@@ -23,10 +25,8 @@ function offered(assets, debts) {
     .filter(([t]) => t !== 'repay' || open.length)
 }
 
-const pickField = (label, value, onChange, options) => h('label', { className: 'q-stack l-composer-pick' },
-  h('span', { className: 'q-label' }, label),
-  h('select', { className: 'q-input', value, onChange: (e) => onChange(e.target.value) },
-    options.map(([v, text]) => h('option', { key: v, value: v }, text))))
+/** «من فين؟»: the assets to pick from as a row of choices, each with what it holds. */
+const pickField = (label, value, onChange, options) => h(Choice, { label, value, onChange, options })
 
 export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, SearchBox, onDone, onCancel }) {
   const assets = ledger.groups.flatMap((g) => g.assets)
@@ -48,36 +48,36 @@ export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, Se
       ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
         places, onDone: (key) => done(key, 'اتسجّلت عملية الشرا'), onCancel: () => setPicked(null) })
       : h('div', { className: 'q-stack' },
-        h(SearchBox, { catalog, autoFocus: true, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        h('p', { className: 'l-hint' }, 'اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق باسمه أو كوده (AZG، سبائك، بلتون ذهب). ومش لاقيه؟ ضيفه بالاسم.'))
+        h('span', { className: 'l-q-label' }, 'اشتريت إيه؟'),
+        h(SearchBox, { catalog, autoFocus: true, placeholder: 'دولار، دهب 21، COMI، SPY، أو اسم صندوق (سبائك، AZG)', onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }))
   } else if (type === 'debt' || type === 'deposit') {
     body = h(AddLine, { key: type, entry: null, customName: '', initialKind: type === 'debt' ? DEBT_KIND : DEPOSIT_KIND, lockKind: true, places,
       onDone: (key) => done(key, type === 'debt' ? 'اتسجّل الدين' : 'اتسجّلت الشهادة'), onCancel })
   } else if (type === 'transfer' || type === 'expense') {
     const asset = movable.find((a) => a.key === source) || movable[0]
     body = h('div', { className: 'q-stack' },
-      pickField('من', asset ? asset.key : '', setSource, movable.map((a) => [a.key, a.name])),
+      pickField('من فين؟', asset ? asset.key : '', setSource, movable.map((a) => [a.key, frag(a.name, ' ', h('small', null, amount(a.quantity, a.key, a.unit)))])),
       asset ? h(MoveForm, { key: `${type}:${asset.key}`, asset, kind: type, catalog, SearchBox,
-        onDone: () => done(asset.key, type === 'transfer' ? 'اتسجّل التحويل' : 'اتسجّل الخروج'), onCancel }) : null)
+        onDone: () => done(asset.key, type === 'transfer' ? 'اتسجّل التحويل' : 'اتسجّل المصروف'), onCancel }) : null)
   } else if (type === 'dividend') {
     const asset = stocks.find((a) => a.key === stock) || stocks[0]
     body = h('div', { className: 'q-stack' },
-      pickField('من سهم أو صندوق', asset ? asset.key : '', setStock, stocks.map((a) => [a.key, a.name])),
-      asset ? h(StockEventForm, { key: asset.key, asset, kind: 'dividend', onDone: () => done(asset.key, 'اتسجّلت التوزيعات'), onCancel }) : null)
+      pickField('من أنهي سهم أو صندوق؟', asset ? asset.key : '', setStock, stocks.map((a) => [a.key, a.name])),
+      asset ? h(StockEventForm, { key: asset.key, asset, kind: 'dividend', places, onDone: () => done(asset.key, 'اتسجّلت التوزيعات'), onCancel }) : null)
   } else if (type === 'repay') {
     const debt = openDebts.find((d) => d.key === debtKey) || openDebts[0]
     body = h('div', { className: 'q-stack' },
-      pickField('الدين', debt ? debt.key : '', setDebtKey, openDebts.map((d) => [d.key, d.name])),
+      pickField('أنهي دين؟', debt ? debt.key : '', setDebtKey, openDebts.map((d) => [d.key, d.name])),
       debt ? h(RepayForm, { key: debt.key, debt, assets, onDone: () => done(debt.key, 'اتسجّل السداد'), onCancel }) : null)
   }
 
   return h('section', { className: 'l-composer', 'aria-label': 'سجّل',
       onKeyDown: (e) => { if (e.key === 'Escape') onCancel() } },
     h('div', { className: 'l-composer-head' },
-      h('b', null, 'سجّل'),
+      h('b', null, 'عايز تسجّل إيه؟'),
       h('div', { className: 'q-seg', role: 'radiogroup', 'aria-label': 'نوع العملية' },
         types.map(([t, label]) => h('button', { key: t, type: 'button', role: 'radio', 'aria-checked': type === t, tabIndex: type === t ? 0 : -1,
           onClick: () => choose(t) }, label))),
-      h('button', { type: 'button', className: 'q-toast-x l-composer-x', 'aria-label': 'قفل', onClick: onCancel }, '×')),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet l-composer-x', 'aria-label': 'قفل', onClick: onCancel }, '×')),
     body)
 }

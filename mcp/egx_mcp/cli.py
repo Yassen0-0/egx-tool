@@ -13,7 +13,9 @@
     egx-cli fund-components-set '{"fund": "custom:1", "components": [{"asset": "COMI", "weight": 0.32}]}'
     egx-cli prices-sync
 
-Prints one JSON document; on a rejected input prints {"error": "..."} and exits 2.
+Prints one JSON document; on a rejected input prints {"error": "...", "field": "..."} (field when the
+error is about one) and exits 2. A form's command called with "preview": true checks and works out
+the entry without writing it.
 """
 
 import inspect
@@ -62,7 +64,10 @@ def main() -> None:
     except ValidationError as exc:
         print(json.dumps({"error": _validation_message(exc)}, ensure_ascii=False))
         sys.exit(2)
-    except (LedgerInputError, MarketDataError, KeyError, ValueError, json.JSONDecodeError) as exc:
+    except LedgerInputError as exc:
+        print(json.dumps({"error": str(exc), **({"field": exc.field} if exc.field else {})}, ensure_ascii=False))
+        sys.exit(2)
+    except (MarketDataError, KeyError, ValueError, json.JSONDecodeError) as exc:
         print(json.dumps({"error": str(exc)}, ensure_ascii=False))
         sys.exit(2)
     print(json.dumps(result, ensure_ascii=False))

@@ -43,9 +43,9 @@ from .db import now_iso
 DISCLAIMER = "الأرقام كما أدخلها المستخدم، والأسعار إغلاق متأخر أو سعر كتبه المستخدم. وصف للأرقام، وليس توصية بالشراء أو البيع."
 
 
-def _positive(value: float | None, message: str) -> float:
+def _positive(value: float | None, message: str, field: str | None = None) -> float:
     if value is None or not value > 0:
-        raise LedgerInputError(message)
+        raise LedgerInputError(message, field)
     return float(value)
 
 
@@ -55,7 +55,7 @@ def _day(value: str | None) -> str | None:
     try:
         return date.fromisoformat(value[:10]).isoformat()
     except ValueError:
-        raise LedgerInputError("التاريخ لازم يكون بالشكل سنة-شهر-يوم") from None
+        raise LedgerInputError("التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", "date") from None
 
 
 def _entry(conn: sqlite3.Connection, key: str) -> dict:
@@ -250,21 +250,52 @@ def add_holding(
     custom: dict | None = None,
     deposit: dict | None = None,
     place: str | None = None,
+    preview: bool = False,
 ) -> dict:
     """Add one purchase: an asset from the catalog (or a new one by name in `custom`), the quantity
     or the amount paid, the unit price in `currency`, optionally the EGP the user actually paid and
     where the asset is (`place`). A bank certificate or deposit is `deposit` alone, with its
-    principal as the amount."""
+    principal as the amount. `preview` checks and works it out without writing: {"preview": {...}}."""
     if deposit is not None:
         return _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     if (asset is None) == (custom is None):
         raise LedgerInputError("اختار أصل من البحث أو أضفه بالاسم")
     try:
-        return _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
-                            place=place)
+        lot = _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
+                           commit=not preview, place=place, preview=preview)
+        if not preview:
+            return lot
+        seen = _holding_preview(conn, lot)
     except Exception:
         conn.rollback()  # an asset added by name stays only with a valid purchase
         raise
+    conn.rollback()
+    return {"preview": seen}
+
+
+def _holding_preview(conn: sqlite3.Connection, lot: dict) -> dict:
+    """What a purchase would record, in words the form reads back: how much, at what price, what it
+    cost in pounds (and the rate), and whether its price is far from the last known one (most likely
+    the wrong unit or currency)."""
+    entry = find(conn, lot["symbol"]) or {}
+    at = now_cairo()
+    known = resolve_price(conn, entry, at) if entry else None
+    rate = rate_now(conn, known["currency"], at) if known else None
+    last_egp = known["price"] * rate["rate"] if known and rate else None
+    unit_egp = lot["buy_price"] * lot["fx_egp"]
+    return {
+        "asset": lot["symbol"], "name": lot["name"], "unit": entry.get("unit"), "unit_name": entry.get("unit_name"),
+        "quantity": lot["quantity"], "buy_price": lot["buy_price"], "currency": lot["currency"],
+        "paid": lot["quantity"] * lot["buy_price"], "cost_egp": lot["cost_egp"],
+        "fx": lot["fx_egp"] if lot["currency"] != "EGP" else None,
+        "date": lot["buy_date"] or at.date().isoformat(), "dated": lot["buy_date"] is not None, "place": lot["place"],
+        "last_price_egp": last_egp,
+        "far_from_last": bool(last_egp and unit_egp and max(unit_egp / last_egp, last_egp / unit_egp) > UNIT_MISMATCH),
+    }
+
+
+# A buy price more than 3× away from the latest known price is most likely the wrong unit.
+UNIT_MISMATCH = 3
 
 
 def _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit) -> dict:
@@ -303,7 +334,7 @@ def _place(value: str | None) -> str | None:
 
 
 def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
-                 commit=True, place=None) -> dict:
+                 commit=True, place=None, preview=False) -> dict:
     entry = _custom_asset(conn, custom) if custom is not None else _entry(conn, asset)
     if custom is not None and not entry["key"].startswith("custom:"):
         currency = currency or custom.get("currency")  # the price was typed in the currency given
@@ -313,22 +344,22 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
     if entry["kind"] == "currency":
         currency = "EGP"  # a currency's price is what one unit cost in EGP
     if currency not in CURRENCY_CODES:
-        raise LedgerInputError(f"عملة غير معروفة: {currency}")
-    buy_price = _positive(buy_price, "سعر الشرا لازم يكون أكبر من صفر")
+        raise LedgerInputError(f"عملة غير معروفة: {currency}", "price")
     if (quantity in (None, "")) == (amount in (None, "")):
-        raise LedgerInputError("اكتب الكمية أو المبلغ، واحد منهم بس")
-    quantity = _positive(quantity, "الكمية لازم تكون أكبر من صفر") if quantity not in (None, "") \
-        else _positive(amount, "المبلغ لازم يكون أكبر من صفر") / buy_price
+        raise LedgerInputError("اكتب الكمية اللي اشتريتها، أو المبلغ اللي دفعته.", "qty")
+    buy_price = _positive(buy_price, "اكتب اشتريتها بكام.", "price")
+    quantity = _positive(quantity, "اكتب الكمية اللي اشتريتها.", "qty") if quantity not in (None, "") \
+        else _positive(amount, "اكتب المبلغ اللي دفعته.", "qty") / buy_price
     buy_date = _day(buy_date)
     paid = quantity * buy_price
     if currency == "EGP":
         fx = 1.0
     elif cost_egp not in (None, ""):
-        fx = _positive(cost_egp, "المبلغ بالجنيه لازم يكون أكبر من صفر") / paid
+        fx = _positive(cost_egp, "المبلغ بالجنيه لازم يكون أكبر من صفر", "cost") / paid
     else:
         found = rate_on(conn, currency, buy_date or now_cairo().date().isoformat())
         if found is None:
-            raise LedgerInputError(f"مفيش سعر {currency} معروف في اليوم ده؛ اكتب المبلغ اللي دفعته بالجنيه")
+            raise LedgerInputError(f"معرفش سعر الـ {currency} في اليوم ده. اكتب دفعت كام بالجنيه.", "cost")
         fx = found["rate"]
     stamp = now_iso()
     cursor = conn.execute(
@@ -337,7 +368,7 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
         (entry["key"], quantity, buy_price, buy_date, (note or "").strip() or None, stamp, stamp, entry["kind"],
          entry["name"], currency, fx, paid * fx, _place(place)),
     )
-    if custom is not None and custom.get("price") not in (None, ""):
+    if custom is not None and custom.get("price") not in (None, "") and not preview:
         set_price(conn, entry["key"], custom["price"], custom.get("currency") or entry["currency"])  # commits
     if commit:
         conn.commit()
@@ -550,8 +581,10 @@ def add_movement(
     top_up: bool = False,
     from_place: str | None = None,
     to_place: str | None = None,
+    preview: bool = False,
 ) -> dict:
-    """Money leaving an asset: into another (transfer: what left and what arrived, each in its own
+    """`preview` checks and works it out without writing: {"preview": {...}}, a shortfall included
+    instead of refused. Money leaving an asset: into another (transfer: what left and what arrived, each in its own
     unit; the same asset from one place to another), out of the ledger (expense) or towards a debt
     (repay: to_asset debt:<id>, to_quantity the EGP the debt went down by, what left by default when
     it is pounds). `value_egp` is what the transfer was worth when the user knows it. Taking more
@@ -560,21 +593,21 @@ def add_movement(
     if kind not in movements.KIND_LABEL:
         raise LedgerInputError("نوع الحركة لازم يكون تحويل أو خروج أو سداد")
     source = _movable(conn, from_asset, "اختار الأصل اللي الفلوس خرجت منه")
-    taken = _positive(from_quantity, "اكتب الكمية اللي خرجت")
+    taken = _positive(from_quantity, "اكتب المبلغ اللي خرج." if kind == "expense" else "اكتب حوّلت كام.", "taken")
     from_place, to_place = _place(from_place), _place(to_place)
     target_key, arrived = None, None
     if kind == "transfer":
-        target_key = _movable(conn, to_asset, "اختار الأصل اللي الفلوس راحت له")["key"]
+        target_key = _movable(conn, to_asset, "حوّلت لإيه؟ اختاره من البحث.")["key"]
         if target_key == source["key"] and from_place == to_place:
             raise LedgerInputError("التحويل لازم يكون لأصل تاني، أو لنفس الأصل في مكان تاني")
-        arrived = _positive(to_quantity, "اكتب الكمية اللي دخلت")
+        arrived = _positive(to_quantity, "اكتب وصلك كام.", "arrived")
     elif kind == "repay":
         if not str(to_asset or "").startswith(debts.PREFIX):
             raise LedgerInputError("اختار الدين اللي بتسدّده")
         target_key = debts.key(_debt(conn, str(to_asset))["id"])
         if to_quantity in (None, "") and source["key"] == "EGP":
             to_quantity = taken
-        arrived = _positive(to_quantity, "اكتب الدين قل قد إيه بالجنيه")
+        arrived = _positive(to_quantity, "الدين هيقل كام جنيه؟ اكتبه.", "arrived")
         to_place = None
     elif to_asset not in (None, "") or to_quantity not in (None, ""):
         raise LedgerInputError("الخروج مالوش أصل بيدخل فيه؛ لو الفلوس راحت لأصل تاني سجّلها تحويل")
@@ -593,11 +626,38 @@ def add_movement(
             if gap:
                 _top_up(conn, source, gap["short"], day, gap["place"])
         _check_debt(conn, target_key)
+        if preview:
+            seen = _movement_preview(conn, before, get_movement(conn, movement_id), source)
     except Exception:
         conn.rollback()
         raise
+    if preview:
+        conn.rollback()
+        return {"preview": seen}
     _commit_unless_short(conn, before, TOP_UP_HINT)
     return get_movement(conn, movement_id)
+
+
+def _movement_preview(conn: sqlite3.Connection, before: dict, move: dict, source: dict) -> dict:
+    """What a movement would record: what left and what arrived with their names and units, the
+    pounds paid for one unit when one side is the pound, and the shortfall it would make (in words),
+    if any."""
+    target = find(conn, move["to_asset"]) if move["to_asset"] and not move["to_asset"].startswith(debts.PREFIX) else None
+    per_unit = None
+    if target and source["key"] == "EGP":
+        per_unit = move["from_quantity"] / move["to_quantity"]
+    elif target and target["key"] == "EGP":
+        per_unit = move["to_quantity"] / move["from_quantity"]
+    new = [s for k, s in _shortfalls(conn).items() if k not in before]
+    return {
+        "kind": move["kind"], "date": move["date"],
+        "from": {"key": source["key"], "name": source["name"], "unit": source["unit"], "quantity": move["from_quantity"],
+                 "place": move["from_place"]},
+        "to": {"key": target["key"], "name": target["name"], "unit": target["unit"], "quantity": move["to_quantity"],
+               "place": move["to_place"]} if target else None,
+        "egp_per_unit": per_unit,
+        "short": {"text": _short_text(conn, new[0]), "short": new[0]["short"]} if new else None,
+    }
 
 
 # ── dividends, bonus shares, splits ──────────────────────────────────────────
@@ -969,7 +1029,7 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         assets.append({
             "key": key, "kind": entry["kind"], "kind_label": entry["kind_label"],
             "group": CLOSED_GROUP[0] if closed else entry["group"],
-            "name": entry["name"], "symbol": entry.get("symbol"), "mark": entry["mark"], "unit": entry["unit"],
+            "name": entry["name"], "symbol": entry.get("symbol"), "mark": entry["mark"], "unit": entry["unit"], "unit_name": entry.get("unit_name"),
             "quantity": quantity, "cost_egp": cost, "value_egp": value, "realized_egp": held["realized"],
             "dividends_egp": dividends.get(key, 0.0),
             "growth": value / cost - 1 if value is not None and cost and not closed else None,  # None cost: unknown

@@ -3,13 +3,11 @@
 // Every amount and date comes from Python (store/deposits.py, store/portfolio.py). ES module.
 import { N, api, frag, h, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtQty, parseNumberInput, resolveDay } from '../../shared/format.mjs'
-import { DateField } from '../../shared/form.js'
+import { DateField, EntryCard, More, PlaceField, Question, Summary } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { deleteWithUndo, usePending } from '../../shared/undo.js'
 import { money } from './units.mjs'
 
-const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
-const text = (value, set, extra = {}) => h('input', { className: 'q-input', value, onChange: (e) => set(e.target.value), ...extra })
 
 /** A payout or a principal a certificate paid into the pounds: worked out from its terms, never typed. */
 export function PaidItem({ event, onOpen }) {
@@ -39,37 +37,50 @@ export function ActionItem({ event, asset, onChanged }) {
 }
 
 /** A stock's or fund's cash dividend, or its bonus shares or split. `kind` is dividend, bonus or split. */
-export function StockEventForm({ asset, kind, onDone, onCancel }) {
+export function StockEventForm({ asset, kind, places, onDone, onCancel }) {
   const [value, setValue] = useState('')
   const [day, setDay] = useState('')
   const [note, setNote] = useState('')
+  const [place, setPlace] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const label = { dividend: 'المبلغ اللي دخلك (ج.م)', bonus: `عدد الأسهم المجانية (${asset.unit})`, split: 'كل سهم بقى كام سهم' }[kind]
+  const [bad, setBad] = useState(null)
+  const fail = (message, field = null) => { setError(message); setBad(field) }
+  const words = {
+    dividend: { q: 'قبضت كام؟', unit: 'ج.م', empty: 'اكتب قبضت كام.', title: `قبضت توزيعات ${asset.name}`, button: 'سجّل التوزيعات' },
+    bonus: { q: 'جالك كام سهم مجاني؟', unit: asset.unit, empty: 'اكتب جالك كام سهم.', title: `أسهم مجانية من ${asset.name}`, button: 'سجّل الأسهم المجانية' },
+    split: { q: 'كل سهم بقى كام سهم؟', unit: 'سهم', empty: 'اكتب كل سهم بقى كام، زي 2.', title: `تقسيم ${asset.name}`, button: 'سجّل التقسيم' },
+  }[kind]
+  const v = parseNumberInput(value), d = resolveDay(day)
   async function submit(e) {
     e.preventDefault()
-    setError('')
-    const v = parseNumberInput(value), d = resolveDay(day)
-    if (!(v > 0)) return setError('اكتب الرقم.')
-    if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
+    fail('')
+    if (!(v > 0)) return fail(words.empty, 'value')
+    if (d === undefined) return fail('التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.', 'date')
     setBusy(true)
     try {
-      if (kind === 'dividend') await api('POST', '/egx/api/dividends', { asset: asset.key, amount_egp: v, date: d, note: note.trim() || null })
+      if (kind === 'dividend') await api('POST', '/egx/api/dividends', { asset: asset.key, amount_egp: v, date: d, note: note.trim() || null, place: place.trim() || null })
       else await api('POST', '/egx/api/actions', { asset: asset.key, kind, date: d, note: note.trim() || null, [kind === 'bonus' ? 'quantity' : 'ratio']: v })
       onDone()
-    } catch (err) { setError(err.message) } finally { setBusy(false) }
+    } catch (err) { fail(err.message, err.field || null) } finally { setBusy(false) }
   }
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': kind === 'dividend' ? 'توزيعات' : 'أسهم مجانية أو تقسيم',
-      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
-    h('b', null, kind === 'dividend' ? `توزيعات ${asset.name}` : kind === 'bonus' ? `أسهم مجانية من ${asset.name}` : `تقسيم ${asset.name}`),
-    h('div', { className: 'l-fields' },
-      field(label, text(value, setValue, { inputMode: 'decimal', className: 'q-input num', 'aria-label': label })),
-      h(DateField, { value: day, onChange: setDay, noDate: false }),
-      field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
-    h('div', { className: 'l-actions' },
-      h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل'),
-      h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
-      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
+  const errOf = (f) => (bad === f ? error : null)
+  const chips = kind === 'split' ? ['2', '3', '5'].map((n) => h('button', { key: n, type: 'button', className: 'q-chip', 'aria-pressed': value === n,
+    onClick: () => setValue(n) }, n)) : null
+  const say = v > 0 ? (kind === 'dividend'
+    ? frag(h('b', null, N(money(v)), ' ج.م'), ` توزيعات من ${asset.name}`, place.trim() ? `، دخلت ${place.trim()}` : '، دخلت الجنيه', '.')
+    : kind === 'bonus' ? frag(h('b', null, N(fmtQty(v)), ' ', asset.unit), ` مجانية من ${asset.name}، بنفس التكلفة.`)
+      : frag(`كل سهم من ${asset.name} بقى `, h('b', null, N(fmtQty(v))), ' سهم، بنفس التكلفة.')) : null
+  return h(EntryCard, { className: 'l-add l-move', ariaLabel: kind === 'dividend' ? 'توزيعات' : 'أسهم مجانية أو تقسيم', title: words.title,
+    onSubmit: submit, onCancel, busy, alert: error && !bad ? error : null, submitLabel: words.button,
+    summary: h(Summary, { empty: 'اكتب الرقم، وهتشوف هنا اللي هيتسجّل' }, say) },
+  h(Question, { hero: true, name: 'value', value, onChange: setValue, label: words.q, unit: words.unit, 'aria-label': words.q, autoFocus: true,
+    chips, error: errOf('value') }),
+  h('div', { className: 'l-entry-grid' },
+    kind === 'dividend' ? h(PlaceField, { label: 'نزلت فين؟', value: place, onChange: setPlace, places }) : null,
+    h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf('date') })),
+  h(More, { label: 'تفاصيل أكتر · ملاحظة' },
+    h(Question, { numeric: false, name: 'note', value: note, onChange: setNote, label: 'ملاحظة', maxLength: 200, wide: true })))
 }
 
 /** «الجاي قريب»: certificate payouts and maturities and debt installments in the coming weeks. */

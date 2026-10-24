@@ -61,7 +61,11 @@ var __monos = (() => {
     }
     const res = await fetch(path, init);
     const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    if (!res.ok || data && data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!res.ok || data && data.error) {
+      const err = new Error(data.error || `HTTP ${res.status}`);
+      if (data && data.field) err.field = data.field;
+      throw err;
+    }
     return data;
   }
 

@@ -192,3 +192,20 @@ def test_a_purchase_typed_after_midnight_in_cairo_counts_from_that_day():
     from egx_mcp.store.movements import lot_day
     assert lot_day({"buy_date": None, "created_at": "2026-10-24T21:30:00+00:00"}) == "2026-10-25"
     assert lot_day({"buy_date": "2026-10-01", "created_at": "2026-10-24T21:30:00+00:00"}) == "2026-10-01"
+
+
+def test_a_preview_checks_and_reads_back_without_writing(conn):
+    seen = portfolio.add_holding(conn, "XAU-G", buy_price=4000, quantity=10, preview=True)["preview"]
+    assert seen["quantity"] == 10 and seen["paid"] == 40000 and seen["cost_egp"] == 40000 and seen["unit_name"] == "جرام"
+    assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 0
+    portfolio.add_holding(conn, None, buy_price=10, amount=100, custom={"kind": "fund", "name": "جديد", "price": 12}, preview=True)
+    assert conn.execute("SELECT COUNT(*) FROM custom_assets").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM manual_prices").fetchone()[0] == 0
+    with pytest.raises(LedgerInputError) as bad:
+        portfolio.add_holding(conn, "XAU-G", buy_price=None, quantity=1, preview=True)
+    assert bad.value.field == "price"
+    # A movement: what left, what arrived, the pounds per unit, and the shortfall in words, unsaved.
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=1000)
+    move = portfolio.add_movement(conn, "transfer", "EGP", 1400, "SAR", 100, preview=True)["preview"]
+    assert move["egp_per_unit"] == 14 and move["to"]["quantity"] == 100 and "ناقص" in move["short"]["text"]
+    assert conn.execute("SELECT COUNT(*) FROM movements").fetchone()[0] == 0

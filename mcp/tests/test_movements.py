@@ -148,7 +148,7 @@ def test_the_value_between_two_foreign_assets(conn):
 def test_inputs(conn):
     portfolio.add_holding(conn, "EGP", buy_price=1, amount=1000)
     for args, message in ((("swap", "EGP", 1, "USD", 1), "تحويل أو خروج"), (("transfer", "EGP", 1, "EGP", 1), "لأصل تاني"),
-                          (("transfer", "EGP", 0, "USD", 1), "اللي خرجت"), (("transfer", "EGP", 1, None, 1), "راحت له"),
+                          (("transfer", "EGP", 0, "USD", 1), "حوّلت كام"), (("transfer", "EGP", 1, None, 1), "حوّلت لإيه"),
                           (("transfer", "NOPE", 1, "USD", 1), "مش في الفهرس"), (("transfer", "deposit:1", 1, "EGP", 1), "الشهادات")):
         with pytest.raises(LedgerInputError, match=message):
             portfolio.add_movement(conn, *args)

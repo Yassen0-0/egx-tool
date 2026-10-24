@@ -74,11 +74,18 @@ US_FUNDS = (
 GOLD_GRAMS = (("XAU-G21", 21), ("XAU-G", 24), ("XAU-G18", 18), ("XAU-G22", 22), ("XAU-G14", 14))
 
 
+# What one unit is called in a question («اشتريت كام جرام؟», «بكام الدولار؟»).
+UNIT_NAME = {"stock": "سهم", "fund": "وثيقة", "bitcoin": "بتكوين", "deposit": "جنيه"}
+CURRENCY_UNIT_NAME = {code: aliases[0] for code, _, _, aliases in CURRENCIES}
+
+
 def _entry(key, kind, name, name_en, symbol=None, aliases=(), currency="EGP", unit=None, mark=None) -> dict:
+    unit = unit or UNIT.get(kind) or key
+    unit_name = CURRENCY_UNIT_NAME.get(key) if kind == "currency" else (unit if kind in ("gold", "fund") else UNIT_NAME.get(kind))
     return {
         "key": key, "kind": kind, "kind_label": KIND_LABEL[kind], "group": GROUP_OF[kind], "name": name,
         "name_en": name_en, "symbol": symbol, "aliases": list(aliases), "currency": currency,
-        "unit": unit or UNIT.get(kind) or key, "mark": mark or _mark(name, symbol),
+        "unit": unit, "unit_name": unit_name or unit, "mark": mark or _mark(name, symbol),
     }
 
 

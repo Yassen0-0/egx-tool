@@ -60,10 +60,14 @@ def validate(deposit: dict) -> dict:
     rate = deposit.get("rate")
     if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not 0 < rate <= 1:
         raise LedgerInputError("العائد السنوي لازم يكون أكبر من صفر و100% أو أقل، ككسر: 27% يتكتب 0.27")
-    start = _day(deposit.get("start_date"), "اكتب تاريخ بداية الشهادة")
-    maturity = _day(deposit.get("maturity_date"), "اكتب تاريخ استحقاق الشهادة")
+    start = _day(deposit.get("start_date"), "اكتب الشهادة اتفتحت إمتى")
+    years = deposit.get("term_years")
+    if deposit.get("maturity_date") in (None, "") and isinstance(years, int) and not isinstance(years, bool) and 0 < years <= MAX_YEARS:
+        maturity = add_months(start, years * 12)  # «مدتها 3 سنين»
+    else:
+        maturity = _day(deposit.get("maturity_date"), "اختار مدتها، أو اكتب بتخلص إمتى")
     if maturity <= start:
-        raise LedgerInputError("تاريخ الاستحقاق لازم يكون بعد تاريخ البداية")
+        raise LedgerInputError("تاريخ الخلوص لازم يكون بعد تاريخ الفتح")
     if maturity > add_months(start, MAX_YEARS * 12):
         raise LedgerInputError(f"مدة الشهادة أطول من {MAX_YEARS} سنة؛ راجع التواريخ")
     payout = deposit.get("payout")

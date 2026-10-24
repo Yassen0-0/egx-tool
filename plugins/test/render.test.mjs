@@ -129,9 +129,9 @@ test('the ledger search finds Egyptian spellings and offers adding by name', { s
   assert.ok(seen.gold[0].includes('الذهب عيار 21 (جرام)') && seen.gold.some((o) => o.includes('الذهب (أونصة)')))  // 21 karat first
   assert.ok(seen.bank[0].includes('البنك التجاري الدولي'))
   assert.match(seen.add, /الدولار الأمريكي/)
-  assert.match(seen.add, /سعر USD بالجنيه وقت الشرا/)
+  assert.match(seen.add, /بكام الدولار؟/)
   assert.equal(seen.search, '')
-  assert.deepEqual(seen.none, ['+إضافة بالاسم ده: زززز'])
+  assert.deepEqual(seen.none, ['+مش لاقيه؟ إضافة بالاسم ده: زززز'])
 })
 
 test('the header has a «تصدير CSV» button that downloads the file, and a failure shows a short error', { skip: !harness && 'run npm install at the repo root' }, async () => {

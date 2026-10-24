@@ -88,8 +88,8 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       }
       const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
       const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
-      const field = (label) => host.querySelector(`form.l-add [aria-label="${label}"]`)
-      const labelled = (name) => [...host.querySelectorAll('form.l-add label')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
+      const field = (name) => host.querySelector(`form.l-add [name="${name}"]`)
+      const summary = () => host.querySelector('form.l-add .l-entry-summary').textContent
       const pick = async (query, index = 0) => {
         await setValue(input, query)
         await wait(() => host.querySelectorAll('[role="option"]')[index], `a result for ${query}`)
@@ -97,7 +97,7 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
         await act(async () => { option.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
         await wait(() => host.querySelector('form.l-add'), 'the add line')
       }
-      const submit = async () => { await click(button('إضافة', host.querySelector('form.l-add'))) }
+      const submit = async () => { await click(host.querySelector('form.l-add button[type="submit"]')) }
       const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.textContent.includes(name))
 
       await wait(() => text().includes('ابحث عن أصل وأضفه.'), 'the empty ledger')
@@ -106,18 +106,22 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
 
       // 1. Dollars bought at 30.9, typed with Arabic-Indic digits.
       await pick('دولار')
-      await setValue(field('الكمية أو المبلغ'), '١٠٠٠')
-      await setValue(field('سعر الشرا'), '30.9')
+      seen.dollarForm = host.querySelector('form.l-add').textContent
+      await setValue(field('qty'), '١٠٠٠')
+      await setValue(field('price'), '30.9')
+      await wait(() => /هتسجّل/.test(summary()), 'the read-back')
+      seen.dollarSummary = summary()
       await submit()
       await wait(() => row('الدولار الأمريكي'), 'the dollar row')
       seen.dollar = row('الدولار الأمريكي').textContent
 
       // 2. Bitcoin in dollars: the EGP cost is filled from today's rate.
       await pick('بتكوين')
-      await setValue(field('الكمية أو المبلغ'), '0.01')
-      await setValue(field('سعر الشرا'), '60000')
-      await wait(() => labelled('المبلغ اللي دفعته بالجنيه').value !== '', 'the EGP cost suggestion')
-      seen.btcCost = labelled('المبلغ اللي دفعته بالجنيه').value
+      await click(button('عدد البتكوين'))
+      await setValue(field('qty'), '0.01')
+      await setValue(field('price'), '60000')
+      await wait(() => /31,200 ج\.م/.test(summary()), 'the EGP cost in the read-back')
+      seen.btcCost = summary()
       await submit()
       await wait(() => row('بيتكوين'), 'the bitcoin row')
       seen.btc = row('بيتكوين').textContent
@@ -127,30 +131,29 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       seen.goldOptions = null
       await submit()
       seen.noQuantity = host.querySelector('form.l-add [role="alert"]').textContent
-      await setValue(field('الكمية أو المبلغ'), '10')
-      await setValue(field('سعر الشرا'), '4000')
-      await setValue(labelled('التاريخ'), '32/13/2025')
+      await setValue(field('qty'), '10')
+      await setValue(field('price'), '4000')
+      await setValue(field('date'), '32/13/2025')
       await submit()
       seen.badDate = host.querySelector('form.l-add [role="alert"]').textContent
-      await setValue(labelled('التاريخ'), '1/6/2025')
+      await setValue(field('date'), '1/6/2025')
       seen.goldHint = host.querySelector('form.l-add').textContent
-      await setValue(field('سعر الشرا'), '130000')  // an ounce price typed for a gram
-      seen.unitWarning = host.querySelector('form.l-add [role="status"]')?.textContent
-      await setValue(field('سعر الشرا'), '4000')
+      await setValue(field('price'), '130000')  // an ounce price typed for a gram
+      await wait(() => host.querySelector('form.l-add [role="status"]'), 'the unit warning')
+      seen.unitWarning = host.querySelector('form.l-add [role="status"]').textContent
+      await setValue(field('price'), '4000')
       await submit()
       await wait(() => row('الذهب'), 'the gold row')
       seen.gold = row('الذهب').textContent
 
       // 4. Bitcoin bought long before any stored rate: the screen asks for the EGP paid.
       await pick('بتكوين')
-      await setValue(field('الكمية أو المبلغ'), '0.01')
-      await setValue(field('سعر الشرا'), '20000')
-      await setValue(labelled('التاريخ'), '1/1/2020')
-      await wait(() => true, 'nothing')
-      await act(async () => { await new Promise((r) => setTimeout(r, 600)) })
-      await submit()
-      await wait(() => host.querySelector('form.l-add [role="alert"]'), 'the missing rate message')
-      seen.oldRate = host.querySelector('form.l-add [role="alert"]').textContent
+      await click(button('عدد البتكوين'))
+      await setValue(field('qty'), '0.01')
+      await setValue(field('price'), '20000')
+      await setValue(field('date'), '1/1/2020')
+      await wait(() => field('cost'), 'the EGP paid asked for')
+      seen.oldRate = host.querySelector('form.l-add').textContent
       await click(button('إلغاء', host.querySelector('form.l-add')))
 
       // 5. A fund the catalog does not know, added by name with its current price.
@@ -161,10 +164,11 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       seen.guess = host.querySelector('[role="option"]').textContent
       await act(async () => { addByName.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
       await wait(() => host.querySelector('form.l-add'), 'the custom add line')
-      await setValue(labelled('النوع'), 'fund')
-      await setValue(labelled('السعر الحالي'), '15')
-      await setValue(field('الكمية أو المبلغ'), '100')
-      await setValue(field('سعر الشرا'), '10')
+      await click(button('صندوق'))
+      await click(button('عدد الوثيقة'))
+      await setValue(field('price-now'), '15')
+      await setValue(field('qty'), '100')
+      await setValue(field('price'), '10')
       await submit()
       await wait(() => row('صندوق مصر الذهبي'), 'the fund row')
       seen.fund = row('صندوق مصر الذهبي').textContent
@@ -201,16 +205,19 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
   assert.match(seen.empty, /0 جنيه/)
   assert.match(seen.dollar, /52,000/)  // 1000 × 52
   assert.match(seen.dollar, /\+68\.3%/)  // 52 / 30.9 − 1
-  assert.equal(seen.btcCost, '31200')  // 0.01 × 60000 × 52
+  assert.match(seen.btcCost, /0\.01 بتكوين/)  // 0.01 × 60000 × 52 in pounds
+  assert.match(seen.dollarForm, /اشتريت كام دولار؟/)
+  assert.match(seen.dollarForm, /بكام الدولار؟/)
+  assert.match(seen.dollarSummary, /هتسجّل: اشتريت 1,000 دولار/)
   assert.match(seen.btc, /42,640/)  // 0.01 × 82000 × 52
   assert.match(seen.noQuantity, /اكتب الكمية/)
   assert.match(seen.badDate, /يوم\/شهر\/سنة/)
-  assert.match(seen.goldHint, /سعر الجرام وقت الشرا/)
+  assert.match(seen.goldHint, /بكام الجرام؟/)
   assert.match(seen.goldHint, /آخر سعر 6,854\.\d\d ج\.م/)  // 4100 × 52 / 31.1035
-  assert.match(seen.unitWarning, /راجع الوحدة/)
+  assert.match(seen.unitWarning, /بعيد قوي عن آخر سعر/)
   assert.match(seen.gold, /الذهب عيار 24 \(جرام\)/)
   assert.match(seen.gold, /68,5\d\d/)  // 10 g × 4100 × 52 / 31.1035 = 68,546
-  assert.match(seen.oldRate, /بالجنيه/)
+  assert.match(seen.oldRate, /دفعت كام بالجنيه/)
   assert.match(seen.customOption, /إضافة بالاسم ده/)
   assert.match(seen.guess, /صندوق ذهب/)
   assert.match(seen.fund, /1,500/)  // 100 × 15
@@ -264,8 +271,8 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
       await key_(input, 'Enter')
       await wait(() => host.querySelector('form.l-add'), 'the pound add line')
       seen.poundForm = host.querySelector('form.l-add').textContent
-      await setValue(host.querySelector('form.l-add [aria-label="الكمية أو المبلغ"]'), '5,000')
-      await click(button('إضافة', host.querySelector('form.l-add')))
+      await setValue(host.querySelector('form.l-add [name="qty"]'), '5,000')
+      await click(button('سجّل الفلوس', host.querySelector('form.l-add')))
       await wait(() => row('الجنيه المصري'), 'the cash row')
       seen.cash = row('الجنيه المصري').textContent
 
@@ -279,7 +286,7 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
       await click(row('صندوق مصر الذهبي'))
       const fund = row('صندوق مصر الذهبي').nextElementSibling
       await setValue(fund.querySelector('input[aria-label^="السعر الحالي"]'), '16.5')
-      await click(button('حفظ السعر', fund))
+      await click(button('حدّث السعر', fund))
       await wait(() => row('صندوق مصر الذهبي').textContent.includes('1,650'), 'the fund at its new price')
       seen.fund = row('صندوق مصر الذهبي').textContent
 
@@ -296,7 +303,8 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
   assert.doesNotMatch(seen.early, /إضافة بالاسم ده/)
   assert.ok(seen.poundOptions[0].includes('الجنيه المصري'), seen.poundOptions.join(' | '))
   assert.equal(seen.active, 'l-opt-1')
-  assert.doesNotMatch(seen.poundForm, /سعر/)  // the pound is always 1: no price to type
+  assert.doesNotMatch(seen.poundForm, /بكام/)  // the pound is always 1: no price to type
+  assert.match(seen.poundForm, /جالك كام جنيه؟/)
   assert.match(seen.cash, /5,000/)
   assert.match(seen.cash, /0\.0%/)
   assert.match(seen.fundOption, /صندوق مصر الذهبي/)
@@ -334,28 +342,26 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
       const labelled = (name) => [...host.querySelectorAll('form.l-add label')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
       const form = () => host.querySelector('form.l-add')
       await wait(() => host.querySelector('input[role="combobox"]') && row('الجنيه المصري'), 'the ledger from the earlier tests')
-      const input = host.querySelector('input[role="combobox"]')
-      await setValue(input, 'شهادة')
-      await wait(() => host.querySelector('[role="option"]'), 'the add-by-name option')
-      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
-      await wait(form, 'the custom add line')
-      await setValue(labelled('النوع'), 'deposit')
-      seen.fields = [...form().querySelectorAll('label .q-label')].map((l) => l.textContent)
+      // «+ سجّل» → «فتحت شهادة»: its own card, not a kind of purchase.
+      await click(button('+ سجّل'))
+      await click(button('فتحت شهادة'))
+      await wait(form, 'the certificate card')
+      seen.fields = [...form().querySelectorAll('.l-q-label')].map((l) => l.textContent)
       seen.checks = [...form().querySelectorAll('label input[type="checkbox"]')].map((c) => [c.parentElement.textContent, c.checked])
-      seen.kinds = [...labelled('النوع').options].map((o) => o.textContent)
 
-      await click(button('إضافة', form()))
+      await click(form().querySelector('button[type="submit"]'))
       seen.noAmount = form().querySelector('[role="alert"]').textContent
-      await setValue(labelled('المبلغ'), '100,000')
-      await setValue(labelled('العائد السنوي'), '27')
-      await setValue(labelled('تاريخ البداية'), '1/1/2026')
-      await setValue(labelled('تاريخ الاستحقاق'), '1/1/2025')
-      await click(button('إضافة', form()))
+      await setValue(labelled('حطيت كام'), '100,000')
+      await setValue(labelled('العائد كام'), '27')
+      await setValue(labelled('اتفتحت إمتى'), '1/1/2026')
+      await click(button('تاريخ تاني'))
+      await setValue(labelled('بتخلص إمتى'), '1/1/2025')
+      await click(form().querySelector('button[type="submit"]'))
       seen.badOrder = form().querySelector('[role="alert"]').textContent
-      await setValue(labelled('تاريخ الاستحقاق'), '1/1/2029')
+      await click(button('3 سنين'))
       await setValue(labelled('البنك'), 'البنك الأهلي')
-      await setValue(labelled('صرف العائد'), 'monthly')
-      await click(button('إضافة', form()))
+      await click(button('كل شهر'))
+      await click(button('سجّل الشهادة', form()))
       await wait(() => row('شهادة البنك الأهلي'), 'the certificate row')
       seen.row = row('شهادة البنك الأهلي').textContent
       seen.heading = text()
@@ -379,11 +385,10 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
     },
   })
   assert.deepEqual(r.errors, [])
-  assert.deepEqual(seen.fields, ['النوع', 'البنك', 'المبلغ (ج.م)', 'العائد السنوي %', 'تاريخ البداية', 'تاريخ الاستحقاق', 'صرف العائد', 'ملاحظة (اختياري)'])
-  assert.ok(seen.kinds.includes('شهادة/وديعة'))
-  assert.deepEqual(seen.checks, [['العائد والأصل في الاستحقاق يدخلوا الجنيه اللي في السجل', true], ['اشتريتها بجنيه من اللي في السجل', false]])
+  assert.deepEqual(seen.fields, ['حطيت كام في الشهادة؟', 'العائد كام في السنة؟', 'البنك', 'اتفتحت إمتى؟', 'مدتها', 'العائد بينزل', 'ملاحظة'])
+  assert.deepEqual(seen.checks, [['دفعت تمنها من الجنيه اللي في السجل', false], ['العائد والمبلغ في الآخر ينزلوا على الجنيه اللي في السجل لوحدهم', true]])
   assert.match(seen.noAmount, /اكتب مبلغ الشهادة/)
-  assert.match(seen.badOrder, /بعد تاريخ البداية/)
+  assert.match(seen.badOrder, /بعد تاريخ الفتح/)
   assert.match(seen.row, /100,000/)
   assert.match(seen.row, /27% · شهري/)
   assert.match(seen.heading, /شهادات وودائع/)
@@ -394,7 +399,7 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
   assert.match(seen.detail, /الصرف الجاي \d\d\/\d\d\/\d{4}/)
   assert.doesNotMatch(seen.detail, /تحديث السعر/)
   assert.deepEqual(seen.editFields, ['المبلغ', 'تاريخ البداية', 'العائد السنوي %', 'تاريخ الاستحقاق', 'صرف العائد', 'البنك', 'ملاحظة'])
-  assert.match(seen.editBadOrder, /بعد تاريخ البداية/)
+  assert.match(seen.editBadOrder, /بعد تاريخ الفتح/)
   assert.match(seen.edited, /العائد السنوي 30%/)
   assert.match(seen.edited, /الاستحقاق 01\/01\/2030/)
   assert.match(seen.edited, /العائد في السنة 30,000 ج\.م/)
@@ -431,19 +436,20 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
       const form = () => host.querySelector('form.l-move')
       const field = (name) => form() && [...form().querySelectorAll('label, .q-stack')].find((l) => l.textContent.startsWith(name))
       const labelled = (name) => field(name).querySelector('input')
-      const submit = () => click(button('سجّل', form()))
+      const submit = () => click(form().querySelector('button[type="submit"]'))
 
       await wait(() => row('الجنيه المصري'), 'the pounds from the earlier tests')
       await click(row('الجنيه المصري'))
       await click(button('تحويل منه', detail('الجنيه المصري')))
       await submit()
       seen.noQuantity = form().querySelector('[role="alert"]').textContent
-      await setValue(labelled('خرج كام'), '1000')
+      await setValue(labelled('حوّلت كام'), '1000')
       await setValue(form().querySelector('input[role="combobox"]'), 'ريال')
       await wait(() => form().querySelector('[role="option"]'), 'the riyal in the move search')
       await act(async () => { form().querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
-      await wait(() => field('دخل كام'), 'the arrived field (riyals)')
-      await setValue(labelled('دخل كام'), '70')
+      await wait(() => field('وصلك كام'), 'the arrived field (riyals)')
+      await setValue(labelled('وصلك كام'), '70')
+      await wait(() => /14\.29/.test(text(form())), 'the read-back with the rate')
       seen.rate = text(form())
       await submit()
       await wait(() => text(detail('الجنيه المصري')).includes('الحركات'), 'the transfer in the pounds')
@@ -456,15 +462,15 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
 
       // 75 riyals sold for 1,050 pounds: only 70 are held, then the 5 are recorded as money from outside.
       await click(button('تحويل منه', detail('الريال السعودي')))
-      await setValue(labelled('خرج كام'), '75')
+      await setValue(labelled('حوّلت كام'), '75')
       await setValue(form().querySelector('input[role="combobox"]'), 'جنيه')
       await wait(() => form().querySelector('[role="option"]'), 'the pound in the move search')
       await act(async () => { form().querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
-      await wait(() => field('دخل كام'), 'the arrived field (sale)')
-      await setValue(labelled('دخل كام'), '1050')
+      await wait(() => field('وصلك كام'), 'the arrived field (sale)')
+      await setValue(labelled('وصلك كام'), '1050')
       await submit()
-      await wait(() => form().querySelector('[role="alert"]'), 'the shortfall')
-      seen.short = form().querySelector('[role="alert"]').textContent
+      await wait(() => form().querySelector('.l-entry-warn input[type="checkbox"]'), 'the shortfall')
+      seen.short = form().querySelector('.l-entry-warn').textContent
       await setValue(form().querySelector('input[type="checkbox"]'))
       await submit()
       await wait(() => row('الريال السعودي') && row('الريال السعودي').closest('section').getAttribute('aria-label') === 'اتصرفت بالكامل', 'the riyal to close')
@@ -480,8 +486,8 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
     },
   })
   assert.deepEqual(r.errors, [])
-  assert.match(seen.noQuantity, /اكتب الكمية اللي خرجت/)
-  assert.match(seen.rate, /سعرك 14\.29 ج\.م للـ SAR/)
+  assert.match(seen.noQuantity, /اكتب حوّلت كام/)
+  assert.match(seen.rate, /هتسجّل: 1,000 ج\.م من الجنيه المصري ← 70 SAR الريال السعودي \(الـSAR بـ 14\.29 ج\.م\)/)
   assert.match(seen.out, /−1,000 ج\.م لـ الريال السعودي \(70 SAR\)/)
   assert.match(seen.out, /الحركات/)
   assert.match(seen.in, /\+70 SAR من الجنيه المصري \(1,000 ج\.م\)/)
@@ -524,19 +530,17 @@ test('a debt: added by kind with its pounds received at a place, an installment 
       const labelIn = (scope, name) => [...scope.querySelectorAll('label, .q-stack')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
 
       await wait(() => host.querySelector('input[role="combobox"]') && row('الجنيه المصري'), 'the ledger from the earlier tests')
-      await setValue(host.querySelector('input[role="combobox"]'), 'قرض العربية')
-      await wait(() => host.querySelector('[role="option"]'), 'the add-by-name option')
-      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      await click(button('+ سجّل'))
+      await click(button('عليّ دين'))
       const form = () => host.querySelector('form.l-add')
-      await wait(form, 'the add line')
-      await setValue(labelIn(form(), 'النوع'), 'debt')
-      await setValue(labelIn(form(), 'اسمه'), 'قرض العربية')
-      await setValue(labelIn(form(), 'المبلغ اللي عليك'), '50,000')
-      await setValue(labelIn(form(), 'القسط الشهري'), '2500')
-      await setValue(labelIn(form(), 'يوم القسط'), '5')
-      await setValue([...form().querySelectorAll('input[type="checkbox"]')][0])
-      await setValue(labelIn(form(), 'في مكان'), 'الأهلي')
-      await click(button('إضافة', form()))
+      await wait(form, 'the debt card')
+      await setValue(labelIn(form(), 'الدين ده لمين'), 'قرض العربية')
+      await setValue(labelIn(form(), 'عليك كام'), '50,000')
+      await setValue(labelIn(form(), 'القسط كام'), '2500')
+      await click(button('5', form()))
+      await click(button('أيوه، دخلت عندي', form()))
+      await setValue(labelIn(form(), 'دخلت فين'), 'الأهلي')
+      await click(button('سجّل الدين', form()))
       await wait(() => row('قرض العربية'), 'the debt row')
       seen.total = text(host.querySelector('.l-total'))
       seen.debt = text(row('قرض العربية'))
@@ -554,11 +558,10 @@ test('a debt: added by kind with its pounds received at a place, an installment 
       seen.places = text(detail('الجنيه المصري'))
       await click(button('نقل لمكان تاني', detail('الجنيه المصري')))
       const move = () => host.querySelector('form[aria-label="نقل"]')
-      await setValue(labelIn(move(), 'خرج كام'), '1000')
-      await setValue(labelIn(move(), 'من مكان'), 'الأهلي')
-      await setValue(labelIn(move(), 'دخل كام'), '1000')
-      await setValue(labelIn(move(), 'لمكان'), 'كاش')
-      await click(button('سجّل', move()))
+      await click(button('الأهلي', move()))
+      await setValue(labelIn(move(), 'نقلت كام'), '1000')
+      await setValue(labelIn(move(), 'لفين'), 'كاش')
+      await click(button('سجّل النقل', move()))
       await wait(() => text(detail('الجنيه المصري')).includes('كاش 1,000'), 'the pounds in cash')
       seen.moved = text(detail('الجنيه المصري'))
     },
@@ -613,21 +616,21 @@ test('a stock: bought, a dividend into the pounds, bonus shares at no cost, and 
       await wait(() => host.querySelector('[role="option"]'), 'COMI in the search')
       await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
       const add = host.querySelector('form.l-add')
-      await setValue(add.querySelector('input[aria-label="الكمية أو المبلغ"]'), '100')
-      await setValue(add.querySelector('input[aria-label="سعر الشرا"]'), '100')
-      await click(button('إضافة', add))
+      await setValue(add.querySelector('input[name="qty"]'), '100')
+      await setValue(add.querySelector('input[name="price"]'), '100')
+      await click(button('سجّل الشرا', add))
       await wait(() => row(bank), 'the stock row')
       await click(row(bank))
 
       await click(button('توزيعات', detail(bank)))
-      await setValue(labelIn(host.querySelector('form[aria-label="توزيعات"]'), 'المبلغ اللي دخلك'), '250')
-      await click(button('سجّل', host.querySelector('form[aria-label="توزيعات"]')))
+      await setValue(labelIn(host.querySelector('form[aria-label="توزيعات"]'), 'قبضت كام'), '250')
+      await click(button('سجّل التوزيعات', host.querySelector('form[aria-label="توزيعات"]')))
       await wait(() => text(detail(bank)).includes('توزيعات استلمتها 250'), 'the dividend under the stock')
 
       await click(button('أسهم مجانية', detail(bank)))
       const bonus = host.querySelector('form[aria-label="أسهم مجانية أو تقسيم"]')
-      await setValue(labelIn(bonus, 'عدد الأسهم المجانية'), '10')
-      await click(button('سجّل', bonus))
+      await setValue(labelIn(bonus, 'جالك كام سهم'), '10')
+      await click(button('سجّل الأسهم المجانية', bonus))
       await wait(() => text(row(bank)).includes('110 سهم'), 'the bonus shares')
       seen.stock = text(detail(bank))
       seen.row = text(row(bank))
@@ -718,14 +721,14 @@ test('«سجّل»: N opens it, a kind is picked, yesterday is one chip away, th
       seen.header = text(host.querySelector('header'))
       await press(host.querySelector('.qm'), 'KeyN', 'n')
       await wait(composer, 'the composer from N')
-      seen.kinds = [...composer().querySelectorAll('[role="radio"]')].map((b) => b.textContent)
-      await click(button('خروج', composer()))
-      await wait(() => composer().querySelector('form[aria-label="خروج"]'), 'the expense form')
-      seen.from = composer().querySelector('select').value
-      await setValue(composer().querySelector('input[aria-label="الكمية اللي خرجت"]'), '100')
+      seen.kinds = [...composer().querySelectorAll('[aria-label="نوع العملية"] [role="radio"]')].map((b) => b.textContent)
+      await click(button('صرفت', composer()))
+      await wait(() => composer().querySelector('form[aria-label="صرفت"]'), 'the expense form')
+      seen.from = composer().querySelector('[aria-label="من فين؟"] [aria-checked="true"]').textContent
+      await setValue(composer().querySelector('input[name="taken"]'), '100')
       await click(button('امبارح', composer()))
       seen.date = composer().querySelector('input[name="date"]').value
-      await click(button('سجّل', composer()))
+      await click(button('سجّل المصروف', composer()))
       await wait(() => !composer() && host.querySelector('.q-toast'), 'the toast')
       seen.toast = text(host.querySelector('.q-toast'))
       await click(button('افتح', host.querySelector('.q-toast')))
@@ -735,21 +738,21 @@ test('«سجّل»: N opens it, a kind is picked, yesterday is one chip away, th
 
       await click(button('+ سجّل'))
       await wait(composer, 'the composer from the button')
-      await click(button('دين', composer()))
+      await click(button('عليّ دين', composer()))
       await wait(() => composer().querySelector('form.l-add'), 'the debt form')
-      seen.debtForm = [...composer().querySelectorAll('form.l-add label .q-label')].map((l) => l.textContent)
+      seen.debtForm = [...composer().querySelectorAll('form.l-add .l-q-label')].map((l) => l.textContent)
       await press(composer().querySelector('input'), 'Escape', 'Escape')
       await wait(() => !composer(), 'Esc to close')
     },
   })
   assert.deepEqual(r.errors, [])
   assert.match(seen.header, /\+ سجّل/)
-  assert.deepEqual(seen.kinds, ['شرا', 'تحويل', 'خروج', 'توزيعات', 'دين', 'سداد', 'شهادة'])
-  assert.equal(seen.from, 'EGP')  // pounds first
+  assert.deepEqual(seen.kinds, ['اشتريت', 'صرفت', 'حوّلت', 'قبضت توزيعات', 'دفعت قسط', 'عليّ دين', 'فتحت شهادة'])
+  assert.match(seen.from, /الجنيه المصري/)  // pounds first
   assert.match(seen.date, /^\d{2}\/\d{2}\/\d{4}$/)
-  assert.match(seen.toast, /اتسجّل الخروج/)
+  assert.match(seen.toast, /اتسجّل المصروف/)
   assert.match(seen.pounds, /−100 ج\.م خروج/)
-  assert.ok(seen.debtForm.includes('اسمه (لمين أو إيه هو)') && !seen.debtForm.includes('النوع'))
+  assert.ok(seen.debtForm.includes('الدين ده لمين؟') && !seen.debtForm.some((l) => l.includes('يبقى إيه')), seen.debtForm.join(' | '))
 })
 
 test('«تراجع»: a deleted line hides at once and comes back from the toast, with nothing sent', { skip }, async () => {

@@ -47,7 +47,8 @@ def test_main_reports_validation_errors_as_exit_2(tmp_path):
     proc = subprocess.run([sys.executable, "-m", "egx_mcp.cli", "portfolio-add", '{"asset": "COMI"}'],
                           capture_output=True, text=True)
     assert proc.returncode == 2
-    assert "سعر الشرا" in json.loads(proc.stdout)["error"]
+    out = json.loads(proc.stdout)
+    assert "الكمية" in out["error"] and out["field"] == "qty"
 
 
 def test_market_sync_without_key_says_so(monkeypatch):

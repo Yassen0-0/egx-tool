@@ -157,10 +157,10 @@ def test_the_principal_can_be_edited_and_the_price_stays_one(conn):
     ({"rate": 27}, "ككسر"),
     ({"rate": 0}, "ككسر"),
     ({"rate": None}, "ككسر"),
-    ({"start_date": None}, "تاريخ بداية"),
-    ({"maturity_date": ""}, "تاريخ استحقاق"),
+    ({"start_date": None}, "اتفتحت إمتى"),
+    ({"maturity_date": ""}, "بتخلص إمتى"),
     ({"start_date": "15/10/2025"}, "سنة-شهر-يوم"),
-    ({"maturity_date": "2025-10-15"}, "بعد تاريخ البداية"),
+    ({"maturity_date": "2025-10-15"}, "بعد تاريخ الفتح"),
     ({"maturity_date": "2099-10-15"}, "أطول"),
     ({"payout": "weekly"}, "طريقة صرف"),
     ({"payout": None}, "طريقة صرف"),
@@ -215,7 +215,7 @@ def test_editing_the_terms_renames_the_certificate(conn):
 
 def test_a_rejected_term_change_writes_nothing(conn):
     lot = add(conn)
-    with pytest.raises(LedgerInputError, match="بعد تاريخ البداية"):
+    with pytest.raises(LedgerInputError, match="بعد تاريخ الفتح"):
         portfolio.update_holding(conn, lot["id"], quantity=5, deposit={"maturity_date": "2025-01-01"})
     with pytest.raises(LedgerInputError, match="الكمية"):
         portfolio.update_holding(conn, lot["id"], quantity=-1, deposit={"rate": 0.3})
@@ -228,3 +228,8 @@ def test_terms_are_for_deposits_only(conn):
     lot = portfolio.add_holding(conn, "USD", buy_price=48, quantity=10)
     with pytest.raises(LedgerInputError, match="للشهادات"):
         portfolio.update_holding(conn, lot["id"], deposit={"rate": 0.2})
+
+
+def test_a_term_in_years_sets_the_maturity(conn):
+    lot = portfolio.add_holding(conn, amount=1000, deposit=terms(maturity_date=None, term_years=3, start_date="2025-01-31"))
+    assert conn.execute("SELECT maturity_date FROM deposits WHERE holding_id = ?", (lot["id"],)).fetchone()[0] == "2028-01-31"

@@ -3,8 +3,8 @@
 // cost and gain comes from Python (store/movements.py); this only shows them and sends what the user
 // typed. The search comes in as a prop, so this file does not import portfolio.js back. ES module.
 import { N, api, frag, h, useState } from '../../shared/runtime.js'
-import { fmtDate, fmtNumber, fmtQty, fmtSigned, parseDayInput, parseNumberInput, resolveDay, toneOf } from '../../shared/format.mjs'
-import { DateField, NumberInput } from '../../shared/form.js'
+import { fmtDate, fmtNumber, fmtQty, fmtSigned, parseDayInput, parseNumberInput, resolveDay, todayCairo, toneOf } from '../../shared/format.mjs'
+import { Choice, DateField, EntryCard, More, PlaceField, Question, Summary, usePreview } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { deleteWithUndo, usePending } from '../../shared/undo.js'
 import { money } from './units.mjs'
@@ -16,18 +16,22 @@ export function amount(quantity, key, unit, hidden) {
 
 const unitOf = (entry) => (entry.key === 'EGP' ? 'ج.م' : entry.unit)
 
-/** «سعرك 50 ج.م للـ USD» when one side is pounds: what the user paid or got per unit. */
-function rateText(from, taken, to, arrived) {
-  if (!(taken > 0) || !(arrived > 0)) return null
-  if (from.key === 'EGP') return frag('سعرك ', N(fmtNumber(taken / arrived, 2)), ` ج.م للـ ${unitOf(to)}`)
-  if (to.key === 'EGP') return frag('سعرك ', N(fmtNumber(arrived / taken, 2)), ` ج.م للـ ${unitOf(from)}`)
-  return null
+const b = (...children) => h('b', null, ...children)
+const whenText = (day) => (day === todayCairo() ? 'النهارده' : frag('يوم ', N(fmtDate(day))))
+
+/** «هتسجّل: …» for a movement, from Python's preview: the screen only formats it. */
+function moveSummary(d, within) {
+  const from = b(amount(d.from.quantity, d.from.key, d.from.unit))
+  if (within) return frag('نقلت ', from, ` من ${d.from.place || 'كل الأماكن'} لـ ${d.to.place}، `, whenText(d.date), '.')
+  if (d.kind === 'expense') return frag('صرفت ', from, ` من ${d.from.name}${d.from.place ? ` (${d.from.place})` : ''}، `, whenText(d.date), '.')
+  const toUnit = d.to.key === 'EGP' ? 'ج.م' : d.to.unit
+  return frag(from, ` من ${d.from.name} ← `, b(amount(d.to.quantity, d.to.key, d.to.unit)), ` ${d.to.key === 'EGP' ? 'جنيه' : d.to.name}`,
+    d.egp_per_unit ? frag(' (الـ', d.from.key === 'EGP' ? toUnit : d.from.unit, ' بـ ', b(N(fmtNumber(d.egp_per_unit, 2)), ' ج.م'), ')') : null,
+    '، ', whenText(d.date), '.')
 }
 
-const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
-const text = (value, set, extra = {}) => h('input', { className: 'q-input', value, onChange: (e) => set(e.target.value), ...extra })
-
-/** The line under an open asset that records money leaving it. `kind` is 'transfer' or 'expense'. */
+/** The card under an open asset that records money leaving it: 'expense' (صرفت), 'transfer'
+ * (حوّلت) or 'place' (the same asset to another place). */
 export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) {
   const [to, setTo] = useState(null)
   const [taken, setTaken] = useState('')
@@ -38,6 +42,7 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
   const [topUp, setTopUp] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const [bad, setBad] = useState(null)
   const [fromPlace, setFromPlace] = useState('')
   const [toPlace, setToPlace] = useState('')
   const within = kind === 'place'  // the same asset from one place to another
@@ -45,60 +50,78 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
   const dest = within ? asset : to
   // null while the catalog loads, so the search waits instead of offering «add by name».
   const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== 'deposit') : null
-  const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = resolveDay(day), v = parseNumberInput(value)
+  const t = parseNumberInput(taken), d = resolveDay(day), v = parseNumberInput(value)
+  const a = within && !arrived.trim() ? t : parseNumberInput(arrived)
   const neitherPound = kind === 'transfer' && to && asset.key !== 'EGP' && to.key !== 'EGP'
+  const places = (asset.places || []).filter((p) => p.place)
+  const fail = (message, field = null) => { setError(message); setBad(field) }
+
+  const body = { kind: within ? 'transfer' : kind, from_asset: asset.key, from_quantity: t, date: d, note: note.trim() || null,
+    top_up: topUp, from_place: fromPlace || null }
+  if (transfer && dest) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null })
+  const ready = t > 0 && d !== undefined && (!transfer || (dest && a > 0)) && (!within || toPlace.trim())
+  const seen = usePreview('/egx/api/movements', body, ready)
+  const short = (seen.data && seen.data.short) || (/ناقص/.test(error) ? { text: error } : null)
 
   async function submit(e) {
     e.preventDefault()
-    setError('')
-    if (!(t > 0)) return setError('اكتب الكمية اللي خرجت.')
-    if (transfer && !dest) return setError('اختار الأصل اللي الفلوس راحت له.')
-    if (within && !toPlace.trim()) return setError('اكتب المكان اللي الفلوس راحت له.')
-    if (transfer && !(a > 0)) return setError('اكتب الكمية اللي دخلت.')
-    if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
-    const body = { kind: within ? 'transfer' : kind, from_asset: asset.key, from_quantity: t, date: d, note: note.trim() || null,
-      top_up: topUp, from_place: fromPlace || null }
-    if (transfer) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null })
+    fail('')
+    if (!(t > 0)) return fail(kind === 'expense' ? 'اكتب صرفت كام.' : within ? 'اكتب نقلت كام.' : 'اكتب حوّلت كام.', 'taken')
+    if (transfer && !dest) return fail('حوّلت لإيه؟ اختاره من البحث.')
+    if (within && !toPlace.trim()) return fail('نقلتها لفين؟ اكتب المكان.', 'to_place')
+    if (transfer && !(a > 0)) return fail('اكتب وصلك كام.', 'arrived')
+    if (d === undefined) return fail('التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.', 'date')
     setBusy(true)
     try {
       await api('POST', '/egx/api/movements', body)
       onDone()
     } catch (err) {
-      setError(err.message)
+      fail(err.message, err.field || null)
     } finally {
       setBusy(false)
     }
   }
 
-  const title = within ? `نقل ${asset.name} لمكان تاني` : transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': within ? 'نقل' : transfer ? 'تحويل' : 'خروج',
-      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
-    h('b', null, title),
-    kind === 'transfer' ? (to
-      ? h('div', { className: 'l-inline' }, h('span', null, 'لـ ', h('b', null, to.name)),
+  const errOf = (f) => (bad === f ? error : null)
+  const all = asset.quantity > 0 ? [h('button', { key: 'all', type: 'button', className: 'q-chip', onClick: () => setTaken(String(asset.quantity)) },
+    'الكل (', amount(asset.quantity, asset.key, asset.unit), ')')] : null
+  const title = within ? `نقلت ${asset.name} لمكان تاني` : transfer ? `حوّلت من ${asset.name}` : `صرفت من ${asset.name}`
+  const fromPlaces = places.length ? h(Choice, { label: within ? 'من فين؟' : 'من أنهي مكان؟', value: fromPlace, onChange: setFromPlace, wide: true,
+    options: [...(within ? [] : [['', 'أي مكان']]), ...places.map((p) => [p.place, p.place])] }) : null
+  return h(EntryCard, { className: 'l-add l-move', ariaLabel: within ? 'نقل' : transfer ? 'تحويل' : 'صرفت', title, onSubmit: submit, onCancel, busy,
+    alert: error && !bad && !short ? error : !error && seen.error && !seen.field ? seen.error : null,
+    warn: short ? frag(short.text.replace(/ لو الفرق ده.*$/, ''), ' ',
+      h('label', null, h('input', { type: 'checkbox', checked: topUp, onChange: (e) => setTopUp(e.target.checked) }),
+        'الفرق ده فلوس جت من بره (سجّلها دخل)')) : null,
+    summary: h(Summary, { pending: seen.pending,
+      empty: kind === 'expense' ? 'اكتب صرفت كام، وهتشوف هنا اللي هيتسجّل' : 'اكتب المبالغ، وهتشوف هنا اللي هيتسجّل' },
+    seen.data ? moveSummary(seen.data, within) : null),
+    submitLabel: within ? 'سجّل النقل' : transfer ? 'سجّل التحويل' : 'سجّل المصروف' },
+  within ? fromPlaces : null,
+  h(Question, { hero: true, name: 'taken', value: taken, onChange: setTaken, autoFocus: true, error: errOf('taken'), chips: all,
+    label: within ? 'نقلت كام؟' : transfer ? 'حوّلت كام؟' : 'صرفت كام؟', unit: unitOf(asset),
+    'aria-label': within ? 'نقلت كام؟' : transfer ? 'حوّلت كام؟' : 'صرفت كام؟' }),
+  kind === 'transfer' ? h('div', { className: 'l-q' },
+    h('span', { className: 'l-q-label' }, 'لإيه؟'),
+    to
+      ? h('div', { className: 'l-entry-chosen' }, h('b', null, to.name), h('span', { className: 'q-meta' }, to.kind_label),
         h('button', { type: 'button', className: 'q-link', onClick: () => { setTo(null); setArrived('') } }, 'تغيير'))
-      : h(SearchBox, { catalog: others, onPick: (entry) => { setTo(entry); setError('') },
-        onCustom: () => setError('الأصل ده مش في القايمة: أضفه الأول من البحث فوق بالاسم، وبعدين حوّل له.') })) : null,
-    h('div', { className: 'l-fields' },
-      h('div', { className: 'q-stack' },
-        h('span', { className: 'q-label' }, `خرج كام (${unitOf(asset)})`),
-        h(NumberInput, { className: 'q-input num l-big-input', value: taken, 'aria-label': 'الكمية اللي خرجت', onChange: setTaken }),
-        asset.quantity > 0 ? h('button', { type: 'button', className: 'q-link', style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setTaken(String(asset.quantity)) }, 'الكل') : null),
-      asset.places && asset.places.length ? field('من مكان', h('select', { className: 'q-input', value: fromPlace, onChange: (e) => setFromPlace(e.target.value) },
-        h('option', { value: '' }, within ? 'اختار' : 'أي مكان'), asset.places.filter((p) => p.place).map((p) => h('option', { key: p.place, value: p.place }, p.place)))) : null,
-      transfer && dest ? field(`دخل كام (${unitOf(dest)})`, text(arrived, setArrived, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'الكمية اللي دخلت' })) : null,
-      transfer && dest ? field(within ? 'لمكان' : 'لمكان (اختياري)', text(toPlace, setToPlace, { maxLength: 40, list: 'l-places' })) : null,
-      h(DateField, { value: day, onChange: setDay, noDate: false }),
-      neitherPound ? field('كانت تساوي كام بالجنيه (اختياري)', text(value, setValue, { inputMode: 'decimal', className: 'q-input num', placeholder: 'ج.م' })) : null,
-      field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
-    h('label', { className: 'l-inline q-sec' },
-      h('input', { type: 'checkbox', checked: topUp, onChange: (e) => setTopUp(e.target.checked) }),
-      'لو الرصيد مش كفاية، سجّل الفرق كدخل (فلوس جت من بره)'),
-    h('div', { className: 'l-actions' },
-      h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل'),
-      h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
-      kind === 'transfer' && to ? h('span', { className: 'q-meta' }, rateText(asset, t, to, a)) : null,
-      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
+      : h(SearchBox, { catalog: others, placeholder: 'دولار، دهب، COMI، صندوق…', onPick: (entry) => { setTo(entry); fail('') },
+        onCustom: () => fail('مش لاقيه في القايمة؟ سجّله الأول من «+ سجّل» ← «اشتريت»، وبعدين حوّل له.') })) : null,
+  h('div', { className: 'l-entry-grid' },
+    kind === 'transfer' && to ? h(Question, { name: 'arrived', value: arrived, onChange: setArrived, label: 'وصلك كام؟', unit: unitOf(to),
+      'aria-label': 'وصلك كام؟', error: errOf('arrived') }) : null,
+    within ? h(PlaceField, { label: 'لفين؟', name: 'to_place', value: toPlace, onChange: setToPlace, error: errOf('to_place'),
+      places: places.map((p) => p.place).filter((p) => p !== fromPlace) }) : null,
+    kind === 'expense' ? h(Question, { numeric: false, name: 'note', value: note, onChange: setNote, label: 'على إيه؟ (لو حابب)', maxLength: 200,
+      placeholder: 'إيجار، مصاريف البيت، سحب كاش' }) : null,
+    h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf('date') })),
+  h(More, { label: 'تفاصيل أكتر' },
+    within ? null : fromPlaces,
+    kind === 'transfer' && to ? h(PlaceField, { label: 'لمكان', name: 'to_place', value: toPlace, onChange: setToPlace, places: [] }) : null,
+    within ? h(Question, { name: 'arrived', value: arrived, onChange: setArrived, label: 'وصل كام؟ (لو فيه مصاريف)', unit: unitOf(asset) }) : null,
+    neitherPound ? h(Question, { name: 'value', value, onChange: setValue, label: 'كانت تساوي كام بالجنيه؟', unit: 'ج.م' }) : null,
+    kind === 'expense' ? null : h(Question, { numeric: false, name: 'note', value: note, onChange: setNote, label: 'ملاحظة', maxLength: 200, wide: true })))
 }
 
 /** One movement in an asset's timeline: where the money came from or went, what it was worth, the

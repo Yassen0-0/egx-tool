@@ -10,7 +10,7 @@ var __monos = (() => {
   var __getProtoOf = Object.getPrototypeOf;
   var __hasOwnProp = Object.prototype.hasOwnProperty;
   var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
-    get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+    get: (a, b3) => (typeof require !== "undefined" ? require : a)[b3]
   }) : x)(function(x) {
     if (typeof require !== "undefined") return require.apply(this, arguments);
     throw Error('Dynamic require of "' + x + '" is not supported');
@@ -58,7 +58,7 @@ var __monos = (() => {
   var { useState, useEffect, useCallback, useLayoutEffect, useRef, useMemo } = import_react.default;
   var h = import_react.default.createElement;
   var PANEL_ID = "egx-portfolio";
-  var N = (text4, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text4);
+  var N = (text2, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text2);
   var frag = (...children) => h(import_react.default.Fragment, null, ...children);
   async function api(method, path, body) {
     const init = { method, headers: {} };
@@ -69,7 +69,11 @@ var __monos = (() => {
     }
     const res = await fetch(path, init);
     const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
-    if (!res.ok || data && data.error) throw new Error(data.error || `HTTP ${res.status}`);
+    if (!res.ok || data && data.error) {
+      const err = new Error(data.error || `HTTP ${res.status}`);
+      if (data && data.field) err.field = data.field;
+      throw err;
+    }
     return data;
   }
 
@@ -137,15 +141,15 @@ var __monos = (() => {
     return `${date.getUTCFullYear()}-${two(date.getUTCMonth() + 1)}-${two(date.getUTCDate())}`;
   }
   var NO_DATE = "من غير تاريخ";
-  function resolveDay(text4) {
-    const raw = String(text4 || "").trim();
+  function resolveDay(text2) {
+    const raw = String(text2 || "").trim();
     if (!raw) return todayCairo();
     if (raw === NO_DATE) return null;
     return parseDayInput(raw) || void 0;
   }
-  function groupTyped(text4) {
-    const n = parseNumberInput(text4);
-    return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: 8 }) : text4;
+  function groupTyped(text2) {
+    const n = parseNumberInput(text2);
+    return Number.isFinite(n) ? n.toLocaleString("en-US", { maximumFractionDigits: 8 }) : text2;
   }
   var DAY_WORDS = { النهارده: 0, النهاردة: 0, اليوم: 0, امبارح: -1, إمبارح: -1, أمس: -1, امس: -1 };
   function fmtDayMonth(iso) {
@@ -170,16 +174,16 @@ var __monos = (() => {
     const r = Math.round(v * 1e4);
     return r > 0 ? "q-up" : r < 0 ? "q-down" : "";
   }
-  function parseNumberInput(text4) {
-    if (text4 == null) return null;
-    const latin = String(text4).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
+  function parseNumberInput(text2) {
+    if (text2 == null) return null;
+    const latin = String(text2).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
     if (!latin) return null;
     const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(latin) ? latin.replace(/,/g, "") : latin.replace(",", ".");
     const value = Number(normalized);
     return Number.isFinite(value) ? value : NaN;
   }
-  function parseDayInput(text4) {
-    const raw = String(text4 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
+  function parseDayInput(text2) {
+    const raw = String(text2 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
     if (!raw) return null;
     if (Object.hasOwn(DAY_WORDS, raw)) return shiftDay(todayCairo(), DAY_WORDS[raw]);
     let y, m, d;
@@ -551,26 +555,30 @@ var __monos = (() => {
   }
 
   // plugins/shared/form.js
-  function DateField({ label = "التاريخ", value, onChange, name = "date", invalid = false, noDate = true }) {
+  function DateField({ label = "إمتى؟", value, onChange, name = "date", invalid = false, noDate = true, error }) {
     const set = (n) => onChange(fmtDate(shiftDay(todayCairo(), n)));
-    const chip = (text4, on, pressed) => h("button", { type: "button", className: "q-chip", "aria-pressed": pressed, onClick: on }, text4);
+    const chip = (text2, on, pressed) => h("button", { type: "button", className: "q-chip", "aria-pressed": pressed, onClick: on }, text2);
     const today = fmtDate(todayCairo());
+    const bad = invalid || Boolean(error);
     return h(
       "div",
-      { className: "q-stack q-date" },
+      { className: "l-q q-date", "data-invalid": bad ? "" : void 0 },
       h(
         "label",
-        { className: "q-stack" },
-        h("span", { className: "q-label" }, label),
-        h("input", {
-          className: "q-input",
-          name,
-          value,
-          placeholder: "النهارده",
-          inputMode: "numeric",
-          "aria-invalid": invalid || void 0,
-          onChange: (e) => onChange(e.target.value)
-        })
+        { className: "l-q-in" },
+        h("span", { className: "l-q-label" }, label),
+        h(
+          "span",
+          { className: "l-q-box" },
+          h("input", {
+            name,
+            value,
+            placeholder: "النهارده، أو اكتب 15/3/2025",
+            inputMode: "numeric",
+            "aria-invalid": bad || void 0,
+            onChange: (e) => onChange(e.target.value)
+          })
+        )
       ),
       h(
         "span",
@@ -578,7 +586,8 @@ var __monos = (() => {
         chip("النهارده", () => onChange(""), !value || value === today),
         chip("امبارح", () => set(-1), value === fmtDate(shiftDay(todayCairo(), -1))),
         noDate ? chip(NO_DATE, () => onChange(NO_DATE), value === NO_DATE) : null
-      )
+      ),
+      error ? h("span", { className: "l-q-err", role: "alert" }, error) : null
     );
   }
   function NumberInput({ value, onChange, className = "q-input num", ...rest }) {
@@ -597,6 +606,179 @@ var __monos = (() => {
   function focusField(form, name) {
     const el = form && name ? form.querySelector(`[name="${name}"]`) : null;
     if (el && typeof el.focus === "function") el.focus();
+  }
+  function Question({
+    label,
+    hint,
+    unit,
+    unitControl,
+    name,
+    value,
+    onChange,
+    error,
+    hero = false,
+    chips,
+    numeric = true,
+    wide = false,
+    children,
+    ...input
+  }) {
+    const box = children || (numeric ? h(NumberInput, { name, value, onChange, className: "num", "aria-invalid": error ? true : void 0, ...input }) : h("input", { name, value, onChange: (e) => onChange(e.target.value), "aria-invalid": error ? true : void 0, ...input }));
+    return h(
+      "div",
+      { className: `l-q${hero ? " l-q-hero" : ""}${wide ? " l-wide" : ""}`, "data-invalid": error ? "" : void 0 },
+      h(
+        "label",
+        { className: "l-q-in" },
+        h("span", { className: "l-q-label" }, label),
+        h("span", { className: "l-q-box" }, box, unitControl || (unit ? h("span", { className: "l-q-unit" }, unit) : null))
+      ),
+      chips && chips.length ? h("span", { className: "q-chips" }, chips) : null,
+      hint ? h("span", { className: "l-q-hint" }, hint) : null,
+      error ? h("span", { className: "l-q-err", role: "alert" }, error) : null
+    );
+  }
+  function Choice({ label, options, value, onChange, wide = false, error }) {
+    const move = (e, i) => {
+      const step = e.key === "ArrowLeft" ? 1 : e.key === "ArrowRight" ? -1 : 0;
+      if (!step) return;
+      e.preventDefault();
+      const next = options[(i + step + options.length) % options.length][0];
+      onChange(next);
+      const group = e.currentTarget.parentElement;
+      setTimeout(() => group && group.querySelector('[aria-checked="true"]')?.focus(), 0);
+    };
+    return h(
+      "div",
+      { className: `l-q${wide ? " l-wide" : ""}`, "data-invalid": error ? "" : void 0 },
+      h("span", { className: "l-q-label" }, label),
+      h(
+        "div",
+        { className: "q-seg l-q-seg", role: "radiogroup", "aria-label": label },
+        options.map(([v, words], i) => h("button", {
+          key: String(v),
+          type: "button",
+          role: "radio",
+          "aria-checked": value === v,
+          tabIndex: value === v || value == null && i === 0 ? 0 : -1,
+          onClick: () => onChange(v),
+          onKeyDown: (e) => move(e, i)
+        }, words))
+      ),
+      error ? h("span", { className: "l-q-err", role: "alert" }, error) : null
+    );
+  }
+  function More({ label = "تفاصيل أكتر", open, children }) {
+    return h(
+      "details",
+      { className: "l-entry-more", open: open || void 0 },
+      h("summary", null, label),
+      h("div", { className: "l-entry-grid" }, children)
+    );
+  }
+  function EntryCard({
+    className = "l-add",
+    ariaLabel,
+    icon,
+    title,
+    aside,
+    onSubmit,
+    onCancel,
+    busy,
+    alert,
+    warn,
+    summary,
+    submitLabel,
+    formRef,
+    children
+  }) {
+    return h(
+      "form",
+      {
+        ref: formRef,
+        className: `l-entry ${className}`,
+        onSubmit,
+        noValidate: true,
+        "aria-label": ariaLabel,
+        "aria-busy": busy || void 0,
+        onKeyDown: (e) => {
+          if (e.key === "Escape" && onCancel) {
+            e.stopPropagation();
+            onCancel();
+          }
+        }
+      },
+      title ? h("div", { className: "l-entry-head" }, icon || null, h("b", { className: "l-entry-title" }, title), aside || null) : null,
+      children,
+      summary || null,
+      warn ? h("div", { className: "l-entry-warn", role: "status" }, warn) : null,
+      alert ? h("div", { className: "l-entry-alert", role: "alert" }, alert) : null,
+      h(
+        "div",
+        { className: "l-entry-foot" },
+        h("button", { type: "submit", className: "q-btn q-btn-p q-btn-lg", disabled: busy }, busy ? "بيتسجّل…" : submitLabel),
+        onCancel ? h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء") : null,
+        h("span", { className: "l-entry-keys" }, "Enter للحفظ · Esc للقفل")
+      )
+    );
+  }
+  function Summary({ children, empty, pending: pending2 }) {
+    return h(
+      "p",
+      { className: "l-entry-summary", "aria-live": "polite", "data-empty": children ? void 0 : "", "data-pending": pending2 ? "" : void 0 },
+      children ? frag("هتسجّل: ", children) : empty
+    );
+  }
+  function usePreview(path, body, ready) {
+    const [state, setState] = useState({ data: null, error: "", field: null, pending: false });
+    const seq = useRef(0);
+    const key = ready ? JSON.stringify(body) : "";
+    useEffect(() => {
+      const mine = ++seq.current;
+      if (!key) {
+        setState({ data: null, error: "", field: null, pending: false });
+        return void 0;
+      }
+      setState((s) => ({ ...s, pending: true }));
+      const timer = setTimeout(() => {
+        api("POST", path, { ...JSON.parse(key), preview: true }).then((r) => {
+          if (seq.current === mine) setState({ data: r.preview, error: "", field: null, pending: false });
+        }).catch((e) => {
+          if (seq.current === mine) setState({ data: null, error: e.message, field: e.field || null, pending: false });
+        });
+      }, 350);
+      return () => {
+        clearTimeout(timer);
+        if (seq.current === mine) seq.current++;
+      };
+    }, [path, key]);
+    return state;
+  }
+  function PlaceField({ label = "فين؟", value, onChange, places, name = "place", placeholder = "البنك الأهلي، Thndr، كاش", hint, error }) {
+    const known = (places || []).slice(0, 5);
+    return h(
+      "div",
+      { className: "l-q", "data-invalid": error ? "" : void 0 },
+      h(
+        "label",
+        { className: "l-q-in" },
+        h("span", { className: "l-q-label" }, label),
+        h(
+          "span",
+          { className: "l-q-box" },
+          h("input", { name, value, maxLength: 40, list: "l-places", placeholder, onChange: (e) => onChange(e.target.value) })
+        )
+      ),
+      known.length ? h("span", { className: "q-chips" }, known.map((p) => h("button", {
+        key: p,
+        type: "button",
+        className: "q-chip",
+        "aria-pressed": value === p,
+        onClick: () => onChange(value === p ? "" : p)
+      }, p))) : null,
+      hint ? h("span", { className: "l-q-hint" }, hint) : null,
+      error ? h("span", { className: "l-q-err", role: "alert" }, error) : null
+    );
   }
 
   // plugins/shared/components.js
@@ -738,8 +920,8 @@ var __monos = (() => {
     if (svg) {
       return h("img", { className: "l-logo", alt: "", style, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
     }
-    const text4 = String(mark || "?");
-    return h("span", { className: `l-logo l-mark${text4.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text4);
+    const text2 = String(mark || "?");
+    return h("span", { className: `l-logo l-mark${text2.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text2);
   }
 
   // plugins/monos-portfolio/src/history.css
@@ -887,26 +1069,26 @@ var __monos = (() => {
 
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
-  function normalize(text4) {
-    return String(text4 == null ? "" : text4).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/[-_./\\()[\],،:؛;]+/g, " ").split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+  function normalize(text2) {
+    return String(text2 == null ? "" : text2).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/[-_./\\()[\],،:؛;]+/g, " ").split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
   }
   var FILLER = /* @__PURE__ */ new Set(["صندوق", "fund", "سهم", "شركه", "وثيقه", "وثايق"]);
   var AR_KEYS = "ضصثقفغعهخحجدشسيبلاتنمكطئءؤرىةوزظ";
   var EN_KEYS = "qwertyuiop[]asdfghjkl;'zxcvnm,./";
   var LAYOUT = new Map([...[...AR_KEYS].map((c, i) => [c, EN_KEYS[i]]), ...[...EN_KEYS].map((c, i) => [c, AR_KEYS[i]]), ["b", "لا"]]);
-  function osa(a, b) {
+  function osa(a, b3) {
     let prev2 = null;
-    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    let prev = Array.from({ length: b3.length + 1 }, (_, j) => j);
     for (let i = 1; i <= a.length; i++) {
       const cur = [i];
-      for (let j = 1; j <= b.length; j++) {
-        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] !== b[j - 1] ? 1 : 0));
-        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
+      for (let j = 1; j <= b3.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] !== b3[j - 1] ? 1 : 0));
+        if (i > 1 && j > 1 && a[i - 1] === b3[j - 2] && a[i - 2] === b3[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
       }
       prev2 = prev;
       prev = cur;
     }
-    return prev[b.length];
+    return prev[b3.length];
   }
   function typo(part, word) {
     if (word.startsWith(part)) return 0;
@@ -950,13 +1132,13 @@ var __monos = (() => {
     let hits = ranked(entries, query);
     if (!hits.length) hits = ranked(entries, [...String(query).toLowerCase()].map((c) => LAYOUT.get(c) ?? c).join(""));
     if (hits.some(([r]) => r <= 2)) hits = hits.filter(([r]) => r < 4);
-    hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b[2].kind] ?? 9) || a[1] - b[1]);
+    hits.sort((a, b3) => a[0] - b3[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b3[2].kind] ?? 9) || a[1] - b3[1]);
     return hits.slice(0, limit).map(([, , entry]) => entry);
   }
 
   // plugins/monos-portfolio/src/export.js
-  function download(filename, text4) {
-    const url = URL.createObjectURL(new Blob([text4], { type: "text/csv;charset=utf-8" }));
+  function download(filename, text2) {
+    const url = URL.createObjectURL(new Blob([text2], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
@@ -993,7 +1175,7 @@ var __monos = (() => {
     const [plan, setPlan] = useState(null);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const send = (text4, apply2) => api("POST", "/egx/api/import", { csv: text4, apply: apply2 });
+    const send = (text2, apply2) => api("POST", "/egx/api/import", { csv: text2, apply: apply2 });
     const pick = async (e) => {
       const chosen = e.target.files && e.target.files[0];
       e.target.value = "";
@@ -1002,9 +1184,9 @@ var __monos = (() => {
       setPlan(null);
       setBusy(true);
       try {
-        const text4 = await chosen.text();
-        setFile(text4);
-        setPlan(await send(text4, false));
+        const text2 = await chosen.text();
+        setFile(text2);
+        setPlan(await send(text2, false));
       } catch (err) {
         setError(err.message);
       } finally {
@@ -1076,9 +1258,9 @@ var __monos = (() => {
     items: [],
     next: 1,
     subscribers: /* @__PURE__ */ new Set(),
-    push(text4, action, ms = 5e3) {
+    push(text2, action, ms = 5e3) {
       const id = this.next++;
-      this.items = [...this.items.slice(-(MAX - 1)), { id, text: text4, action }];
+      this.items = [...this.items.slice(-(MAX - 1)), { id, text: text2, action }];
       this.notify();
       if (liveDom()) setTimeout(() => this.dismiss(id), ms);
       return id;
@@ -1136,7 +1318,7 @@ var __monos = (() => {
     globalThis.addEventListener?.("pagehide", () => store.flush());
     return store;
   });
-  function deleteWithUndo(key, text4, commit) {
+  function deleteWithUndo(key, text2, commit) {
     const ms = undoMs();
     const fail = (e) => toasts.push(`مش هينفع تتمسح: ${e.message}`, null, 8e3);
     if (!ms) return Promise.resolve().then(commit).catch(fail);
@@ -1158,7 +1340,7 @@ var __monos = (() => {
       clearTimeout(timer);
       run();
     });
-    toasts.push(text4, { label: "تراجع", run: done }, ms);
+    toasts.push(text2, { label: "تراجع", run: done }, ms);
     return Promise.resolve();
   }
   function usePendingKeys() {
@@ -1183,14 +1365,24 @@ var __monos = (() => {
     return frag(hidden ? N(MASK) : N(key === "EGP" ? money(quantity) : fmtQty(quantity)), " ", key === "EGP" ? "ج.م" : unit);
   }
   var unitOf = (entry) => entry.key === "EGP" ? "ج.م" : entry.unit;
-  function rateText(from, taken, to, arrived) {
-    if (!(taken > 0) || !(arrived > 0)) return null;
-    if (from.key === "EGP") return frag("سعرك ", N(fmtNumber(taken / arrived, 2)), ` ج.م للـ ${unitOf(to)}`);
-    if (to.key === "EGP") return frag("سعرك ", N(fmtNumber(arrived / taken, 2)), ` ج.م للـ ${unitOf(from)}`);
-    return null;
+  var b = (...children) => h("b", null, ...children);
+  var whenText = (day) => day === todayCairo() ? "النهارده" : frag("يوم ", N(fmtDate(day)));
+  function moveSummary(d, within) {
+    const from = b(amount(d.from.quantity, d.from.key, d.from.unit));
+    if (within) return frag("نقلت ", from, ` من ${d.from.place || "كل الأماكن"} لـ ${d.to.place}، `, whenText(d.date), ".");
+    if (d.kind === "expense") return frag("صرفت ", from, ` من ${d.from.name}${d.from.place ? ` (${d.from.place})` : ""}، `, whenText(d.date), ".");
+    const toUnit = d.to.key === "EGP" ? "ج.م" : d.to.unit;
+    return frag(
+      from,
+      ` من ${d.from.name} ← `,
+      b(amount(d.to.quantity, d.to.key, d.to.unit)),
+      ` ${d.to.key === "EGP" ? "جنيه" : d.to.name}`,
+      d.egp_per_unit ? frag(" (الـ", d.from.key === "EGP" ? toUnit : d.from.unit, " بـ ", b(N(fmtNumber(d.egp_per_unit, 2)), " ج.م"), ")") : null,
+      "، ",
+      whenText(d.date),
+      "."
+    );
   }
-  var field = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-  var text = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
   function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) {
     const [to, setTo] = useState(null);
     const [taken, setTaken] = useState("");
@@ -1201,109 +1393,173 @@ var __monos = (() => {
     const [topUp, setTopUp] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [bad, setBad] = useState(null);
     const [fromPlace, setFromPlace] = useState("");
     const [toPlace, setToPlace] = useState("");
     const within = kind === "place";
     const transfer = kind === "transfer" || within;
     const dest = within ? asset : to;
     const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== "deposit") : null;
-    const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = resolveDay(day), v = parseNumberInput(value);
+    const t = parseNumberInput(taken), d = resolveDay(day), v = parseNumberInput(value);
+    const a = within && !arrived.trim() ? t : parseNumberInput(arrived);
     const neitherPound = kind === "transfer" && to && asset.key !== "EGP" && to.key !== "EGP";
+    const places = (asset.places || []).filter((p) => p.place);
+    const fail = (message, field2 = null) => {
+      setError(message);
+      setBad(field2);
+    };
+    const body = {
+      kind: within ? "transfer" : kind,
+      from_asset: asset.key,
+      from_quantity: t,
+      date: d,
+      note: note.trim() || null,
+      top_up: topUp,
+      from_place: fromPlace || null
+    };
+    if (transfer && dest) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null });
+    const ready = t > 0 && d !== void 0 && (!transfer || dest && a > 0) && (!within || toPlace.trim());
+    const seen = usePreview("/egx/api/movements", body, ready);
+    const short = seen.data && seen.data.short || (/ناقص/.test(error) ? { text: error } : null);
     async function submit(e) {
       e.preventDefault();
-      setError("");
-      if (!(t > 0)) return setError("اكتب الكمية اللي خرجت.");
-      if (transfer && !dest) return setError("اختار الأصل اللي الفلوس راحت له.");
-      if (within && !toPlace.trim()) return setError("اكتب المكان اللي الفلوس راحت له.");
-      if (transfer && !(a > 0)) return setError("اكتب الكمية اللي دخلت.");
-      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
-      const body = {
-        kind: within ? "transfer" : kind,
-        from_asset: asset.key,
-        from_quantity: t,
-        date: d,
-        note: note.trim() || null,
-        top_up: topUp,
-        from_place: fromPlace || null
-      };
-      if (transfer) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null });
+      fail("");
+      if (!(t > 0)) return fail(kind === "expense" ? "اكتب صرفت كام." : within ? "اكتب نقلت كام." : "اكتب حوّلت كام.", "taken");
+      if (transfer && !dest) return fail("حوّلت لإيه؟ اختاره من البحث.");
+      if (within && !toPlace.trim()) return fail("نقلتها لفين؟ اكتب المكان.", "to_place");
+      if (transfer && !(a > 0)) return fail("اكتب وصلك كام.", "arrived");
+      if (d === void 0) return fail("التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", "date");
       setBusy(true);
       try {
         await api("POST", "/egx/api/movements", body);
         onDone();
       } catch (err) {
-        setError(err.message);
+        fail(err.message, err.field || null);
       } finally {
         setBusy(false);
       }
     }
-    const title = within ? `نقل ${asset.name} لمكان تاني` : transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`;
+    const errOf = (f) => bad === f ? error : null;
+    const all = asset.quantity > 0 ? [h(
+      "button",
+      { key: "all", type: "button", className: "q-chip", onClick: () => setTaken(String(asset.quantity)) },
+      "الكل (",
+      amount(asset.quantity, asset.key, asset.unit),
+      ")"
+    )] : null;
+    const title = within ? `نقلت ${asset.name} لمكان تاني` : transfer ? `حوّلت من ${asset.name}` : `صرفت من ${asset.name}`;
+    const fromPlaces = places.length ? h(Choice, {
+      label: within ? "من فين؟" : "من أنهي مكان؟",
+      value: fromPlace,
+      onChange: setFromPlace,
+      wide: true,
+      options: [...within ? [] : [["", "أي مكان"]], ...places.map((p) => [p.place, p.place])]
+    }) : null;
     return h(
-      "form",
+      EntryCard,
       {
         className: "l-add l-move",
+        ariaLabel: within ? "نقل" : transfer ? "تحويل" : "صرفت",
+        title,
         onSubmit: submit,
-        noValidate: true,
-        "aria-label": within ? "نقل" : transfer ? "تحويل" : "خروج",
-        onKeyDown: (e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onCancel();
-          }
-        }
-      },
-      h("b", null, title),
-      kind === "transfer" ? to ? h(
-        "div",
-        { className: "l-inline" },
-        h("span", null, "لـ ", h("b", null, to.name)),
-        h("button", { type: "button", className: "q-link", onClick: () => {
-          setTo(null);
-          setArrived("");
-        } }, "تغيير")
-      ) : h(SearchBox, {
-        catalog: others,
-        onPick: (entry) => {
-          setTo(entry);
-          setError("");
-        },
-        onCustom: () => setError("الأصل ده مش في القايمة: أضفه الأول من البحث فوق بالاسم، وبعدين حوّل له.")
-      }) : null,
-      h(
-        "div",
-        { className: "l-fields" },
-        h(
-          "div",
-          { className: "q-stack" },
-          h("span", { className: "q-label" }, `خرج كام (${unitOf(asset)})`),
-          h(NumberInput, { className: "q-input num l-big-input", value: taken, "aria-label": "الكمية اللي خرجت", onChange: setTaken }),
-          asset.quantity > 0 ? h("button", { type: "button", className: "q-link", style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setTaken(String(asset.quantity)) }, "الكل") : null
+        onCancel,
+        busy,
+        alert: error && !bad && !short ? error : !error && seen.error && !seen.field ? seen.error : null,
+        warn: short ? frag(
+          short.text.replace(/ لو الفرق ده.*$/, ""),
+          " ",
+          h(
+            "label",
+            null,
+            h("input", { type: "checkbox", checked: topUp, onChange: (e) => setTopUp(e.target.checked) }),
+            "الفرق ده فلوس جت من بره (سجّلها دخل)"
+          )
+        ) : null,
+        summary: h(
+          Summary,
+          {
+            pending: seen.pending,
+            empty: kind === "expense" ? "اكتب صرفت كام، وهتشوف هنا اللي هيتسجّل" : "اكتب المبالغ، وهتشوف هنا اللي هيتسجّل"
+          },
+          seen.data ? moveSummary(seen.data, within) : null
         ),
-        asset.places && asset.places.length ? field("من مكان", h(
-          "select",
-          { className: "q-input", value: fromPlace, onChange: (e) => setFromPlace(e.target.value) },
-          h("option", { value: "" }, within ? "اختار" : "أي مكان"),
-          asset.places.filter((p) => p.place).map((p) => h("option", { key: p.place, value: p.place }, p.place))
-        )) : null,
-        transfer && dest ? field(`دخل كام (${unitOf(dest)})`, text(arrived, setArrived, { inputMode: "decimal", className: "q-input num", "aria-label": "الكمية اللي دخلت" })) : null,
-        transfer && dest ? field(within ? "لمكان" : "لمكان (اختياري)", text(toPlace, setToPlace, { maxLength: 40, list: "l-places" })) : null,
-        h(DateField, { value: day, onChange: setDay, noDate: false }),
-        neitherPound ? field("كانت تساوي كام بالجنيه (اختياري)", text(value, setValue, { inputMode: "decimal", className: "q-input num", placeholder: "ج.م" })) : null,
-        field("ملاحظة (اختياري)", text(note, setNote, { maxLength: 200 }))
-      ),
-      h(
-        "label",
-        { className: "l-inline q-sec" },
-        h("input", { type: "checkbox", checked: topUp, onChange: (e) => setTopUp(e.target.checked) }),
-        "لو الرصيد مش كفاية، سجّل الفرق كدخل (فلوس جت من بره)"
-      ),
+        submitLabel: within ? "سجّل النقل" : transfer ? "سجّل التحويل" : "سجّل المصروف"
+      },
+      within ? fromPlaces : null,
+      h(Question, {
+        hero: true,
+        name: "taken",
+        value: taken,
+        onChange: setTaken,
+        autoFocus: true,
+        error: errOf("taken"),
+        chips: all,
+        label: within ? "نقلت كام؟" : transfer ? "حوّلت كام؟" : "صرفت كام؟",
+        unit: unitOf(asset),
+        "aria-label": within ? "نقلت كام؟" : transfer ? "حوّلت كام؟" : "صرفت كام؟"
+      }),
+      kind === "transfer" ? h(
+        "div",
+        { className: "l-q" },
+        h("span", { className: "l-q-label" }, "لإيه؟"),
+        to ? h(
+          "div",
+          { className: "l-entry-chosen" },
+          h("b", null, to.name),
+          h("span", { className: "q-meta" }, to.kind_label),
+          h("button", { type: "button", className: "q-link", onClick: () => {
+            setTo(null);
+            setArrived("");
+          } }, "تغيير")
+        ) : h(SearchBox, {
+          catalog: others,
+          placeholder: "دولار، دهب، COMI، صندوق…",
+          onPick: (entry) => {
+            setTo(entry);
+            fail("");
+          },
+          onCustom: () => fail("مش لاقيه في القايمة؟ سجّله الأول من «+ سجّل» ← «اشتريت»، وبعدين حوّل له.")
+        })
+      ) : null,
       h(
         "div",
-        { className: "l-actions" },
-        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل"),
-        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
-        kind === "transfer" && to ? h("span", { className: "q-meta" }, rateText(asset, t, to, a)) : null,
-        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+        { className: "l-entry-grid" },
+        kind === "transfer" && to ? h(Question, {
+          name: "arrived",
+          value: arrived,
+          onChange: setArrived,
+          label: "وصلك كام؟",
+          unit: unitOf(to),
+          "aria-label": "وصلك كام؟",
+          error: errOf("arrived")
+        }) : null,
+        within ? h(PlaceField, {
+          label: "لفين؟",
+          name: "to_place",
+          value: toPlace,
+          onChange: setToPlace,
+          error: errOf("to_place"),
+          places: places.map((p) => p.place).filter((p) => p !== fromPlace)
+        }) : null,
+        kind === "expense" ? h(Question, {
+          numeric: false,
+          name: "note",
+          value: note,
+          onChange: setNote,
+          label: "على إيه؟ (لو حابب)",
+          maxLength: 200,
+          placeholder: "إيجار، مصاريف البيت، سحب كاش"
+        }) : null,
+        h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf("date") })
+      ),
+      h(
+        More,
+        { label: "تفاصيل أكتر" },
+        within ? null : fromPlaces,
+        kind === "transfer" && to ? h(PlaceField, { label: "لمكان", name: "to_place", value: toPlace, onChange: setToPlace, places: [] }) : null,
+        within ? h(Question, { name: "arrived", value: arrived, onChange: setArrived, label: "وصل كام؟ (لو فيه مصاريف)", unit: unitOf(asset) }) : null,
+        neitherPound ? h(Question, { name: "value", value, onChange: setValue, label: "كانت تساوي كام بالجنيه؟", unit: "ج.م" }) : null,
+        kind === "expense" ? null : h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
       )
     );
   }
@@ -1404,51 +1660,108 @@ var __monos = (() => {
 
   // plugins/monos-portfolio/src/debts.js
   var DEBT_KIND = "debt";
-  var field2 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-  var text2 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+  var field = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+  var text = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
   function PlaceList({ id, places }) {
     return h("datalist", { id }, (places || []).map((p) => h("option", { key: p, value: p })));
   }
-  function useDebtForm() {
+  function useDebtForm({ places } = {}) {
     const [name, setName] = useState("");
     const [principal, setPrincipal] = useState("");
     const [start, setStart] = useState("");
+    const [plan, setPlan] = useState("monthly");
     const [installment, setInstallment] = useState("");
     const [dueDay, setDueDay] = useState("");
     const [received, setReceived] = useState(false);
     const [place, setPlace] = useState("");
     const [note, setNote] = useState("");
-    const fields = h(
-      "div",
-      { className: "l-fields" },
-      field2("اسمه (لمين أو إيه هو)", text2(name, setName, { maxLength: 80 })),
-      field2("المبلغ اللي عليك (ج.م)", text2(principal, setPrincipal, { inputMode: "decimal", className: "q-input num" })),
-      field2("من تاريخ (اختياري)", text2(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field2("القسط الشهري (اختياري)", text2(installment, setInstallment, { inputMode: "decimal", className: "q-input num" })),
-      field2("يوم القسط في الشهر (اختياري)", text2(dueDay, setDueDay, { inputMode: "numeric", className: "q-input num", placeholder: "1 لـ 28" })),
-      field2("ملاحظة (اختياري)", text2(note, setNote, { maxLength: 200 })),
+    const dayChips = ["1", "5", "10", "15"].map((d) => h("button", {
+      key: d,
+      type: "button",
+      className: "q-chip",
+      "aria-pressed": dueDay === d,
+      onClick: () => setDueDay(d)
+    }, d));
+    const fields = (errOf = () => null) => frag(
+      h(Question, {
+        hero: true,
+        name: "principal",
+        value: principal,
+        onChange: setPrincipal,
+        label: "عليك كام؟",
+        unit: "ج.م",
+        autoFocus: true,
+        error: errOf("principal")
+      }),
       h(
-        "label",
-        { className: "l-inline q-sec" },
-        h("input", { type: "checkbox", checked: received, onChange: (e) => setReceived(e.target.checked) }),
-        "الفلوس دي دخلت عندي بالجنيه (سجّلها دخل)"
+        "div",
+        { className: "l-entry-grid" },
+        h(Question, {
+          numeric: false,
+          name: "name",
+          value: name,
+          onChange: setName,
+          label: "الدين ده لمين؟",
+          maxLength: 80,
+          placeholder: "قرض العربية، جمعية، أحمد",
+          error: errOf("name"),
+          wide: true
+        }),
+        h(Choice, {
+          label: "بتسدّده إزاي؟",
+          value: plan,
+          onChange: setPlan,
+          wide: true,
+          options: [["monthly", "أقساط كل شهر"], ["once", "مرة واحدة"]]
+        }),
+        plan === "monthly" ? h(Question, {
+          name: "installment",
+          value: installment,
+          onChange: setInstallment,
+          label: "القسط كام؟",
+          unit: "ج.م",
+          error: errOf("installment")
+        }) : null,
+        plan === "monthly" ? h(Question, {
+          name: "due",
+          value: dueDay,
+          onChange: setDueDay,
+          label: "بيتدفع يوم كام في الشهر؟",
+          inputMode: "numeric",
+          placeholder: "1 لـ 28",
+          chips: dayChips,
+          error: errOf("due")
+        }) : null,
+        h(DateField, { label: "من إمتى؟", name: "start", value: start, onChange: setStart, noDate: false, error: errOf("start") }),
+        h(Choice, {
+          label: "استلمت فلوس الدين ده؟",
+          value: received,
+          onChange: setReceived,
+          wide: true,
+          options: [[true, "أيوه، دخلت عندي"], [false, "لأ"]]
+        }),
+        received ? h(PlaceField, { label: "دخلت فين؟", value: place, onChange: setPlace, places }) : null
       ),
-      received ? field2("في مكان (اختياري)", text2(place, setPlace, { maxLength: 40, list: "l-places" })) : null
+      h(
+        More,
+        { label: "تفاصيل أكتر · ملاحظة" },
+        h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
+      )
     );
     function build() {
-      const p = parseNumberInput(principal), i = parseNumberInput(installment), d = parseDayInput(start);
-      const day = dueDay.trim() ? Number(parseNumberInput(dueDay)) : null;
-      if (!name.trim()) return { error: "اكتب اسم الدين." };
-      if (!(p > 0)) return { error: "اكتب المبلغ اللي عليك." };
-      if (d === void 0) return { error: "اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي." };
-      if (installment.trim() && !(i > 0)) return { error: "القسط لازم يكون أكبر من صفر." };
-      if (day !== null && !(Number.isInteger(day) && day >= 1 && day <= 28)) return { error: "يوم القسط من 1 لـ 28." };
+      const p = parseNumberInput(principal), i = parseNumberInput(installment), d = resolveDay(start);
+      const day = plan === "monthly" && dueDay.trim() ? Number(parseNumberInput(dueDay)) : null;
+      if (!(p > 0)) return { error: "اكتب عليك كام.", field: "principal" };
+      if (!name.trim()) return { error: "اكتب الدين ده لمين.", field: "name" };
+      if (plan === "monthly" && installment.trim() && !(i > 0)) return { error: "القسط لازم يكون أكبر من صفر.", field: "installment" };
+      if (day !== null && !(Number.isInteger(day) && day >= 1 && day <= 28)) return { error: "اختار يوم من 1 لـ 28.", field: "due" };
+      if (d === void 0) return { error: "التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", field: "start" };
       return {
         body: {
           name: name.trim(),
           principal: p,
           start_date: d,
-          installment_egp: i > 0 ? i : null,
+          installment_egp: plan === "monthly" && i > 0 ? i : null,
           due_day: day,
           note: note.trim() || null,
           received_into_egp: received,
@@ -1463,19 +1776,26 @@ var __monos = (() => {
     const [from, setFrom] = useState(payable.find((a) => a.key === "EGP") ? "EGP" : payable[0] && payable[0].key || "");
     const [taken, setTaken] = useState(debt.installment_egp ? String(debt.installment_egp) : "");
     const [down, setDown] = useState("");
+    const [fromPlace, setFromPlace] = useState("");
     const [day, setDay] = useState("");
     const [note, setNote] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const [bad, setBad] = useState(null);
     const source = payable.find((a) => a.key === from);
+    const fail = (message, field2 = null) => {
+      setError(message);
+      setBad(field2);
+    };
+    const places = (source && source.places || []).map((p) => p.place).filter(Boolean);
     async function submit(e) {
       e.preventDefault();
-      setError("");
+      fail("");
       const t = parseNumberInput(taken), dn = parseNumberInput(down), d = resolveDay(day);
-      if (!source) return setError("مفيش أصل تسدّد منه.");
-      if (!(t > 0)) return setError("اكتب المبلغ اللي دفعته.");
-      if (from !== "EGP" && !(dn > 0)) return setError("اكتب الدين قل قد إيه بالجنيه.");
-      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
+      if (!source) return fail("مفيش حاجة تسدّد منها.");
+      if (!(t > 0)) return fail("اكتب دفعت كام.", "taken");
+      if (from !== "EGP" && !(dn > 0)) return fail("الدين هيقل كام جنيه؟ اكتبه.", "arrived");
+      if (d === void 0) return fail("التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", "date");
       setBusy(true);
       try {
         await api("POST", "/egx/api/movements", {
@@ -1485,49 +1805,75 @@ var __monos = (() => {
           to_asset: debt.key,
           to_quantity: dn > 0 ? dn : null,
           date: d,
-          note: note.trim() || null
+          note: note.trim() || null,
+          from_place: fromPlace || null
         });
         onDone();
       } catch (err) {
-        setError(err.message);
+        fail(err.message, err.field || null);
       } finally {
         setBusy(false);
       }
     }
+    const errOf = (f) => bad === f ? error : null;
+    const unit = source && source.key !== "EGP" ? source.unit : "ج.م";
     return h(
-      "form",
+      EntryCard,
       {
         className: "l-add l-move",
+        ariaLabel: "سداد",
+        title: frag(`سداد «${debt.name}»`),
         onSubmit: submit,
-        noValidate: true,
-        "aria-label": "سداد",
-        onKeyDown: (e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onCancel();
-          }
-        }
+        onCancel,
+        busy,
+        aside: debt.remaining_egp != null ? h("span", { className: "q-meta l-entry-aside" }, "باقي ", N(money(debt.remaining_egp)), " ج.م") : null,
+        alert: error && !bad ? error : null,
+        submitLabel: "سجّل السداد"
       },
-      h("b", null, `سداد «${debt.name}»`),
+      h(Question, {
+        hero: true,
+        name: "taken",
+        value: taken,
+        onChange: setTaken,
+        label: "دفعت كام؟",
+        unit,
+        "aria-label": "المبلغ اللي دفعته",
+        error: errOf("taken"),
+        chips: debt.installment_egp ? [h(
+          "button",
+          { key: "i", type: "button", className: "q-chip", onClick: () => setTaken(String(debt.installment_egp)) },
+          "القسط ",
+          N(money(debt.installment_egp))
+        )] : null
+      }),
       h(
         "div",
-        { className: "l-fields" },
-        field2("من", h(
-          "select",
-          { className: "q-input", value: from, onChange: (e) => setFrom(e.target.value) },
-          payable.map((a) => h("option", { key: a.key, value: a.key }, a.name))
-        )),
-        field2(`دفعت كام (${source && source.key !== "EGP" ? source.unit : "ج.م"})`, text2(taken, setTaken, { inputMode: "decimal", className: "q-input num", "aria-label": "المبلغ اللي دفعته" })),
-        field2(from === "EGP" ? "الدين قل كام (اختياري: نفس المبلغ)" : "الدين قل كام (ج.م)", text2(down, setDown, { inputMode: "decimal", className: "q-input num" })),
-        h(DateField, { value: day, onChange: setDay, noDate: false }),
-        field2("ملاحظة (اختياري)", text2(note, setNote, { maxLength: 200 }))
+        { className: "l-entry-grid" },
+        h(Choice, {
+          label: "دفعت منين؟",
+          value: from,
+          onChange: (k) => {
+            setFrom(k);
+            setFromPlace("");
+          },
+          wide: true,
+          options: payable.map((a) => [a.key, a.name])
+        }),
+        places.length > 1 ? h(Choice, {
+          label: "من أنهي مكان؟",
+          value: fromPlace,
+          onChange: setFromPlace,
+          wide: true,
+          options: [["", "أي مكان"], ...places.map((p) => [p, p])]
+        }) : null,
+        from !== "EGP" ? h(Question, { name: "arrived", value: down, onChange: setDown, label: "الدين هيقل كام جنيه؟", unit: "ج.م", error: errOf("arrived") }) : null,
+        h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf("date") })
       ),
       h(
-        "div",
-        { className: "l-actions" },
-        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل السداد"),
-        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
-        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+        More,
+        { label: from === "EGP" ? "تفاصيل أكتر · الدين قل كام، ملاحظة" : "تفاصيل أكتر · ملاحظة" },
+        from === "EGP" ? h(Question, { name: "arrived", value: down, onChange: setDown, label: "الدين قل كام؟ (لو غير اللي دفعته)", unit: "ج.م" }) : null,
+        h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
       )
     );
   }
@@ -1552,10 +1898,10 @@ var __monos = (() => {
     return h(
       "div",
       { className: "l-lot" },
-      field2("الاسم", text2(name, setName, { maxLength: 80, style: { width: 160 } })),
-      field2("المبلغ", text2(principal, setPrincipal, { inputMode: "decimal", className: "q-input num", style: { width: 110 } })),
-      field2("القسط", text2(installment, setInstallment, { inputMode: "decimal", className: "q-input num", style: { width: 100 } })),
-      field2("يومه", text2(dueDay, setDueDay, { inputMode: "numeric", className: "q-input num", style: { width: 60 } })),
+      field("الاسم", text(name, setName, { maxLength: 80, style: { width: 160 } })),
+      field("المبلغ", text(principal, setPrincipal, { inputMode: "decimal", className: "q-input num", style: { width: 110 } })),
+      field("القسط", text(installment, setInstallment, { inputMode: "decimal", className: "q-input num", style: { width: 100 } })),
+      field("يومه", text(dueDay, setDueDay, { inputMode: "numeric", className: "q-input num", style: { width: 60 } })),
       h(
         "span",
         { className: "l-lot-actions" },
@@ -1680,55 +2026,77 @@ var __monos = (() => {
   var DEPOSIT_KIND = "deposit";
   var PAYOUT_CHOICES = [["monthly", "شهري"], ["quarterly", "ربع سنوي"], ["annual", "سنوي"], ["maturity", "في الآخر"]];
   var ratePct = (rate) => `${Number((rate * 100).toFixed(2))}%`;
-  function useDepositForm() {
+  var PAYOUT_WORDS = [["monthly", "كل شهر"], ["quarterly", "كل 3 شهور"], ["annual", "كل سنة"], ["maturity", "في الآخر"]];
+  var TERMS = [[1, "سنة"], [3, "3 سنين"], [5, "5 سنين"], ["other", "تاريخ تاني"]];
+  function useDepositForm({ places } = {}) {
     const [bank, setBank] = useState("");
     const [amount2, setAmount] = useState("");
     const [rate, setRate] = useState("");
     const [start, setStart] = useState("");
+    const [term, setTerm] = useState(3);
     const [maturity, setMaturity] = useState("");
     const [payout, setPayout] = useState("monthly");
     const [note, setNote] = useState("");
     const [settle, setSettle] = useState(true);
     const [fromEgp, setFromEgp] = useState(false);
-    const field4 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text4 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
-    const fields = h(
-      "div",
-      { className: "l-fields" },
-      field4("البنك", text4(bank, setBank, { maxLength: 60 })),
-      field4("المبلغ (ج.م)", text4(amount2, setAmount, { inputMode: "decimal", className: "q-input num" })),
-      field4("العائد السنوي %", text4(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
-      field4("تاريخ البداية", text4(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field4("تاريخ الاستحقاق", text4(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field4("صرف العائد", h(
-        "select",
-        { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
-        PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
-      )),
-      field4("ملاحظة (اختياري)", text4(note, setNote, { maxLength: 200 })),
+    const fields = (errOf = () => null) => frag(
+      h(Question, {
+        hero: true,
+        name: "principal",
+        value: amount2,
+        onChange: setAmount,
+        label: "حطيت كام في الشهادة؟",
+        unit: "ج.م",
+        autoFocus: true,
+        error: errOf("principal")
+      }),
       h(
-        "label",
-        { className: "l-inline q-sec" },
-        h("input", { type: "checkbox", checked: settle, onChange: (e) => setSettle(e.target.checked) }),
-        "العائد والأصل في الاستحقاق يدخلوا الجنيه اللي في السجل"
+        "div",
+        { className: "l-entry-grid" },
+        h(Question, { name: "rate", value: rate, onChange: setRate, label: "العائد كام في السنة؟", unit: "%", placeholder: "27", error: errOf("rate") }),
+        h(PlaceField, { label: "البنك", name: "bank", value: bank, onChange: setBank, places, placeholder: "البنك الأهلي، بنك مصر" }),
+        h(DateField, { label: "اتفتحت إمتى؟", name: "start", value: start, onChange: setStart, noDate: false, error: errOf("start") }),
+        h(Choice, { label: "مدتها", value: term, onChange: setTerm, options: TERMS, wide: true }),
+        term === "other" ? h(Question, {
+          numeric: false,
+          name: "maturity",
+          value: maturity,
+          onChange: setMaturity,
+          label: "بتخلص إمتى؟",
+          placeholder: "يوم/شهر/سنة",
+          inputMode: "numeric",
+          error: errOf("maturity")
+        }) : null,
+        h(Choice, { label: "العائد بينزل", value: payout, onChange: setPayout, options: PAYOUT_WORDS, wide: true })
       ),
       h(
-        "label",
-        { className: "l-inline q-sec" },
-        h("input", { type: "checkbox", checked: fromEgp, onChange: (e) => setFromEgp(e.target.checked) }),
-        "اشتريتها بجنيه من اللي في السجل"
+        More,
+        { label: "تفاصيل أكتر · منين اتدفعت، العائد بينزل فين، ملاحظة" },
+        h(
+          "label",
+          { className: "l-inline l-wide" },
+          h("input", { type: "checkbox", checked: fromEgp, onChange: (e) => setFromEgp(e.target.checked) }),
+          "دفعت تمنها من الجنيه اللي في السجل"
+        ),
+        h(
+          "label",
+          { className: "l-inline l-wide" },
+          h("input", { type: "checkbox", checked: settle, onChange: (e) => setSettle(e.target.checked) }),
+          "العائد والمبلغ في الآخر ينزلوا على الجنيه اللي في السجل لوحدهم"
+        ),
+        h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
       )
     );
     function build() {
       const principal = parseNumberInput(amount2);
       const percent = parseNumberInput(rate);
-      const from = parseDayInput(start);
-      const to = parseDayInput(maturity);
-      if (!(principal > 0)) return { error: "اكتب مبلغ الشهادة." };
-      if (!(percent > 0) || percent > 100) return { error: "اكتب العائد السنوي بالنسبة المئوية، زي 27." };
-      if (!from) return { error: "اكتب تاريخ البداية بصيغة يوم/شهر/سنة." };
-      if (!to) return { error: "اكتب تاريخ الاستحقاق بصيغة يوم/شهر/سنة." };
-      if (to <= from) return { error: "تاريخ الاستحقاق لازم يكون بعد تاريخ البداية." };
+      const from = resolveDay(start);
+      const to = term === "other" ? parseDayInput(maturity) : null;
+      if (!(principal > 0)) return { error: "اكتب مبلغ الشهادة.", field: "principal" };
+      if (!(percent > 0) || percent > 100) return { error: "اكتب العائد في السنة، زي 27.", field: "rate" };
+      if (!from) return { error: "التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", field: "start" };
+      if (term === "other" && !to) return { error: "اكتب بتخلص إمتى: يوم/شهر/سنة.", field: "maturity" };
+      if (to && to <= from) return { error: "تاريخ الخلوص لازم يكون بعد تاريخ الفتح.", field: "maturity" };
       return {
         body: {
           amount: principal,
@@ -1739,6 +2107,7 @@ var __monos = (() => {
             rate: Number((percent / 100).toFixed(6)),
             start_date: from,
             maturity_date: to,
+            term_years: term === "other" ? null : term,
             payout,
             bank: bank.trim() || null,
             settle_to_egp: settle,
@@ -1754,24 +2123,24 @@ var __monos = (() => {
     const [rate, setRate] = useState(terms ? String(Number((terms.rate * 100).toFixed(4))) : "");
     const [maturity, setMaturity] = useState(terms ? fmtDate(terms.maturity_date) : "");
     const [payout, setPayout] = useState(terms?.payout || "monthly");
-    const field4 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text4 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const field2 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text2 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const fields = frag(
-      field4("العائد السنوي %", text4(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
-      field4("تاريخ الاستحقاق", text4(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
-      field4("صرف العائد", h(
+      field2("العائد السنوي %", text2(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
+      field2("تاريخ الاستحقاق", text2(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
+      field2("صرف العائد", h(
         "select",
         { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
         PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
       )),
-      field4("البنك", text4(bank, setBank, { maxLength: 60, style: { width: 120 } }))
+      field2("البنك", text2(bank, setBank, { maxLength: 60, style: { width: 120 } }))
     );
     function build(start) {
       const percent = parseNumberInput(rate);
       const to = parseDayInput(maturity);
       if (!(percent > 0) || percent > 100) return { error: "اكتب العائد السنوي بالنسبة المئوية، زي 27." };
       if (!to) return { error: "اكتب تاريخ الاستحقاق بصيغة يوم/شهر/سنة." };
-      if (to <= (start || terms?.start_date || "")) return { error: "تاريخ الاستحقاق لازم يكون بعد تاريخ البداية." };
+      if (to <= (start || terms?.start_date || "")) return { error: "تاريخ الخلوص لازم يكون بعد تاريخ الفتح." };
       return { deposit: { rate: Number((percent / 100).toFixed(6)), maturity_date: to, payout, bank: bank.trim() || null } };
     }
     return { fields, build };
@@ -1814,8 +2183,6 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/events.js
-  var field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-  var text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
   function PaidItem({ event, onOpen }) {
     const hidden = usePrivacy();
     return h(
@@ -1867,58 +2234,84 @@ var __monos = (() => {
       )
     );
   }
-  function StockEventForm({ asset, kind, onDone, onCancel }) {
+  function StockEventForm({ asset, kind, places, onDone, onCancel }) {
     const [value, setValue] = useState("");
     const [day, setDay] = useState("");
     const [note, setNote] = useState("");
+    const [place, setPlace] = useState("");
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const label = { dividend: "المبلغ اللي دخلك (ج.م)", bonus: `عدد الأسهم المجانية (${asset.unit})`, split: "كل سهم بقى كام سهم" }[kind];
+    const [bad, setBad] = useState(null);
+    const fail = (message, field2 = null) => {
+      setError(message);
+      setBad(field2);
+    };
+    const words = {
+      dividend: { q: "قبضت كام؟", unit: "ج.م", empty: "اكتب قبضت كام.", title: `قبضت توزيعات ${asset.name}`, button: "سجّل التوزيعات" },
+      bonus: { q: "جالك كام سهم مجاني؟", unit: asset.unit, empty: "اكتب جالك كام سهم.", title: `أسهم مجانية من ${asset.name}`, button: "سجّل الأسهم المجانية" },
+      split: { q: "كل سهم بقى كام سهم؟", unit: "سهم", empty: "اكتب كل سهم بقى كام، زي 2.", title: `تقسيم ${asset.name}`, button: "سجّل التقسيم" }
+    }[kind];
+    const v = parseNumberInput(value), d = resolveDay(day);
     async function submit(e) {
       e.preventDefault();
-      setError("");
-      const v = parseNumberInput(value), d = resolveDay(day);
-      if (!(v > 0)) return setError("اكتب الرقم.");
-      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
+      fail("");
+      if (!(v > 0)) return fail(words.empty, "value");
+      if (d === void 0) return fail("التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", "date");
       setBusy(true);
       try {
-        if (kind === "dividend") await api("POST", "/egx/api/dividends", { asset: asset.key, amount_egp: v, date: d, note: note.trim() || null });
+        if (kind === "dividend") await api("POST", "/egx/api/dividends", { asset: asset.key, amount_egp: v, date: d, note: note.trim() || null, place: place.trim() || null });
         else await api("POST", "/egx/api/actions", { asset: asset.key, kind, date: d, note: note.trim() || null, [kind === "bonus" ? "quantity" : "ratio"]: v });
         onDone();
       } catch (err) {
-        setError(err.message);
+        fail(err.message, err.field || null);
       } finally {
         setBusy(false);
       }
     }
+    const errOf = (f) => bad === f ? error : null;
+    const chips = kind === "split" ? ["2", "3", "5"].map((n) => h("button", {
+      key: n,
+      type: "button",
+      className: "q-chip",
+      "aria-pressed": value === n,
+      onClick: () => setValue(n)
+    }, n)) : null;
+    const say = v > 0 ? kind === "dividend" ? frag(h("b", null, N(money(v)), " ج.م"), ` توزيعات من ${asset.name}`, place.trim() ? `، دخلت ${place.trim()}` : "، دخلت الجنيه", ".") : kind === "bonus" ? frag(h("b", null, N(fmtQty(v)), " ", asset.unit), ` مجانية من ${asset.name}، بنفس التكلفة.`) : frag(`كل سهم من ${asset.name} بقى `, h("b", null, N(fmtQty(v))), " سهم، بنفس التكلفة.") : null;
     return h(
-      "form",
+      EntryCard,
       {
         className: "l-add l-move",
+        ariaLabel: kind === "dividend" ? "توزيعات" : "أسهم مجانية أو تقسيم",
+        title: words.title,
         onSubmit: submit,
-        noValidate: true,
-        "aria-label": kind === "dividend" ? "توزيعات" : "أسهم مجانية أو تقسيم",
-        onKeyDown: (e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onCancel();
-          }
-        }
+        onCancel,
+        busy,
+        alert: error && !bad ? error : null,
+        submitLabel: words.button,
+        summary: h(Summary, { empty: "اكتب الرقم، وهتشوف هنا اللي هيتسجّل" }, say)
       },
-      h("b", null, kind === "dividend" ? `توزيعات ${asset.name}` : kind === "bonus" ? `أسهم مجانية من ${asset.name}` : `تقسيم ${asset.name}`),
+      h(Question, {
+        hero: true,
+        name: "value",
+        value,
+        onChange: setValue,
+        label: words.q,
+        unit: words.unit,
+        "aria-label": words.q,
+        autoFocus: true,
+        chips,
+        error: errOf("value")
+      }),
       h(
         "div",
-        { className: "l-fields" },
-        field3(label, text3(value, setValue, { inputMode: "decimal", className: "q-input num", "aria-label": label })),
-        h(DateField, { value: day, onChange: setDay, noDate: false }),
-        field3("ملاحظة (اختياري)", text3(note, setNote, { maxLength: 200 }))
+        { className: "l-entry-grid" },
+        kind === "dividend" ? h(PlaceField, { label: "نزلت فين؟", value: place, onChange: setPlace, places }) : null,
+        h(DateField, { value: day, onChange: setDay, noDate: false, error: errOf("date") })
       ),
       h(
-        "div",
-        { className: "l-actions" },
-        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل"),
-        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
-        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+        More,
+        { label: "تفاصيل أكتر · ملاحظة" },
+        h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
       )
     );
   }
@@ -1958,13 +2351,13 @@ var __monos = (() => {
 
   // plugins/monos-portfolio/src/composer.js
   var TYPES = [
-    ["buy", "شرا"],
-    ["transfer", "تحويل"],
-    ["expense", "خروج"],
-    ["dividend", "توزيعات"],
-    ["debt", "دين"],
-    ["repay", "سداد"],
-    ["deposit", "شهادة"]
+    ["buy", "اشتريت"],
+    ["expense", "صرفت"],
+    ["transfer", "حوّلت"],
+    ["dividend", "قبضت توزيعات"],
+    ["repay", "دفعت قسط"],
+    ["debt", "عليّ دين"],
+    ["deposit", "فتحت شهادة"]
   ];
   function offered(assets, debts) {
     const movable = assets.filter((a) => a.quantity > 0 && a.kind !== DEPOSIT_KIND);
@@ -1972,16 +2365,7 @@ var __monos = (() => {
     const open = (debts || []).filter((d) => !d.settled);
     return TYPES.filter(([t]) => t !== "transfer" && t !== "expense" || movable.length).filter(([t]) => t !== "dividend" || stocks.length).filter(([t]) => t !== "repay" || open.length);
   }
-  var pickField = (label, value, onChange, options) => h(
-    "label",
-    { className: "q-stack l-composer-pick" },
-    h("span", { className: "q-label" }, label),
-    h(
-      "select",
-      { className: "q-input", value, onChange: (e) => onChange(e.target.value) },
-      options.map(([v, text4]) => h("option", { key: v, value: v }, text4))
-    )
-  );
+  var pickField = (label, value, onChange, options) => h(Choice, { label, value, onChange, options });
   function Composer({ ledger, catalog, places, initial = "buy", AddLine: AddLine2, SearchBox, onDone, onCancel }) {
     const assets = ledger.groups.flatMap((g) => g.assets);
     const types = offered(assets, ledger.debts);
@@ -1997,7 +2381,7 @@ var __monos = (() => {
       setType(t);
       setPicked(null);
     };
-    const done = (key, text4) => onDone(key, text4);
+    const done = (key, text2) => onDone(key, text2);
     let body;
     if (type === "buy") {
       body = picked ? h(AddLine2, {
@@ -2010,8 +2394,8 @@ var __monos = (() => {
       }) : h(
         "div",
         { className: "q-stack" },
-        h(SearchBox, { catalog, autoFocus: true, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        h("p", { className: "l-hint" }, "اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق باسمه أو كوده (AZG، سبائك، بلتون ذهب). ومش لاقيه؟ ضيفه بالاسم.")
+        h("span", { className: "l-q-label" }, "اشتريت إيه؟"),
+        h(SearchBox, { catalog, autoFocus: true, placeholder: "دولار، دهب 21، COMI، SPY، أو اسم صندوق (سبائك، AZG)", onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) })
       );
     } else if (type === "debt" || type === "deposit") {
       body = h(AddLine2, {
@@ -2029,14 +2413,14 @@ var __monos = (() => {
       body = h(
         "div",
         { className: "q-stack" },
-        pickField("من", asset ? asset.key : "", setSource, movable.map((a) => [a.key, a.name])),
+        pickField("من فين؟", asset ? asset.key : "", setSource, movable.map((a) => [a.key, frag(a.name, " ", h("small", null, amount(a.quantity, a.key, a.unit)))])),
         asset ? h(MoveForm, {
           key: `${type}:${asset.key}`,
           asset,
           kind: type,
           catalog,
           SearchBox,
-          onDone: () => done(asset.key, type === "transfer" ? "اتسجّل التحويل" : "اتسجّل الخروج"),
+          onDone: () => done(asset.key, type === "transfer" ? "اتسجّل التحويل" : "اتسجّل المصروف"),
           onCancel
         }) : null
       );
@@ -2045,15 +2429,15 @@ var __monos = (() => {
       body = h(
         "div",
         { className: "q-stack" },
-        pickField("من سهم أو صندوق", asset ? asset.key : "", setStock, stocks.map((a) => [a.key, a.name])),
-        asset ? h(StockEventForm, { key: asset.key, asset, kind: "dividend", onDone: () => done(asset.key, "اتسجّلت التوزيعات"), onCancel }) : null
+        pickField("من أنهي سهم أو صندوق؟", asset ? asset.key : "", setStock, stocks.map((a) => [a.key, a.name])),
+        asset ? h(StockEventForm, { key: asset.key, asset, kind: "dividend", places, onDone: () => done(asset.key, "اتسجّلت التوزيعات"), onCancel }) : null
       );
     } else if (type === "repay") {
       const debt = openDebts.find((d) => d.key === debtKey) || openDebts[0];
       body = h(
         "div",
         { className: "q-stack" },
-        pickField("الدين", debt ? debt.key : "", setDebtKey, openDebts.map((d) => [d.key, d.name])),
+        pickField("أنهي دين؟", debt ? debt.key : "", setDebtKey, openDebts.map((d) => [d.key, d.name])),
         debt ? h(RepayForm, { key: debt.key, debt, assets, onDone: () => done(debt.key, "اتسجّل السداد"), onCancel }) : null
       );
     }
@@ -2069,7 +2453,7 @@ var __monos = (() => {
       h(
         "div",
         { className: "l-composer-head" },
-        h("b", null, "سجّل"),
+        h("b", null, "عايز تسجّل إيه؟"),
         h(
           "div",
           { className: "q-seg", role: "radiogroup", "aria-label": "نوع العملية" },
@@ -2082,7 +2466,7 @@ var __monos = (() => {
             onClick: () => choose(t)
           }, label))
         ),
-        h("button", { type: "button", className: "q-toast-x l-composer-x", "aria-label": "قفل", onClick: onCancel }, "×")
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet l-composer-x", "aria-label": "قفل", onClick: onCancel }, "×")
       ),
       body
     );
@@ -2206,23 +2590,12 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/ledger.css
-  var ledger_default = "/* «Monos / السجل» (docs/الواجهة.md): one column, the money first. Host tokens only (--dsw-alias-*),\n   so light and dark follow the app; spacing and motion come from shared/styles.css (--q-*). */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--q-6) var(--q-5) var(--q-7); display: flex; flex-direction: column; gap: var(--q-5); }\n@media (max-width: 760px) { .qm .l-col { padding: var(--q-4) var(--q-4) var(--q-5); } }\n/* The column arrives once: its sections rise in turn (on mount only; a refresh does not remount). */\n.qm .l-col > * { animation: q-rise var(--q-d-large) var(--q-ease-enter) backwards; }\n.qm .l-col > :nth-child(2) { animation-delay: 30ms; }\n.qm .l-col > :nth-child(3) { animation-delay: 60ms; }\n.qm .l-col > :nth-child(4) { animation-delay: 90ms; }\n.qm .l-col > :nth-child(5) { animation-delay: 120ms; }\n.qm .l-col > :nth-child(n+6) { animation-delay: 150ms; }\n\n/* The hero: «صافي ثروتك», the number, dollars and gold, the figures, the shares */\n.qm .l-total { display: flex; flex-direction: column; gap: var(--q-1); }\n.qm .l-eyebrow { display: flex; align-items: center; gap: var(--q-3); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-hero { display: inline-flex; align-items: baseline; gap: var(--q-2); flex-wrap: wrap; }\n.qm .l-total .l-big { font-size: 36px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }\n.qm .l-total .l-unit { font-size: 16px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: var(--q-3); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--q-3) var(--q-3) var(--q-2); border-inline-start: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi:first-child { border-inline-start: 0; padding-inline-start: 0; }\n.qm .l-kpi-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpi .num { font-size: 20px; font-weight: 600; }\n.qm .l-warn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: var(--q-2); padding: 6px 10px;\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 40%, transparent); border-radius: var(--dsw-radius-sm);\n  background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent); color: var(--dsw-alias-state-warn-label);\n  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--q-d-micro); }\n.qm .l-warn:hover { background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 14%, transparent); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: var(--q-2); margin-top: var(--q-3); }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 10px; border-radius: var(--dsw-radius-sm); overflow: hidden;\n  animation: l-grow var(--q-d-slow) var(--q-ease-enter) 200ms backwards; }\n@keyframes l-grow { from { clip-path: inset(0 0 0 100% round 4px); } }  /* opens from the right: the reading start */\n.qm .l-alloc-bar span, .qm .l-alloc-keys i {\n  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) var(--mix, 100%), var(--dsw-alias-bg-base)); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 4px; transition: flex-grow var(--q-d-large) var(--q-ease-standard); }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: var(--q-1) var(--q-2); }\n.qm .l-alloc-key { appearance: none; position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;\n  border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: transparent; font-size: 12px;\n  color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .l-alloc-key:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 10px; border-radius: 999px;\n  background: var(--dsw-alias-bg-module-platform); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n@media (prefers-reduced-motion: reduce) { .qm .l-alloc-bar { animation: none; } .qm .l-alloc-bar span { transition: none; } }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 44px; padding: 0 16px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);\n  animation: q-rise var(--q-d-micro) var(--q-ease-enter) backwards; }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer;\n  transition: background-color 80ms linear; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3); padding: var(--q-4) var(--q-5);\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-detail .l-add { margin-top: 0; padding: var(--q-4); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--q-3) var(--q-4); align-items: end; }\n.qm .l-fields > .l-inline { grid-column: 1 / -1; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* The list: one card, a heading per group that stays while its rows scroll by */\n.qm .l-list { display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-md); overflow: clip; }\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group + .l-group { border-top: 1px solid var(--dsw-alias-border-l2); }\n.qm .l-group > h2 { position: sticky; top: 48px; z-index: 1; margin: 0; display: flex; align-items: center; gap: var(--q-2); height: 36px; padding: 0 var(--q-4);\n  background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n[data-platform='darwin'] .qm .l-group > h2 { top: calc(48px + var(--dsh-frame-top-clearance, 0px)); }\n.qm .l-group-total { margin-inline-start: auto; font-weight: 400; font-size: 12px; }\n.qm .l-row { appearance: none; position: relative; isolation: isolate; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; display: flex; align-items: center; gap: var(--q-3); min-height: 60px; padding: var(--q-2) var(--q-4);\n  cursor: pointer; transition: background-color var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-group > .l-row:last-of-type, .qm .l-group > :last-child > .l-detail { border-bottom: 0; }\n.qm .l-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-row[aria-expanded='true'] { background: var(--dsw-alias-bg-module-platform); border-bottom-color: transparent; }\n/* a one-shot tint when a row arrives or is jumped to (motion.js land) */\n.qm .l-row::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dsw-alias-state-business-tertiary); opacity: 0; pointer-events: none; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 15px; font-weight: 600; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-chev { flex: none; color: var(--dsw-alias-label-tertiary); transform: rotate(90deg); transition: transform var(--q-d-base) var(--q-ease-standard); }\n.qm .l-row[aria-expanded='true'] .l-chev { transform: none; color: var(--dsw-alias-label-secondary); }\n.qm .l-group[aria-label='اتصرفت بالكامل'] .l-row { color: var(--dsw-alias-label-secondary); }\n.qm .l-new { animation: q-rise var(--q-d-base) var(--q-ease-enter) backwards; }\n.qm .l-empty { display: flex; flex-direction: column; gap: var(--q-2); padding: var(--q-5); text-align: center; background: var(--dsw-alias-bg-layer-1);\n  border: 1px dashed var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-empty b { font-size: 16px; }\n.qm .l-panel { display: flex; flex-direction: column; gap: var(--q-4); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-skel-page { display: flex; flex-direction: column; gap: var(--q-5); }\n.qm .q-skel-row { display: flex; align-items: center; gap: var(--q-3); min-height: 60px; }\n@media (prefers-reduced-motion: reduce) { .qm .l-chev { transition: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; padding: var(--q-3) var(--q-4); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-upcoming > h2 { margin: 0 0 var(--q-1); font-size: 15px; font-weight: 600; }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 10px 14px; font-size: 14px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--q-d-micro), border-color var(--q-d-base); }\n.qm .l-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-2) var(--q-4) var(--q-5); padding-inline-start: 60px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 var(--q-1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n/* the detail's parts rise in turn while it opens (motion.js Collapse marks it with data-state) */\n.qm .q-collapse[data-state] .l-detail > * { animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(2) { animation-delay: 30ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(3) { animation-delay: 60ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(n+4) { animation-delay: 90ms; }\n@media (max-width: 560px) { .qm .l-detail { padding-inline-start: var(--q-4); } }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: var(--q-2) 0 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n\n/* «سجّل»: one card, the kind of entry on top, then its form */\n.qm .l-composer { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-4) var(--q-5) var(--q-5); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }\n.qm .l-composer-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-3); }\n.qm .l-composer-head > b { font-size: 16px; }\n.qm .l-composer-x { margin-inline-start: auto; }\n.qm .l-composer .l-add { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }\n.qm .l-composer-pick { max-width: 320px; }\n.qm .l-big-input { height: 48px; font-size: 20px; font-weight: 600; }\n.qm .l-main { grid-column: span 1; }\n.qm .l-more > summary { cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; list-style: none; }\n.qm .l-more > summary::-webkit-details-marker { display: none; }\n.qm .l-more > summary::before { content: '▸ '; }\n.qm .l-more[open] > summary::before { content: '▾ '; }\n.qm .l-more > .l-fields { margin-top: var(--q-2); }\n.qm .l-fields > .l-more { grid-column: 1 / -1; }\n.qm .q-date .q-chips { margin-top: 2px; }\n\n/* The tabs' underline slides from one tab to the other (measured in Tabs; jsdom keeps the border) */\n.qm .l-tabs { position: relative; }\n.qm .l-tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; transform-origin: 0 0; opacity: 0;\n  background: var(--dsw-alias-state-business-primary); transition: transform var(--q-d-base) var(--q-ease-standard); pointer-events: none; }\n.qm .l-tabs.has-ink .l-tab-ink { opacity: 1; }\n.qm .l-tabs.has-ink .l-tab-on { border-bottom-color: transparent; }\n@media (prefers-reduced-motion: reduce) { .qm .l-tab-ink { transition: none; } }\n\n/* The timeline: a rail, an icon per kind, the line's actions dimmed until it is pointed at */\n.qm .l-detail .l-lot[data-kind] { position: relative; padding-inline-start: 36px; }\n.qm .l-detail .l-lot[data-kind]::before { position: absolute; inset-inline-start: 0; top: 6px; width: 24px; height: 24px; display: grid; place-items: center;\n  border-radius: 50%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 1;\n  color: var(--dsw-alias-label-secondary); content: '+'; }\n.qm .l-detail .l-lot[data-kind]:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 11.5px; top: 30px; bottom: -6px; width: 1px;\n  background: var(--dsw-alias-border-l2); }\n.qm .l-lot[data-kind='in']::before { content: '↓'; }\n.qm .l-lot[data-kind='transfer']::before { content: '⇄'; }\n.qm .l-lot[data-kind='expense']::before { content: '↑'; }\n.qm .l-lot[data-kind='repay']::before { content: '✓'; }\n.qm .l-lot[data-kind='place']::before { content: '⇆'; }\n.qm .l-lot[data-kind='paid']::before, .qm .l-lot[data-kind='dividend']::before { content: '٪'; }\n.qm .l-lot[data-kind='bonus']::before { content: '★'; }\n.qm .l-lot[data-kind='split']::before { content: '÷'; }\n.qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }\n.qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }\n.qm .l-actions-bar { gap: var(--q-2); }\n\n/* «الجاي قريب»: a date tile, the label, the amount, how soon */\n.qm .l-due { appearance: none; display: grid; grid-template-columns: 40px 1fr auto; grid-template-areas: 'tile label amount' 'tile when amount';\n  align-items: center; column-gap: var(--q-3); width: 100%; min-height: 52px; padding: 6px 0; border: 0; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; cursor: pointer; border-radius: var(--dsw-radius-sm); transition: background-color var(--q-d-micro); }\n.qm .l-due:first-of-type { border-top: 0; }\n.qm .l-due:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-due-tile { grid-area: tile; width: 40px; height: 40px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform);\n  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }\n.qm .l-due-tile .num { font-size: 15px; font-weight: 600; }\n.qm .l-due-tile small { font-size: 10px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-label { grid-area: label; font-size: 14px; }\n.qm .l-due-when { grid-area: when; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-amount { grid-area: amount; font-size: 14px; font-weight: 600; }\n/* «الحركات»: a day heading, then that day's lines */\n.qm .l-day { display: flex; flex-direction: column; }\n.qm .l-day-head { margin: var(--q-3) 0 var(--q-1); font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { padding: 6px 0; }\n";
+  var ledger_default = "/* «Monos / السجل» (docs/الواجهة.md): one column, the money first. Host tokens only (--dsw-alias-*),\n   so light and dark follow the app; spacing and motion come from shared/styles.css (--q-*). */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--q-6) var(--q-5) var(--q-7); display: flex; flex-direction: column; gap: var(--q-5); }\n@media (max-width: 760px) { .qm .l-col { padding: var(--q-4) var(--q-4) var(--q-5); } }\n/* The column arrives once: its sections rise in turn (on mount only; a refresh does not remount). */\n.qm .l-col > * { animation: q-rise var(--q-d-large) var(--q-ease-enter) backwards; }\n.qm .l-col > :nth-child(2) { animation-delay: 30ms; }\n.qm .l-col > :nth-child(3) { animation-delay: 60ms; }\n.qm .l-col > :nth-child(4) { animation-delay: 90ms; }\n.qm .l-col > :nth-child(5) { animation-delay: 120ms; }\n.qm .l-col > :nth-child(n+6) { animation-delay: 150ms; }\n\n/* The hero: «صافي ثروتك», the number, dollars and gold, the figures, the shares */\n.qm .l-total { display: flex; flex-direction: column; gap: var(--q-1); }\n.qm .l-eyebrow { display: flex; align-items: center; gap: var(--q-3); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-hero { display: inline-flex; align-items: baseline; gap: var(--q-2); flex-wrap: wrap; }\n.qm .l-total .l-big { font-size: 36px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }\n.qm .l-total .l-unit { font-size: 16px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: var(--q-3); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--q-3) var(--q-3) var(--q-2); border-inline-start: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi:first-child { border-inline-start: 0; padding-inline-start: 0; }\n.qm .l-kpi-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpi .num { font-size: 20px; font-weight: 600; }\n.qm .l-warn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: var(--q-2); padding: 6px 10px;\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 40%, transparent); border-radius: var(--dsw-radius-sm);\n  background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent); color: var(--dsw-alias-state-warn-label);\n  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--q-d-micro); }\n.qm .l-warn:hover { background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 14%, transparent); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: var(--q-2); margin-top: var(--q-3); }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 10px; border-radius: var(--dsw-radius-sm); overflow: hidden;\n  animation: l-grow var(--q-d-slow) var(--q-ease-enter) 200ms backwards; }\n@keyframes l-grow { from { clip-path: inset(0 0 0 100% round 4px); } }  /* opens from the right: the reading start */\n.qm .l-alloc-bar span, .qm .l-alloc-keys i {\n  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) var(--mix, 100%), var(--dsw-alias-bg-base)); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 4px; transition: flex-grow var(--q-d-large) var(--q-ease-standard); }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: var(--q-1) var(--q-2); }\n.qm .l-alloc-key { appearance: none; position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;\n  border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: transparent; font-size: 12px;\n  color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .l-alloc-key:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 10px; border-radius: 999px;\n  background: var(--dsw-alias-bg-module-platform); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n@media (prefers-reduced-motion: reduce) { .qm .l-alloc-bar { animation: none; } .qm .l-alloc-bar span { transition: none; } }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 44px; padding: 0 16px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);\n  animation: q-rise var(--q-d-micro) var(--q-ease-enter) backwards; }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer;\n  transition: background-color 80ms linear; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3); padding: var(--q-4) var(--q-5);\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-detail .l-add { margin-top: 0; padding: var(--q-4); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--q-3) var(--q-4); align-items: end; }\n.qm .l-fields > .l-inline { grid-column: 1 / -1; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* The list: one card, a heading per group that stays while its rows scroll by */\n.qm .l-list { display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-md); overflow: clip; }\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group + .l-group { border-top: 1px solid var(--dsw-alias-border-l2); }\n.qm .l-group > h2 { position: sticky; top: 48px; z-index: 1; margin: 0; display: flex; align-items: center; gap: var(--q-2); height: 36px; padding: 0 var(--q-4);\n  background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n[data-platform='darwin'] .qm .l-group > h2 { top: calc(48px + var(--dsh-frame-top-clearance, 0px)); }\n.qm .l-group-total { margin-inline-start: auto; font-weight: 400; font-size: 12px; }\n.qm .l-row { appearance: none; position: relative; isolation: isolate; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; display: flex; align-items: center; gap: var(--q-3); min-height: 60px; padding: var(--q-2) var(--q-4);\n  cursor: pointer; transition: background-color var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-group > .l-row:last-of-type, .qm .l-group > :last-child > .l-detail { border-bottom: 0; }\n.qm .l-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-row[aria-expanded='true'] { background: var(--dsw-alias-bg-module-platform); border-bottom-color: transparent; }\n/* a one-shot tint when a row arrives or is jumped to (motion.js land) */\n.qm .l-row::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dsw-alias-state-business-tertiary); opacity: 0; pointer-events: none; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 15px; font-weight: 600; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-chev { flex: none; color: var(--dsw-alias-label-tertiary); transform: rotate(90deg); transition: transform var(--q-d-base) var(--q-ease-standard); }\n.qm .l-row[aria-expanded='true'] .l-chev { transform: none; color: var(--dsw-alias-label-secondary); }\n.qm .l-group[aria-label='اتصرفت بالكامل'] .l-row { color: var(--dsw-alias-label-secondary); }\n.qm .l-new { animation: q-rise var(--q-d-base) var(--q-ease-enter) backwards; }\n.qm .l-empty { display: flex; flex-direction: column; gap: var(--q-2); padding: var(--q-5); text-align: center; background: var(--dsw-alias-bg-layer-1);\n  border: 1px dashed var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-empty b { font-size: 16px; }\n.qm .l-panel { display: flex; flex-direction: column; gap: var(--q-4); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-skel-page { display: flex; flex-direction: column; gap: var(--q-5); }\n.qm .q-skel-row { display: flex; align-items: center; gap: var(--q-3); min-height: 60px; }\n@media (prefers-reduced-motion: reduce) { .qm .l-chev { transition: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; padding: var(--q-3) var(--q-4); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-upcoming > h2 { margin: 0 0 var(--q-1); font-size: 15px; font-weight: 600; }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 10px 14px; font-size: 14px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--q-d-micro), border-color var(--q-d-base); }\n.qm .l-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-2) var(--q-4) var(--q-5); padding-inline-start: 60px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 var(--q-1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n/* the detail's parts rise in turn while it opens (motion.js Collapse marks it with data-state) */\n.qm .q-collapse[data-state] .l-detail > * { animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(2) { animation-delay: 30ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(3) { animation-delay: 60ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(n+4) { animation-delay: 90ms; }\n@media (max-width: 560px) { .qm .l-detail { padding-inline-start: var(--q-4); } }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: var(--q-2) 0 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n\n/* «سجّل»: one card, the kind of entry on top, then its form */\n.qm .l-composer { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-4) var(--q-5) var(--q-5); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }\n.qm .l-composer-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-3); }\n.qm .l-composer-head > b { font-size: 16px; }\n.qm .l-composer-x { margin-inline-start: auto; }\n.qm .l-composer .l-add { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }\n.qm .l-composer-pick { max-width: 320px; }\n.qm .l-big-input { height: 48px; font-size: 20px; font-weight: 600; }\n.qm .l-main { grid-column: span 1; }\n.qm .l-more > summary { cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; list-style: none; }\n.qm .l-more > summary::-webkit-details-marker { display: none; }\n.qm .l-more > summary::before { content: '▸ '; }\n.qm .l-more[open] > summary::before { content: '▾ '; }\n.qm .l-more > .l-fields { margin-top: var(--q-2); }\n.qm .l-fields > .l-more { grid-column: 1 / -1; }\n.qm .q-date .q-chips { margin-top: 2px; }\n\n/* The tabs' underline slides from one tab to the other (measured in Tabs; jsdom keeps the border) */\n.qm .l-tabs { position: relative; }\n.qm .l-tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; transform-origin: 0 0; opacity: 0;\n  background: var(--dsw-alias-state-business-primary); transition: transform var(--q-d-base) var(--q-ease-standard); pointer-events: none; }\n.qm .l-tabs.has-ink .l-tab-ink { opacity: 1; }\n.qm .l-tabs.has-ink .l-tab-on { border-bottom-color: transparent; }\n@media (prefers-reduced-motion: reduce) { .qm .l-tab-ink { transition: none; } }\n\n/* The timeline: a rail, an icon per kind, the line's actions dimmed until it is pointed at */\n.qm .l-detail .l-lot[data-kind] { position: relative; padding-inline-start: 36px; }\n.qm .l-detail .l-lot[data-kind]::before { position: absolute; inset-inline-start: 0; top: 6px; width: 24px; height: 24px; display: grid; place-items: center;\n  border-radius: 50%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 1;\n  color: var(--dsw-alias-label-secondary); content: '+'; }\n.qm .l-detail .l-lot[data-kind]:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 11.5px; top: 30px; bottom: -6px; width: 1px;\n  background: var(--dsw-alias-border-l2); }\n.qm .l-lot[data-kind='in']::before { content: '↓'; }\n.qm .l-lot[data-kind='transfer']::before { content: '⇄'; }\n.qm .l-lot[data-kind='expense']::before { content: '↑'; }\n.qm .l-lot[data-kind='repay']::before { content: '✓'; }\n.qm .l-lot[data-kind='place']::before { content: '⇆'; }\n.qm .l-lot[data-kind='paid']::before, .qm .l-lot[data-kind='dividend']::before { content: '٪'; }\n.qm .l-lot[data-kind='bonus']::before { content: '★'; }\n.qm .l-lot[data-kind='split']::before { content: '÷'; }\n.qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }\n.qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }\n.qm .l-actions-bar { gap: var(--q-2); }\n\n/* «الجاي قريب»: a date tile, the label, the amount, how soon */\n.qm .l-due { appearance: none; display: grid; grid-template-columns: 40px 1fr auto; grid-template-areas: 'tile label amount' 'tile when amount';\n  align-items: center; column-gap: var(--q-3); width: 100%; min-height: 52px; padding: 6px 0; border: 0; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; cursor: pointer; border-radius: var(--dsw-radius-sm); transition: background-color var(--q-d-micro); }\n.qm .l-due:first-of-type { border-top: 0; }\n.qm .l-due:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-due-tile { grid-area: tile; width: 40px; height: 40px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform);\n  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }\n.qm .l-due-tile .num { font-size: 15px; font-weight: 600; }\n.qm .l-due-tile small { font-size: 10px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-label { grid-area: label; font-size: 14px; }\n.qm .l-due-when { grid-area: when; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-amount { grid-area: amount; font-size: 14px; font-weight: 600; }\n/* «الحركات»: a day heading, then that day's lines */\n.qm .l-day { display: flex; flex-direction: column; }\n.qm .l-day-head { margin: var(--q-3) 0 var(--q-1); font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { padding: 6px 0; }\n\n/* ── the entry card (الموجة ٥): one look for every form ─────────────────────── */\n.qm .l-entry { container-type: inline-size; display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3);\n  padding: var(--q-5); background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-composer .l-entry { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }\n.qm .l-detail .l-entry { margin-top: 0; padding: var(--q-4); }\n.qm .l-entry-head { display: flex; align-items: center; gap: var(--q-3); }\n.qm .l-entry-title { font-size: 16px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n.qm .l-entry-head > .l-entry-aside { margin-inline-start: auto; }\n.qm .l-q { display: flex; flex-direction: column; gap: 6px; min-width: 0; }\n.qm .l-q-in { display: flex; flex-direction: column; gap: 6px; min-width: 0; }\n.qm .l-q-label { font-size: 14px; font-weight: 600; color: var(--dsw-alias-label-primary); white-space: normal; line-height: 1.4; }\n.qm .l-q-hint { font-size: 12px; color: var(--dsw-alias-label-secondary); line-height: 1.5; }\n.qm .l-q-box { display: flex; align-items: center; height: 44px; border: 1px solid var(--dsw-alias-border-l3); border-radius: var(--dsw-radius-sm);\n  background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); overflow: hidden;\n  transition: border-color var(--q-d-micro) var(--q-ease-out), box-shadow var(--q-d-micro) var(--q-ease-out); }\n.qm .l-q-box:hover { border-color: var(--dsw-alias-border-l2); }\n.qm .l-q-box:focus-within { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-q-box > input, .qm .l-q-box > select { flex: 1; min-width: 0; height: 100%; border: 0; background: transparent; padding: 0 12px;\n  outline: none; font: inherit; font-size: 15px; color: var(--dsw-alias-label-primary); }\n.qm .l-q-box > input::placeholder { color: var(--dsw-alias-label-tertiary); }\n.qm .l-q-box > input.num { font-family: inherit; font-variant-numeric: tabular-nums; text-align: right; }\n.qm .l-q-unit { flex: none; align-self: stretch; display: flex; align-items: center; padding: 0 12px; font-size: 13px;\n  color: var(--dsw-alias-label-secondary); border-inline-start: 1px solid var(--dsw-alias-border-l1); background: var(--dsw-alias-bg-module-platform); }\n.qm button.l-q-unit { appearance: none; border-block: 0; border-inline-end: 0; cursor: pointer; font: inherit; font-size: 13px; }\n.qm button.l-q-unit:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-q-hero .l-q-label { font-size: 16px; }\n.qm .l-q-hero .l-q-box { height: 60px; border-radius: var(--dsw-radius-md); }\n.qm .l-q-hero .l-q-box > input { font-size: 28px; font-weight: 650; }\n.qm .l-q-hero .l-q-unit { font-size: 15px; padding: 0 16px; }\n.qm .l-q[data-invalid] .l-q-box { border-color: var(--dsw-alias-file-diff-deleted-marker);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-file-diff-deleted-marker) 18%, transparent); }\n.qm .l-q-err { font-size: 13px; color: var(--dsw-alias-file-diff-deleted-marker); }\n.qm .l-q-seg { align-self: flex-start; max-width: 100%; }\n.qm .l-q-seg > button { height: 34px; padding: 0 14px; font-size: 14px; }\n.qm .l-entry-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--q-4) var(--q-4); align-items: start; }\n.qm .l-entry-grid > .l-wide, .qm .l-entry-grid > .q-date { grid-column: 1 / -1; }\n.qm .l-entry-more { border-top: 1px dashed var(--dsw-alias-border-l1); padding-top: var(--q-3); }\n.qm .l-entry-more > summary { list-style: none; cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; }\n.qm .l-entry-more > summary::-webkit-details-marker { display: none; }\n.qm .l-entry-more > summary::before { content: '▸ '; }\n.qm .l-entry-more[open] > summary::before { content: '▾ '; }\n.qm .l-entry-more > summary:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-entry-more > .l-entry-grid { margin-top: var(--q-3); }\n.qm .l-entry-summary { margin: 0; padding: var(--q-3) var(--q-4); border-radius: var(--dsw-radius-md); background: var(--dsw-alias-bg-module-platform);\n  font-size: 14px; line-height: 1.9; color: var(--dsw-alias-label-primary); }\n.qm .l-entry-summary b { font-weight: 650; }\n.qm .l-entry-summary[data-empty] { color: var(--dsw-alias-label-tertiary); }\n.qm .l-entry-summary[data-pending] { opacity: .6; }\n.qm .l-entry-alert, .qm .l-entry-warn { padding: 10px 12px; border-radius: var(--dsw-radius-sm); font-size: 13px; line-height: 1.6;\n  display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }\n.qm .l-entry-alert { color: var(--dsw-alias-file-diff-deleted-marker); background: color-mix(in srgb, var(--dsw-alias-file-diff-deleted-marker) 8%, transparent);\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-file-diff-deleted-marker) 30%, transparent); }\n.qm .l-entry-warn { color: var(--dsw-alias-state-warn-label); background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent);\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 30%, transparent); }\n.qm .l-entry-warn label { display: inline-flex; align-items: center; gap: 6px; color: var(--dsw-alias-label-primary); cursor: pointer; }\n.qm .l-entry-foot { display: flex; align-items: center; gap: var(--q-3); padding-top: var(--q-4); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-entry-foot .q-btn-p { min-width: 150px; }\n.qm .l-entry-keys { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n.qm .l-entry[aria-busy='true'] .l-q-box { opacity: .7; }\n.qm .l-entry-pick { display: flex; flex-wrap: wrap; gap: 6px; }\n.qm .l-entry-pick > .q-chip { height: 34px; padding: 0 12px; display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-entry-pick > .q-chip small { color: var(--dsw-alias-label-secondary); font-size: 12px; }\n.qm .l-entry .l-search input { height: 44px; }\n.qm .l-entry-chosen { display: flex; align-items: center; gap: 10px; padding: 8px 12px; border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform); }\n.qm .l-entry-chosen > .q-link { margin-inline-start: auto; }\n@container (max-width: 460px) {\n  .qm .l-entry-grid { grid-template-columns: 1fr; }\n  .qm .l-entry-foot { flex-direction: column; align-items: stretch; }\n  .qm .l-entry-keys { display: none; }\n}\n.qm .l-price-form { display: flex; align-items: flex-end; gap: var(--q-3); flex-wrap: wrap; }\n.qm .l-price-form > .l-q { flex: 1; min-width: 200px; max-width: 360px; }\n.qm .l-price-form > .q-btn { height: 44px; }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
-  var QTY_LABEL = { stock: "عدد الأسهم", fund: "عدد الوثائق" };
   var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
-  var hid = (hidden, text4, cls) => hidden ? N(MASK, "q-swap") : N(text4, cls ? `${cls} q-swap` : "q-swap");
-  function priceLabel(kind, unit, key) {
-    if (kind === "currency") return `سعر ${key} بالجنيه وقت الشرا`;
-    if (kind === "gold") return `سعر ال${unit} وقت الشرا`;
-    return { stock: "سعر السهم وقت الشرا", fund: "سعر الوثيقة وقت الشرا", bitcoin: "سعر البتكوين وقت الشرا" }[kind] || "سعر الوحدة وقت الشرا";
-  }
-  var UNIT_MISMATCH = 3;
-  function quantityLabel(kind, unit, key) {
-    if (kind === "currency") return `المبلغ (${key})`;
-    return QTY_LABEL[kind] || `الكمية (${unit})`;
-  }
+  var hid = (hidden, text2, cls) => hidden ? N(MASK, "q-swap") : N(text2, cls ? `${cls} q-swap` : "q-swap");
   function quantityText(asset) {
     return frag(N(fmtQty(asset.quantity)), " ", asset.unit);
   }
@@ -2234,17 +2607,17 @@ var __monos = (() => {
     }, []);
     return [items, load];
   }
-  function Search({ catalog, onPick, onCustom, autoFocus = false }) {
+  function Search({ catalog, onPick, onCustom, autoFocus = false, placeholder = "سجّل حاجة… اكتب أصل: دولار، دهب 21، بتكوين، COMI، أو اسم صندوق" }) {
     const [query, setQuery] = useState("");
     const [active, setActive] = useState(0);
-    const text4 = query.trim();
+    const text2 = query.trim();
     const loading = catalog === null;
-    const results = text4 && !loading ? search(catalog, text4) : [];
-    const sure = results.some((e) => rank(e, text4) < 4);
-    const options = text4 && !loading ? sure ? results : [...results, { addByName: true, key: "+add" }] : [];
+    const results = text2 && !loading ? search(catalog, text2) : [];
+    const sure = results.some((e) => rank(e, text2) < 4);
+    const options = text2 && !loading ? sure ? results : [...results, { addByName: true, key: "+add" }] : [];
     const pick = (option) => {
       if (!option) return;
-      if (option.addByName) onCustom(text4);
+      if (option.addByName) onCustom(text2);
       else onPick(option);
       setQuery("");
       setActive(0);
@@ -2272,7 +2645,7 @@ var __monos = (() => {
       h("input", {
         type: "search",
         value: query,
-        placeholder: "سجّل حاجة… اكتب أصل: دولار، دهب 21، بتكوين، COMI، أو اسم صندوق",
+        placeholder,
         autoFocus,
         role: "combobox",
         "aria-label": "ابحث عن أصل",
@@ -2301,58 +2674,60 @@ var __monos = (() => {
             pick(o);
           },
           onMouseEnter: () => setActive(i)
-        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text4))] : [
+        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "مش لاقيه؟ إضافة بالاسم ده: ", h("b", null, text2))] : [
           h(Logo, { key: "l", symbol: o.kind === "stock" ? o.symbol : null, mark: o.mark }),
           h("span", { key: "t", className: "l-name" }, o.name),
           h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)
         ]))
       ) : null,
-      text4 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
+      text2 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
     );
   }
-  function PlaceField({ label = "المكان", value, onChange, places, name = "place" }) {
-    const known = (places || []).slice(0, 4);
-    return h(
-      "div",
-      { className: "q-stack" },
-      h(
-        "label",
-        { className: "q-stack" },
-        h("span", { className: "q-label" }, label),
-        h("input", { className: "q-input", name, value, maxLength: 40, list: "l-places", placeholder: "البنك الأهلي، Thndr، كاش", onChange: (e) => onChange(e.target.value) })
-      ),
-      known.length ? h("span", { className: "q-chips" }, known.map((p) => h("button", {
-        key: p,
-        type: "button",
-        className: "q-chip",
-        "aria-pressed": value === p,
-        onClick: () => onChange(value === p ? "" : p)
-      }, p))) : null
+  var ASSET_KIND_WORDS = [["currency", "عملة"], ["gold", "دهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"]];
+  var UNIT_OF_KIND = { stock: "سهم", fund: "وثيقة", bitcoin: "بتكوين", gold: "جرام", currency: "وحدة" };
+  var b2 = (...children) => h("b", null, ...children);
+  var whenText2 = (d) => d.date === todayCairo() ? "النهارده" : frag("يوم ", N(fmtDate(d.date)));
+  function purchaseSummary(d, isPound) {
+    if (isPound) return frag(b2(N(money(d.quantity)), " ج.م"), " دخلوا ", d.place ? `في ${d.place} ` : "", whenText2(d), ".");
+    const unit = d.unit_name || d.unit;
+    return frag(
+      "اشتريت ",
+      b2(N(fmtQty(d.quantity)), " ", unit),
+      " ",
+      d.name,
+      " بـ ",
+      b2(N(fmtPrice(d.buy_price)), " ", sign(d.currency)),
+      ` لل${unit}`,
+      " = ",
+      b2(N(fmtPrice(d.paid)), " ", sign(d.currency)),
+      d.currency !== "EGP" ? frag(" ≈ ", b2(N(money(d.cost_egp)), " ج.م"), " (الـ", sign(d.currency), " بـ ", N(fmtPrice(d.fx)), " ج.م)") : null,
+      "، ",
+      whenText2(d),
+      d.place ? `، في ${d.place}` : "",
+      "."
     );
   }
   function AddLine({ entry, customName, onDone, onCancel, initialKind, lockKind = false, places }) {
     const custom = !entry;
-    const [kind, setKind] = useState(initialKind || "stock");
+    const [kind, setKind] = useState(initialKind || null);
     const [name, setName] = useState(customName || "");
     const [symbol, setSymbol] = useState("");
     const [current, setCurrent] = useState("");
     const kindNow = custom ? kind : entry.kind;
     const isDeposit = custom && kind === DEPOSIT_KIND;
     const isDebt = custom && kind === DEBT_KIND;
-    const dep = useDepositForm();
-    const debt = useDebtForm();
+    const dep = useDepositForm({ places });
+    const debt = useDebtForm({ places });
     const [place, setPlace] = useState("");
     const isPound = !custom && entry.key === "EGP";
     const fixedEgp = kindNow === "currency";
     const [currency, setCurrency] = useState(custom || fixedEgp ? "EGP" : entry.currency);
-    const [mode, setMode] = useState("qty");
+    const [mode, setMode] = useState(kindNow === "fund" || kindNow === "bitcoin" ? "amount" : "qty");
     const [qty, setQty] = useState("");
     const [price, setPrice] = useState("");
     const [cost, setCost] = useState("");
-    const [costTouched, setCostTouched] = useState(false);
     const [day, setDay] = useState("");
     const [note, setNote] = useState("");
-    const [rate, setRate] = useState(null);
     const [busy, setBusy] = useState(false);
     const [error, setErrorText] = useState("");
     const [bad, setBad] = useState(null);
@@ -2364,234 +2739,186 @@ var __monos = (() => {
     };
     const cur = fixedEgp || isPound ? "EGP" : currency;
     const parsedDay = resolveDay(day);
-    useEffect(() => {
-      if (cur === "EGP" || parsedDay === void 0) {
-        setRate(null);
-        return void 0;
-      }
-      let live = true;
-      api("GET", `/egx/api/fx?currency=${encodeURIComponent(cur)}&date=${parsedDay || ""}`).then((r) => {
-        if (live) setRate(r.rate);
-      }).catch(() => {
-        if (live) setRate(null);
-      });
-      return () => {
-        live = false;
-      };
-    }, [cur, parsedDay]);
+    const unitName = custom ? UNIT_OF_KIND[kind] || "وحدة" : entry.unit_name || entry.unit;
+    const currencies = ["EGP", "USD", ...entry && !["EGP", "USD"].includes(entry.currency) ? [entry.currency] : []];
     const q = parseNumberInput(qty);
     const p = isPound ? 1 : parseNumberInput(price);
-    const quantity = q > 0 && p > 0 ? mode === "qty" ? q : q / p : null;
-    const paid = quantity != null ? quantity * p : null;
-    const suggested = cur !== "EGP" && rate && paid != null ? Math.round(paid * rate * 100) / 100 : null;
-    const costShown = costTouched ? cost : suggested != null ? String(suggested) : "";
-    const typedEgp = p > 0 ? cur === "EGP" ? p : rate ? p * rate : null : null;
-    const known = entry && entry.price_egp;
-    const farOff = typedEgp && known ? typedEgp / known > UNIT_MISMATCH || known / typedEgp > UNIT_MISMATCH : false;
+    const costValue = parseNumberInput(cost);
+    const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null, place: place.trim() || null };
+    body[mode === "qty" || isPound || fixedEgp ? "quantity" : "amount"] = q;
+    if (cur !== "EGP" && costValue > 0) body.cost_egp = costValue;
+    if (custom) {
+      const now = parseNumberInput(current);
+      body.custom = { kind, name: name.trim(), symbol: symbol.trim() || null, currency: cur, price: now > 0 ? now : null };
+    } else body.asset = entry.key;
+    const ready = !isDeposit && !isDebt && q > 0 && p > 0 && parsedDay !== void 0 && (!custom || kind && name.trim());
+    const seen = usePreview("/egx/api/holdings", body, ready);
+    const needsCost = cur !== "EGP" && (seen.field === "cost" || bad === "cost" || costValue > 0);
     async function submit(e) {
       e.preventDefault();
       setError("");
-      if (isDebt) {
-        const built = debt.build();
-        if (built.error) return setError(built.error);
+      if (isDebt || isDeposit) {
+        const built = (isDebt ? debt : dep).build();
+        if (built.error) return setError(built.error, built.field);
         setBusy(true);
         try {
-          const made = await api("POST", "/egx/api/debts", built.body);
-          onDone(`debt:${made.id}`);
+          const made = await api("POST", isDebt ? "/egx/api/debts" : "/egx/api/holdings", built.body);
+          onDone(isDebt ? `debt:${made.id}` : made.symbol);
         } catch (err) {
-          setError(err.message);
+          setError(err.message, err.field);
         } finally {
           setBusy(false);
         }
         return void 0;
       }
-      if (isDeposit) {
-        const built = dep.build();
-        if (built.error) return setError(built.error);
-        setBusy(true);
-        try {
-          const lot = await api("POST", "/egx/api/holdings", built.body);
-          onDone(lot.symbol);
-        } catch (err) {
-          setError(err.message);
-        } finally {
-          setBusy(false);
-        }
-        return void 0;
-      }
-      if (custom && !name.trim()) return setError("اكتب اسم الأصل.", "name");
-      if (!(q > 0)) return setError(mode === "qty" ? "اكتب الكمية." : "اكتب المبلغ.", "qty");
-      if (!isPound && !(p > 0)) return setError("اكتب سعر الشرا.", "price");
-      if (parsedDay === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.", "date");
-      const costValue = parseNumberInput(costShown);
-      if (cur !== "EGP" && !(costValue > 0)) return setError("مفيش سعر تحويل معروف لليوم ده: اكتب المبلغ اللي دفعته بالجنيه.", "cost");
-      const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null, place: place.trim() || null };
-      body[mode === "qty" ? "quantity" : "amount"] = q;
-      if (cur !== "EGP") body.cost_egp = costValue;
-      if (custom) {
-        const now = parseNumberInput(current);
-        body.custom = { kind, name: name.trim(), symbol: symbol.trim() || null, currency: cur, price: now > 0 ? now : null };
-      } else body.asset = entry.key;
+      if (custom && !kind) return setError("اختار نوعه الأول.", "kind");
+      if (custom && !name.trim()) return setError("اكتب اسمه.", "name");
+      if (!(q > 0)) return setError(isPound ? "اكتب المبلغ اللي دخل." : mode === "qty" ? "اكتب الكمية اللي اشتريتها." : "اكتب المبلغ اللي دفعته.", "qty");
+      if (!isPound && !(p > 0)) return setError("اكتب اشتريتها بكام.", "price");
+      if (parsedDay === void 0) return setError("التاريخ ده مش مظبوط: اكتبه يوم/شهر/سنة، زي 15/3/2025.", "date");
       setBusy(true);
       try {
         const lot = await api("POST", "/egx/api/holdings", body);
         onDone(lot.symbol);
       } catch (err) {
-        setError(err.message);
+        setError(err.message, err.field);
       } finally {
         setBusy(false);
       }
     }
-    const field4 = (label, input2, fieldName) => h(
-      "label",
-      { className: "q-stack" },
-      h("span", { className: "q-label" }, label),
-      input2,
-      bad && bad === fieldName ? h("span", { className: "q-field-err" }, error) : null
-    );
-    const input = (value, set, extra = {}) => h("input", {
-      className: "q-input",
-      value,
-      onChange: (e) => set(e.target.value),
-      "aria-invalid": extra.name && bad === extra.name ? true : void 0,
-      ...extra
-    });
-    const currencySelect = h(
-      "select",
-      { className: "q-input", value: cur, "aria-label": "عملة سعر الشرا", onChange: (e) => {
-        setCurrency(e.target.value);
-        setCostTouched(false);
-      } },
-      ["EGP", "USD", ...entry && !["EGP", "USD"].includes(entry.currency) ? [entry.currency] : []].map((c) => h("option", { key: c, value: c }, sign(c)))
-    );
-    return h(
-      "form",
-      {
-        ref: formRef,
-        className: "l-add",
-        onSubmit: submit,
-        noValidate: true,
-        "aria-label": "إضافة أصل",
-        onKeyDown: (e) => {
-          if (e.key === "Escape") {
-            e.stopPropagation();
-            onCancel();
+    const errOf = (fieldName) => bad === fieldName ? error : null;
+    const nextCurrency = () => {
+      setCurrency(currencies[(currencies.indexOf(cur) + 1) % currencies.length]);
+      setCost("");
+    };
+    const unitToggle = fixedEgp ? null : h("button", { type: "button", className: "l-q-unit", "aria-label": "عملة السعر", title: "غيّر عملة السعر", onClick: nextCurrency }, sign(cur), " ⇄");
+    const title = custom ? isDeposit ? "فتحت شهادة أو وديعة" : isDebt ? "عليّ دين" : `حاجة جديدة: ${name.trim() || "…"}` : isPound ? "فلوس دخلت: الجنيه المصري" : `اشتريت ${entry.name}`;
+    const icon = custom ? h(Logo, { mark: "+" }) : h(Logo, { symbol: entry.kind === "stock" ? entry.symbol : null, mark: entry.mark });
+    const fieldAlert = error && !bad ? error : null;
+    const previewAlert = !error && seen.error && seen.field !== "cost" ? seen.error : null;
+    let questions;
+    if (isDebt) questions = debt.fields(errOf);
+    else if (isDeposit) questions = dep.fields(errOf);
+    else {
+      questions = frag(
+        custom ? h(Choice, {
+          label: `${name.trim() || "ده"} يبقى إيه؟`,
+          options: ASSET_KIND_WORDS,
+          value: kind,
+          error: errOf("kind"),
+          onChange: (k) => {
+            setKind(k);
+            setMode(k === "fund" || k === "bitcoin" ? "amount" : "qty");
           }
-        }
-      },
-      h(
-        "div",
-        { className: "l-add-head" },
-        custom ? h(Logo, { mark: "+" }) : h(Logo, { symbol: entry.kind === "stock" ? entry.symbol : null, mark: entry.mark }),
-        h("b", null, custom ? isDeposit ? "شهادة أو وديعة جديدة" : isDebt ? "دين أو قسط" : "أصل جديد بالاسم" : entry.name),
-        custom ? null : h("span", { className: "q-meta" }, entry.kind_label)
-      ),
-      custom && !(lockKind && (isDeposit || isDebt)) ? h(
-        "div",
-        { className: "l-fields" },
-        lockKind ? null : field4("النوع", h(
-          "select",
-          { className: "q-input", value: kind, onChange: (e) => setKind(e.target.value) },
-          KIND_CHOICES2.map(([k, l]) => h("option", { key: k, value: k }, l))
-        )),
-        isDeposit || isDebt ? null : field4("الاسم", input(name, setName, { maxLength: 80, name: "name" }), "name"),
-        isDeposit || isDebt ? null : h(
-          "label",
-          { className: "q-stack" },
-          h("span", { className: "q-label" }, "الرمز (اختياري)"),
-          input(symbol, setSymbol, { maxLength: 16, dir: "ltr" }),
-          kind === "stock" ? h("small", { className: "q-meta" }, "لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة") : null
-        ),
-        isDeposit || isDebt ? null : field4("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
-      ) : null,
-      isDebt ? debt.fields : isDeposit ? dep.fields : h(
-        "div",
-        { className: "l-fields" },
+        }) : null,
+        isPound || fixedEgp ? null : h(Choice, {
+          label: "هتكتب إيه؟",
+          value: mode,
+          onChange: setMode,
+          options: [["qty", `عدد ال${unitName}`], ["amount", "المبلغ اللي دفعته"]]
+        }),
+        h(Question, {
+          hero: true,
+          name: "qty",
+          value: qty,
+          onChange: setQty,
+          autoFocus: true,
+          error: errOf("qty"),
+          label: isPound ? "جالك كام جنيه؟" : mode === "qty" || fixedEgp ? `اشتريت كام ${unitName}؟` : "دفعت كام؟",
+          unit: isPound ? "ج.م" : mode === "qty" || fixedEgp ? unitName : sign(cur)
+        }),
         h(
           "div",
-          { className: "q-stack l-main" },
-          h("span", { className: "q-label" }, isPound ? "المبلغ (EGP)" : mode === "qty" ? quantityLabel(kindNow, entry ? entry.unit : "", entry ? entry.key : "") : `المبلغ المدفوع (${sign(cur)})`),
-          h(NumberInput, {
-            className: "q-input num l-big-input",
-            name: "qty",
-            value: qty,
-            "aria-label": "الكمية أو المبلغ",
-            onChange: setQty,
-            "aria-invalid": bad === "qty" || void 0,
-            autoFocus: true
+          { className: "l-entry-grid" },
+          isPound ? null : h(Question, {
+            name: "price",
+            value: price,
+            onChange: setPrice,
+            error: errOf("price"),
+            label: fixedEgp ? `بكام ال${unitName}؟` : `بكام ال${unitName}؟`,
+            unit: fixedEgp ? "ج.م" : null,
+            unitControl: unitToggle,
+            chips: entry && entry.price != null ? [h("button", {
+              key: "last",
+              type: "button",
+              className: "q-chip",
+              title: "حط آخر سعر في الخانة",
+              onClick: () => {
+                setPrice(String(entry.price));
+                if (!fixedEgp) setCurrency(entry.price_currency);
+              }
+            }, "آخر سعر ", priceWithSign(entry.price, entry.price_currency))] : null
           }),
-          bad === "qty" ? h("span", { className: "q-field-err" }, error) : null,
-          isPound ? null : h(
-            "span",
-            { className: "q-chips" },
-            h("button", { type: "button", className: "q-chip", "aria-pressed": mode === "qty", onClick: () => setMode("qty") }, "بالكمية"),
-            h("button", { type: "button", className: "q-chip", "aria-pressed": mode === "amount", onClick: () => setMode("amount") }, "بالمبلغ")
-          )
+          custom ? h(Question, {
+            name: "price-now",
+            value: current,
+            onChange: setCurrent,
+            label: "سعره النهارده كام؟ (لو تعرفه)",
+            unit: sign(cur),
+            hint: "لو سبته فاضي، هيبان من غير قيمة لحد ما تكتب سعره"
+          }) : null,
+          needsCost ? h(Question, {
+            name: "cost",
+            value: cost,
+            onChange: setCost,
+            error: errOf("cost") || (seen.field === "cost" ? seen.error : null),
+            label: "دفعت كام بالجنيه بالظبط؟",
+            unit: "ج.م",
+            wide: true
+          }) : null,
+          h(DateField, { value: day, onChange: setDay, error: errOf("date") }),
+          h(PlaceField, { value: place, onChange: setPlace, places, label: "فين؟" })
         ),
-        isPound ? null : h(
-          "div",
-          { className: "q-stack l-main" },
-          h("span", { className: "q-label" }, priceLabel(kindNow, entry ? entry.unit : "", entry ? entry.key : "")),
-          h(
-            "div",
-            { className: "q-row", style: { flexWrap: "nowrap", gap: 6 } },
-            h(NumberInput, {
-              className: "q-input num l-big-input",
-              name: "price",
-              value: price,
-              style: { flex: 1 },
-              "aria-label": "سعر الشرا",
-              onChange: setPrice,
-              "aria-invalid": bad === "price" || void 0
-            }),
-            fixedEgp ? h("span", { className: "q-meta" }, "ج.م") : currencySelect
-          ),
-          bad === "price" ? h("span", { className: "q-field-err" }, error) : null,
-          entry && entry.price != null ? h("span", { className: "q-chips" }, h("button", {
-            type: "button",
-            className: "q-chip",
-            title: "حط آخر سعر في الخانة",
-            onClick: () => {
-              setPrice(String(entry.price));
-              setCurrency(entry.price_currency);
-            }
-          }, "آخر سعر ", priceWithSign(entry.price, entry.price_currency))) : null,
-          farOff ? h("small", { className: "q-amber", role: "status" }, "السعر ده بعيد جدًا عن آخر سعر: راجع الوحدة والعملة") : null
-        ),
-        cur !== "EGP" ? field4(
-          "المبلغ اللي دفعته بالجنيه",
-          h(NumberInput, { name: "cost", value: costShown, placeholder: "ج.م", "aria-invalid": bad === "cost" || void 0, onChange: (v) => {
-            setCost(v);
-            setCostTouched(true);
-          } }),
-          "cost"
-        ) : null,
-        h(DateField, { value: day, onChange: setDay, invalid: bad === "date" }),
-        h(PlaceField, { value: place, onChange: setPlace, places }),
         h(
-          "details",
-          { className: "l-more" },
-          h("summary", null, "تفاصيل أكتر"),
-          h("div", { className: "l-fields" }, field4("ملاحظة", input(note, setNote, { maxLength: 200 })))
+          More,
+          { label: custom ? "تفاصيل أكتر · الاسم، الرمز، ملاحظة" : "تفاصيل أكتر · المبلغ بالجنيه، ملاحظة", open: bad === "name" },
+          custom ? h(Question, { numeric: false, name: "name", value: name, onChange: setName, label: "اسمه", maxLength: 80, error: errOf("name") }) : null,
+          custom ? h(Question, {
+            numeric: false,
+            name: "symbol",
+            value: symbol,
+            onChange: setSymbol,
+            label: "رمزه في البورصة (لو تعرفه)",
+            maxLength: 16,
+            dir: "ltr",
+            hint: "لو كتبته، سعر السهم هيتحدّث لوحده بعد الجلسة"
+          }) : null,
+          cur !== "EGP" && !needsCost ? h(Question, {
+            name: "cost",
+            value: cost,
+            onChange: setCost,
+            label: "دفعت كام بالجنيه بالظبط؟",
+            unit: "ج.م",
+            hint: seen.data && seen.data.cost_egp ? frag("لو سبته، هيتحسب بسعر اليوم: ", N(money(seen.data.cost_egp)), " ج.م") : null
+          }) : null,
+          h(Question, { numeric: false, name: "note", value: note, onChange: setNote, label: "ملاحظة", maxLength: 200, wide: true })
         )
-      ),
-      h(
-        "div",
-        { className: "l-actions" },
-        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ الإضافة…" : "إضافة"),
-        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
-        paid != null && !isPound ? h(
-          "span",
-          { className: "q-meta" },
-          "الإجمالي ",
-          N(`${fmtQty(Math.round(quantity * 1e4) / 1e4)} × ${fmtPrice(p)} = ${fmtPrice(paid)}`),
-          " ",
-          sign(cur),
-          cur !== "EGP" && rate ? frag(" · سعر التحويل ", N(fmtPrice(rate)), " ج.م") : null
-        ) : null,
-        error ? h("span", { className: "q-error", role: "alert" }, error) : null
-      )
+      );
+    }
+    const summary = isDebt || isDeposit ? null : h(
+      Summary,
+      {
+        pending: seen.pending,
+        empty: isPound ? "اكتب المبلغ، وهتشوف هنا اللي هيتسجّل" : "اكتب الكمية والسعر، وهتشوف هنا اللي هيتسجّل"
+      },
+      seen.data ? purchaseSummary(seen.data, isPound) : null
     );
+    const warn = seen.data && seen.data.far_from_last ? frag("السعر ده بعيد قوي عن آخر سعر (", N(money(seen.data.last_price_egp)), ` ج.م لل${unitName}). اتأكد إنه سعر ال${unitName} وبالعملة الصح.`) : null;
+    return h(EntryCard, {
+      formRef,
+      className: "l-add",
+      ariaLabel: isDebt ? "دين" : isDeposit ? "شهادة" : "إضافة أصل",
+      icon,
+      title,
+      aside: custom ? null : h("span", { className: "q-meta l-entry-aside" }, entry.kind_label),
+      onSubmit: submit,
+      onCancel,
+      busy,
+      alert: fieldAlert || previewAlert,
+      warn,
+      summary,
+      submitLabel: isDebt ? "سجّل الدين" : isDeposit ? "سجّل الشهادة" : isPound ? "سجّل الفلوس" : "سجّل الشرا"
+    }, questions);
   }
   function LotItem({ lot, asset, onChanged }) {
     const hidden = usePrivacy();
@@ -2700,7 +3027,7 @@ var __monos = (() => {
     async function save(e) {
       e.preventDefault();
       const v = parseNumberInput(value);
-      if (!(v > 0)) return setError("اكتب السعر");
+      if (!(v > 0)) return setError("اكتب السعر.");
       setBusy(true);
       setError("");
       try {
@@ -2713,18 +3040,27 @@ var __monos = (() => {
         setBusy(false);
       }
     }
+    const toggle = fixed2 ? null : h("button", {
+      type: "button",
+      className: "l-q-unit",
+      "aria-label": "عملة السعر",
+      title: "غيّر عملة السعر",
+      onClick: () => setCurrency(currency === "EGP" ? "USD" : "EGP")
+    }, sign(currency), " ⇄");
     return h(
       "form",
-      { className: "l-inline", onSubmit: save, noValidate: true },
-      h("span", { className: "q-sec" }, "تحديث السعر للوحدة"),
-      h("input", { className: "q-input num", inputMode: "decimal", value, "aria-label": `السعر الحالي لـ ${asset.name}`, onChange: (e) => setValue(e.target.value) }),
-      fixed2 ? h("span", { className: "q-meta" }, "ج.م") : h(
-        "select",
-        { className: "q-input", style: { width: 80 }, value: currency, "aria-label": "عملة السعر", onChange: (e) => setCurrency(e.target.value) },
-        ["EGP", "USD"].map((c) => h("option", { key: c, value: c }, sign(c)))
-      ),
-      h("button", { type: "submit", className: "q-btn q-btn-sm", disabled: busy }, "حفظ السعر"),
-      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      { className: "l-price-form", onSubmit: save, noValidate: true },
+      h(Question, {
+        name: "price-now",
+        value,
+        onChange: setValue,
+        label: `سعر ال${asset.unit_name || asset.unit} النهارده كام؟`,
+        unit: fixed2 ? "ج.م" : null,
+        unitControl: toggle,
+        "aria-label": `السعر الحالي لـ ${asset.name}`,
+        error
+      }),
+      h("button", { type: "submit", className: "q-btn", disabled: busy }, busy ? "بيتحفظ…" : "حدّث السعر")
     );
   }
   function Components({ asset, catalog, onChanged }) {
@@ -2827,7 +3163,7 @@ var __monos = (() => {
       h(
         "div",
         { className: "l-actions" },
-        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy || kind === asset.kind }, busy ? "جارٍ الحفظ…" : "احفظ"),
+        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy || kind === asset.kind }, busy ? "بيتحفظ…" : "احفظ النوع"),
         h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
         error ? h("span", { className: "q-error", role: "alert" }, error) : null
       )
@@ -2946,7 +3282,7 @@ var __monos = (() => {
         h(Timeline, { asset, onChanged, onOpen }),
         asset.realized_egp && Math.abs(asset.realized_egp) >= 1 ? h("p", { className: "l-hint" }, "ربح محقق من اللي اتحوّل ", hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), " ج.م") : null,
         asset.dividends_egp >= 1 ? h("p", { className: "l-hint" }, "توزيعات استلمتها ", hid(hidden, money(asset.dividends_egp)), " ج.م") : null,
-        movable ? ["dividend", "bonus", "split"].includes(moving) ? h(StockEventForm, { asset, kind: moving, onDone: () => {
+        movable ? ["dividend", "bonus", "split"].includes(moving) ? h(StockEventForm, { asset, kind: moving, places, onDone: () => {
           setMoving(null);
           onChanged();
         }, onCancel: () => setMoving(null) }) : moving === "kind" ? h(KindForm, { asset, onDone: () => {
@@ -3133,13 +3469,13 @@ var __monos = (() => {
       monos.refresh();
     }, []);
     const refresh = () => monos.refresh();
-    const added = (key, text4 = "اتسجّلت العملية") => {
+    const added = (key, text2 = "اتسجّلت العملية") => {
       setPicked(null);
       setComposer(null);
       setFresh(key);
       reloadCatalog();
       refresh();
-      toasts.push(text4, key ? { label: "افتح", run: () => openAsset(key) } : null);
+      toasts.push(text2, key ? { label: "افتح", run: () => openAsset(key) } : null);
     };
     const compose = (type = "buy") => {
       setView("assets");

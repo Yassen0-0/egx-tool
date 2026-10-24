@@ -13,6 +13,7 @@ import { search } from './search.mjs'
 import { ExportButton } from './export.js'
 import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
 import { MoveForm, MoveItem } from './moves.js'
+import { ActivityView } from './activity.js'
 import { CURRENCY_SIGN, money, sign } from './units.mjs'
 import LEDGER_CSS from './ledger.css'
 
@@ -446,6 +447,8 @@ export function PortfolioPage() {
   const [picked, setPicked] = useState(null)
   const [fresh, setFresh] = useState(null)
   const [focus, setFocus] = useState(null)
+  const [view, setView] = useState('assets')
+  const openAsset = (key) => { setView('assets'); setFocus({ key, at: Date.now() }) }
   useEffect(() => { monos.refresh() }, [])
   const refresh = () => monos.refresh()
   const added = (key) => {
@@ -475,15 +478,20 @@ export function PortfolioPage() {
     body = h('div', { className: 'l-col' },
       h(TotalBlock, { totals }),
       h(HistoryChart),
-      h('div', null,
+      h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
+        [['assets', 'الأصول'], ['activity', 'الحركات']].map(([id, label]) => h('button', {
+          key: id, type: 'button', role: 'tab', 'aria-selected': view === id, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
+        }, label))),
+      view === 'activity' ? h(ActivityView, { onOpen: openAsset }) : null,
+      view === 'activity' ? null : h('div', null,
         h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
         picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
           onDone: added, onCancel: () => setPicked(null) }) : null),
-      ledger.groups.length
+      view === 'activity' ? null : ledger.groups.length
         ? ledger.groups.map((g) => h('section', { key: g.group, className: 'l-group', 'aria-label': g.label },
           h('h2', null, g.label),
           g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
-            focused: focus && focus.key === a.key ? focus.at : null, onOpen: (key) => setFocus({ key, at: Date.now() }) }))))
+            focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset }))))
         : h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
       h('p', { className: 'l-foot' }, 'الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ',
         'القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع.'))

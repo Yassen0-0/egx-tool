@@ -53,6 +53,15 @@
 @keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }
 
+/* «الأصول» / «الحركات» */
+.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
+.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;
+  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }
+.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }
+.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }
+.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }
+.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }
+
 /* Row details: purchases, price, components */
 .qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }
 .qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }

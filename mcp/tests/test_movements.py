@@ -169,3 +169,22 @@ def test_the_cli_and_the_assistant_share_the_movement_commands(tmp_path, monkeyp
                                    ' "value_egp": "", "top_up": false}')
     assert cli.run("movement-update", f'{{"movement_id": {move["id"]}, "note": "البنك"}}')["note"] == "البنك"
     assert cli.run("movement-remove", f'{{"movement_id": {move["id"]}}}')["removed"]["id"] == move["id"]
+
+
+def test_the_whole_ledgers_activity_and_a_months_totals(conn):
+    from egx_mcp.store.activity import ledger_activity
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=10000, buy_date="2026-09-28", note="مرتب")
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=5000, buy_date="2026-10-01")
+    portfolio.add_movement(conn, "transfer", "EGP", 1000, "USD", 20, date="2026-10-02")
+    portfolio.add_movement(conn, "expense", "EGP", 2500, date="2026-10-05", note="إيجار")
+    every = ledger_activity(conn, at=AT)
+    assert every["months"] == ["2026-10", "2026-09"]
+    assert [i["kind"] for i in every["items"]] == ["expense", "transfer", "income", "income"]
+    transfer = every["items"][1]
+    assert transfer["from"]["key"] == "EGP" and transfer["to"]["key"] == "USD" and transfer["to_quantity"] == 20
+    october = ledger_activity(conn, month="2026-10", at=AT)["totals"]
+    assert october == {"income_egp": 5000, "expense_egp": 2500, "transfer_egp": 1000, "realized_egp": 0, "count": 3}
+    assert [i["kind"] for i in ledger_activity(conn, kind="income", at=AT)["items"]] == ["income", "income"]
+    assert len(ledger_activity(conn, asset="USD", at=AT)["items"]) == 1
+    with pytest.raises(LedgerInputError, match="سنة-شهر"):
+        ledger_activity(conn, month="10/2026")

@@ -106,6 +106,11 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('fx-rate', { currency: query.get('currency') || '', date: query.get('date') || null })
     return sendJson(res, status, body)
   }
+  // «الحركات»: everything that moved, for a month, a kind or an asset.
+  if (method === 'GET' && path === '/egx/api/activity') {
+    const { status, body } = await runCli('activity', { month: query.get('month') || null, kind: query.get('kind') || null, asset: query.get('asset') || null })
+    return sendJson(res, status, body)
+  }
   // «تطوّر ثروتي»: the total per day from the daily snapshots; days is a whole number, anything else is the default.
   if (method === 'GET' && path === '/egx/api/history') {
     const days = Number(query.get('days'))

@@ -465,6 +465,13 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
       await wait(() => row('الريال السعودي') && row('الريال السعودي').closest('section').getAttribute('aria-label') === 'اتصرفت بالكامل', 'the riyal to close')
       seen.closed = text(row('الريال السعودي').closest('section'))
       seen.total = text(host.querySelector('.l-total'))
+
+      // «الحركات»: the whole ledger's movements, and an asset's name back to its row.
+      await click([...host.querySelectorAll('[role="tab"]')].find((b) => b.textContent === 'الحركات'))
+      await wait(() => host.querySelector('.l-act'), 'the activity list')
+      seen.activity = text(host.querySelector('.l-activity'))
+      await click([...host.querySelectorAll('.l-act button.q-link')].find((b) => b.textContent === 'الريال السعودي'))
+      await wait(() => row('الريال السعودي') && row('الريال السعودي').getAttribute('aria-expanded') === 'true', 'the riyal row from the activity')
     },
   })
   assert.deepEqual(r.errors, [])
@@ -477,4 +484,7 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
   assert.match(seen.short, /ناقص 5/)
   assert.match(seen.closed, /اتحوّل أو اتصرف كله/)
   assert.match(seen.total, /ربح محقق −19/)  // 1,050 − (1,000 + 5 × 13.87)
+  assert.match(seen.activity, /تحويل ?75 SAR من الريال السعودي ← 1,050 ج\.م في الجنيه المصري/)
+  assert.match(seen.activity, /تحويل ?1,000 ج\.م من الجنيه المصري ← 70 SAR في الريال السعودي/)
+  assert.match(seen.activity, /دخل ?5 SAR في الريال السعودي/)  // the gap recorded as money from outside
 })

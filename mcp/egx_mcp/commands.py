@@ -13,7 +13,7 @@ from .catalog import search as catalog_find
 from .config import db_path
 from .market.eodhd import EodhdClient, resolve_api_key
 from .market.sync import sync_market
-from .store import history, portfolio
+from .store import activity, history, portfolio
 from .store.db import connect
 from .store.export import ledger_csv
 
@@ -144,6 +144,14 @@ def fund_components_set(fund: str, components: list[dict]) -> dict:
         return portfolio.set_fund_components(conn, fund, components)
 
 
+def ledger_activity(month: str | None = None, kind: str | None = None, asset: str | None = None) -> dict:
+    """Everything that moved, newest first: purchases (income: money coming in), transfers and expenses,
+    for one month (YYYY-MM), one kind (income, transfer, expense) or one asset, with the month's
+    totals in EGP. Answers «فلوسي راحت فين». Describe it; never advise on it."""
+    with _db() as conn:
+        return activity.ledger_activity(conn, month, kind, asset)
+
+
 def web_search(query: str, limit: int = 5) -> dict:
     """Search the web (title, address and snippet per result) for something the user asked to
     record: a fund's latest unit price, a certificate's rate, a close the market feed lacks. Then read
@@ -177,7 +185,7 @@ def prices_sync() -> dict:
 MCP_TOOLS = (
     portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
     movement_add, movement_update, movement_remove, price_set, fx_rate, fund_components_set, wealth_history,
-    web_search, web_fetch,
+    ledger_activity, web_search, web_fetch,
 )
 CLI_COMMANDS = {
     "portfolio-summary": portfolio_summary,
@@ -194,6 +202,7 @@ CLI_COMMANDS = {
     "price-set": price_set,
     "fx-rate": fx_rate,
     "history": wealth_history,
+    "activity": ledger_activity,
     "fund-components-set": fund_components_set,
     "prices-sync": prices_sync,
 }

@@ -81,6 +81,8 @@ test('each movements route maps to its egx-cli command', async () => {
   const remove = await call('DELETE', '/egx/api/movements/4', { body: {}, headers: SAME_ORIGIN })
   assert.deepEqual(remove.body, { command: 'movement-remove', payload: { movement_id: 4 } })
   assert.equal((await call('DELETE', '/egx/api/movements', { body: {}, headers: SAME_ORIGIN })).status, 405)
+  assert.deepEqual((await call('GET', '/egx/api/activity?month=2026-10&kind=transfer')).body,
+    { command: 'activity', payload: { month: '2026-10', kind: 'transfer', asset: null } })
   assert.equal((await call('POST', '/egx/api/movements', { body, headers: { 'content-type': 'application/json' } })).status, 403)
 })
 

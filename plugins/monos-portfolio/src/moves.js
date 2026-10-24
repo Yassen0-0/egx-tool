@@ -36,21 +36,27 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
   const [topUp, setTopUp] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  const transfer = kind === 'transfer'
+  const [fromPlace, setFromPlace] = useState('')
+  const [toPlace, setToPlace] = useState('')
+  const within = kind === 'place'  // the same asset from one place to another
+  const transfer = kind === 'transfer' || within
+  const dest = within ? asset : to
   // null while the catalog loads, so the search waits instead of offering «add by name».
   const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== 'deposit') : null
   const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = parseDayInput(day), v = parseNumberInput(value)
-  const neitherPound = transfer && to && asset.key !== 'EGP' && to.key !== 'EGP'
+  const neitherPound = kind === 'transfer' && to && asset.key !== 'EGP' && to.key !== 'EGP'
 
   async function submit(e) {
     e.preventDefault()
     setError('')
     if (!(t > 0)) return setError('اكتب الكمية اللي خرجت.')
-    if (transfer && !to) return setError('اختار الأصل اللي الفلوس راحت له.')
+    if (transfer && !dest) return setError('اختار الأصل اللي الفلوس راحت له.')
+    if (within && !toPlace.trim()) return setError('اكتب المكان اللي الفلوس راحت له.')
     if (transfer && !(a > 0)) return setError('اكتب الكمية اللي دخلت.')
     if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
-    const body = { kind, from_asset: asset.key, from_quantity: t, date: d, note: note.trim() || null, top_up: topUp }
-    if (transfer) Object.assign(body, { to_asset: to.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null })
+    const body = { kind: within ? 'transfer' : kind, from_asset: asset.key, from_quantity: t, date: d, note: note.trim() || null,
+      top_up: topUp, from_place: fromPlace || null }
+    if (transfer) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null })
     setBusy(true)
     try {
       await api('POST', '/egx/api/movements', body)
@@ -62,9 +68,10 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
     }
   }
 
-  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': transfer ? 'تحويل' : 'خروج' },
-    h('b', null, transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`),
-    transfer ? (to
+  const title = within ? `نقل ${asset.name} لمكان تاني` : transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`
+  return h('form', { className: 'l-add l-move', onSubmit: submit, noValidate: true, 'aria-label': within ? 'نقل' : transfer ? 'تحويل' : 'خروج' },
+    h('b', null, title),
+    kind === 'transfer' ? (to
       ? h('div', { className: 'l-inline' }, h('span', null, 'لـ ', h('b', null, to.name)),
         h('button', { type: 'button', className: 'q-link', onClick: () => { setTo(null); setArrived('') } }, 'تغيير'))
       : h(SearchBox, { catalog: others, onPick: (entry) => { setTo(entry); setError('') },
@@ -74,7 +81,10 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
         h('span', { className: 'q-label' }, `خرج كام (${unitOf(asset)})`),
         h('input', { className: 'q-input num', inputMode: 'decimal', value: taken, 'aria-label': 'الكمية اللي خرجت', onChange: (e) => setTaken(e.target.value) }),
         asset.quantity > 0 ? h('button', { type: 'button', className: 'q-link', style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setTaken(String(asset.quantity)) }, 'الكل') : null),
-      transfer && to ? field(`دخل كام (${unitOf(to)})`, text(arrived, setArrived, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'الكمية اللي دخلت' })) : null,
+      asset.places && asset.places.length ? field('من مكان', h('select', { className: 'q-input', value: fromPlace, onChange: (e) => setFromPlace(e.target.value) },
+        h('option', { value: '' }, within ? 'اختار' : 'أي مكان'), asset.places.filter((p) => p.place).map((p) => h('option', { key: p.place, value: p.place }, p.place)))) : null,
+      transfer && dest ? field(`دخل كام (${unitOf(dest)})`, text(arrived, setArrived, { inputMode: 'decimal', className: 'q-input num', 'aria-label': 'الكمية اللي دخلت' })) : null,
+      transfer && dest ? field(within ? 'لمكان' : 'لمكان (اختياري)', text(toPlace, setToPlace, { maxLength: 40, list: 'l-places' })) : null,
       field('التاريخ (اختياري)', text(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
       neitherPound ? field('كانت تساوي كام بالجنيه (اختياري)', text(value, setValue, { inputMode: 'decimal', className: 'q-input num', placeholder: 'ج.م' })) : null,
       field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 }))),
@@ -84,7 +94,7 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
     h('div', { className: 'l-actions' },
       h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ التسجيل…' : 'سجّل'),
       h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
-      transfer && to ? h('span', { className: 'q-meta' }, rateText(asset, t, to, a)) : null,
+      kind === 'transfer' && to ? h('span', { className: 'q-meta' }, rateText(asset, t, to, a)) : null,
       error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
 }
 
@@ -102,6 +112,8 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
   const [error, setError] = useState('')
   const incoming = event.type === 'in'
   const other = event.other
+  const within = other && other.key === asset.key
+  const placeText = frag(event.from_place ? ` من ${event.from_place}` : '', event.to_place ? ` لـ ${event.to_place}` : '')
   const run = async (action) => {
     setBusy(true); setError('')
     try { await action(); setMode('view'); onChanged() } catch (e) { setError(e.message) } finally { setBusy(false) }
@@ -127,7 +139,7 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
       box(`خرج (${fromUnit})`, taken, setTaken, { inputMode: 'decimal', style: { width: 110 } }),
       event.kind === 'transfer' ? box(`دخل (${toUnit})`, arrived, setArrived, { inputMode: 'decimal', style: { width: 110 } }) : null,
       box('التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
-      event.kind === 'transfer' && asset.key !== 'EGP' && other.key !== 'EGP'
+      event.kind === 'transfer' && !within && asset.key !== 'EGP' && other.key !== 'EGP'
         ? box('القيمة بالجنيه', value, setValue, { inputMode: 'decimal', style: { width: 110 } }) : null,
       h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة'),
         h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })),
@@ -139,12 +151,16 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
 
   const spread = incoming && event.market_value_egp != null && event.value_egp != null && Math.abs(event.value_egp - event.market_value_egp) >= 1
   return h('div', { className: 'l-lot l-move-item' },
-    incoming
-      ? h('span', null, '+', amount(event.quantity, asset.key, asset.unit, hidden), ' من ', link, ' (', amount(event.from_quantity, other.key, other.unit, hidden), ')')
-      : event.kind === 'expense'
-        ? h('span', null, '−', amount(event.from_quantity, asset.key, asset.unit, hidden), ' خروج')
-        : h('span', null, '−', amount(event.from_quantity, asset.key, asset.unit, hidden), ' لـ ', link, ' (', amount(event.to_quantity, other.key, other.unit, hidden), ')'),
-    event.value_egp != null && asset.key !== 'EGP' && !(other && other.key === 'EGP')
+    within
+      ? h('span', null, incoming ? '+' : '−', amount(incoming ? event.to_quantity : event.from_quantity, asset.key, asset.unit, hidden), ' نقل', placeText)
+      : incoming
+        ? h('span', null, '+', amount(event.quantity, asset.key, asset.unit, hidden), ' من ', link, ' (', amount(event.from_quantity, other.key, other.unit, hidden), ')', placeText)
+        : event.kind === 'expense'
+          ? h('span', null, '−', amount(event.from_quantity, asset.key, asset.unit, hidden), ' خروج', placeText)
+          : event.kind === 'repay'
+            ? h('span', null, '−', amount(event.from_quantity, asset.key, asset.unit, hidden), ' سداد ', link, placeText)
+            : h('span', null, '−', amount(event.from_quantity, asset.key, asset.unit, hidden), ' لـ ', link, ' (', amount(event.to_quantity, other.key, other.unit, hidden), ')', placeText),
+    event.value_egp != null && !within && asset.key !== 'EGP' && !(other && other.key === 'EGP')
       ? h('span', { className: 'q-sec' }, 'بقيمة ', hidden ? N(MASK) : N(money(event.value_egp)), ' ج.م') : null,
     spread ? h('span', { className: 'q-sec' }, 'سعر السوق يومها ', hidden ? N(MASK) : N(money(event.market_value_egp)), ' ج.م') : null,
     event.realized != null && Math.abs(event.realized) >= 1

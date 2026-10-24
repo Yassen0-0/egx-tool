@@ -5,8 +5,10 @@ and how a period moved in EGP, in dollars and in gold, with the money that came 
   (portfolio.price_on); an asset with no price known that early counts at its cost that day; a
   certificate from its terms. The last point is the ledger's own total, so the line ends where the
   screen's big number is.
-- Money in: a purchase (its EGP cost) is money coming in, an expense money going out; a transfer
-  moves money inside the ledger and is neither.
+- Debts (store/debts.py): what is left of each one that day is taken off the total.
+- Money in: a purchase (its EGP cost) is money coming in, an expense money going out, and so is a
+  debt when it starts (the borrowed pounds, if recorded, come in as a purchase); a transfer or a
+  repayment moves money inside the ledger and is neither.
 - A period's move: market = end − start − money in. Its percent is market over the start plus each
   inflow weighted by the part of the period it was there (modified Dietz). The same in dollars (each
   figure at its day's dollar rate) and in grams of 24 karat gold.
@@ -26,7 +28,7 @@ from pathlib import Path
 from ..catalog import catalog
 from ..config import data_dir
 from ..market.calendar import CAIRO, now_cairo
-from . import deposits, portfolio
+from . import debts, deposits, portfolio
 
 DEFAULT_DAYS = 365
 MAX_DAYS = 3650
@@ -111,6 +113,7 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
         tracks[key] = (events, [e["date"] for e in events])
     certificates = [dict(r) for r in conn.execute("SELECT * FROM holdings WHERE kind = 'deposit' ORDER BY id")]
     terms = deposits.load(conn)
+    owed = [(d, book["debts"].get(debts.key(d["id"]), [])) for d in debts.load(conn)]
 
     flows: dict[str, float] = {}
     for events, _ in tracks.values():
@@ -122,6 +125,8 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
     for c in certificates:
         day = c["buy_date"] or c["created_at"][:10]
         flows[day] = flows.get(day, 0.0) + c["cost_egp"]
+    for d, _ in owed:
+        flows[d["start_date"]] = flows.get(d["start_date"], 0.0) - d["principal"]
 
     starts = [d for events, dates in tracks.values() for d in dates[:1]] + list(flows)
     if not starts:
@@ -154,14 +159,15 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
             if (c["buy_date"] or c["created_at"][:10]) <= day:
                 value += deposits.valued(terms.get(c["id"]), c["quantity"], noon)["value"]
                 cost += c["cost_egp"]
+        value -= sum(debts.remaining_on(d, paid, day) for d, paid in owed)
         inflow = sum(v for k, v in flows.items() if (previous is None or k > previous) and k <= day)
         usd = portfolio.rate_on(conn, "USD", day)
         points.append({"date": day, "value_egp": value, "cost_egp": cost, "inflow_egp": inflow,
                        "usd_rate": usd["rate"] if usd else None, "gold_gram_egp": unit("XAU-G", day)})
         previous = day
     totals = portfolio.portfolio_summary(conn, at)["totals"]
-    if totals["value"] is not None:  # the line ends on the screen's own total
-        points[-1]["value_egp"] = totals["value"]
+    if totals["net_worth"] is not None:  # the line ends on the screen's own total
+        points[-1]["value_egp"] = totals["net_worth"]
     return points
 
 

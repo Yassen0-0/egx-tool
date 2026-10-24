@@ -1,14 +1,14 @@
 // «الحركات» view of the ledger screen (docs/الحركات.md): everything that moved, newest first, for a
 // month and a kind, with what the month adds up to. Python builds the list and the totals
 // (/egx/api/activity → store/activity.py); this only shows them. An asset's name opens its row. ES module.
-import { N, api, h, useEffect, useState } from '../../shared/runtime.js'
+import { N, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtSigned, toneOf } from '../../shared/format.mjs'
 import { Skeleton } from '../../shared/components.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { amount } from './moves.js'
 import { money } from './units.mjs'
 
-const KIND_CHOICES = [['', 'الكل'], ['income', 'دخل'], ['transfer', 'تحويل'], ['expense', 'خروج']]
+const KIND_CHOICES = [['', 'الكل'], ['income', 'دخل'], ['transfer', 'تحويل'], ['expense', 'خروج'], ['repay', 'سداد']]
 const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
 
 /** «أكتوبر 2026» for 2026-10. */
@@ -39,6 +39,7 @@ export function ActivityView({ onOpen }) {
         KIND_CHOICES.map(([value, label]) => h('option', { key: value, value }, label)))),
     h('div', { className: 'l-line', role: 'status' },
       sum('دخل', t.income_egp), sum('خروج', t.expense_egp), sum('اتحوّل', t.transfer_egp),
+      t.repay_egp ? sum('سداد', t.repay_egp) : null,
       Math.abs(t.realized_egp) >= 1 ? h('span', null, 'ربح محقق ', hidden ? N(MASK) : N(fmtSigned(t.realized_egp, 0), toneOf(t.realized_egp)), ' ج.م') : null),
     data.items.length
       ? data.items.map((i) => h('div', { key: i.id, className: 'l-lot l-act' },
@@ -46,8 +47,8 @@ export function ActivityView({ onOpen }) {
         h('b', null, i.kind_label),
         i.kind === 'income'
           ? h('span', null, amount(i.to_quantity, i.to.key, i.to.unit, hidden), ' في ', link(i.to))
-          : i.kind === 'expense'
-            ? h('span', null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), ' من ', link(i.from))
+          : i.kind === 'expense' || i.kind === 'repay'
+            ? h('span', null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), ' من ', link(i.from), i.kind === 'repay' && i.to ? frag(' لـ ', link(i.to)) : null)
             : h('span', null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), ' من ', link(i.from), ' ← ',
               amount(i.to_quantity, i.to.key, i.to.unit, hidden), ' في ', link(i.to)),
         i.value_egp != null && !(i.to && i.to.key === 'EGP' && i.kind === 'income')

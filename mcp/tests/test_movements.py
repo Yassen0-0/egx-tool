@@ -183,7 +183,8 @@ def test_the_whole_ledgers_activity_and_a_months_totals(conn):
     transfer = every["items"][1]
     assert transfer["from"]["key"] == "EGP" and transfer["to"]["key"] == "USD" and transfer["to_quantity"] == 20
     october = ledger_activity(conn, month="2026-10", at=AT)["totals"]
-    assert october == {"income_egp": 5000, "expense_egp": 2500, "transfer_egp": 1000, "realized_egp": 0, "count": 3}
+    assert october == {"income_egp": 5000, "expense_egp": 2500, "transfer_egp": 1000, "repay_egp": 0, "realized_egp": 0,
+                       "count": 3}
     assert [i["kind"] for i in ledger_activity(conn, kind="income", at=AT)["items"]] == ["income", "income"]
     assert len(ledger_activity(conn, asset="USD", at=AT)["items"]) == 1
     with pytest.raises(LedgerInputError, match="سنة-شهر"):

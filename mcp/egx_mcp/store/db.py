@@ -99,7 +99,8 @@ CREATE TABLE IF NOT EXISTS holdings (
     name TEXT,
     currency TEXT NOT NULL DEFAULT 'EGP',
     fx_egp REAL NOT NULL DEFAULT 1,
-    cost_egp REAL
+    cost_egp REAL,
+    place TEXT
 );
 
 -- Assets the user adds by name («إضافة بالاسم ده»); key custom:<id>. They stay searchable.
@@ -151,13 +152,15 @@ CREATE TABLE IF NOT EXISTS deposits (
     bank TEXT
 );
 
--- «الحركات»: money moving out of an asset, into another (transfer) or out of the ledger (expense).
--- Purchases stay in holdings: each one is money coming in. Quantities are what left and what
--- arrived, in each asset's own unit; value_egp is the EGP the user says the transfer was worth.
+-- «الحركات»: money moving out of an asset, into another (transfer), out of the ledger (expense) or
+-- towards a debt (repay: to_asset debt:<id>, to_quantity the EGP the debt went down by). Purchases
+-- stay in holdings: each one is money coming in. Quantities are what left and what arrived, in each
+-- asset's own unit; value_egp is the EGP the user says the transfer was worth; the places are where
+-- the money was and went («البنك الأهلي», «Thndr»), free text.
 CREATE TABLE IF NOT EXISTS movements (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
-    kind TEXT NOT NULL CHECK (kind IN ('transfer', 'expense')),
+    kind TEXT NOT NULL CHECK (kind IN ('transfer', 'expense', 'repay')),
     from_asset TEXT NOT NULL,
     from_quantity REAL NOT NULL CHECK (from_quantity > 0),
     to_asset TEXT,
@@ -166,7 +169,23 @@ CREATE TABLE IF NOT EXISTS movements (
     note TEXT,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
-    CHECK ((kind = 'transfer') = (to_asset IS NOT NULL AND to_quantity IS NOT NULL))
+    from_place TEXT,
+    to_place TEXT,
+    CHECK ((kind IN ('transfer', 'repay')) = (to_asset IS NOT NULL AND to_quantity IS NOT NULL))
+);
+
+-- «ديون وأقساط»: what the user owes. principal is the amount owed from start_date; payments are
+-- movements of kind repay. installment_egp and due_day (1-28) only describe the schedule.
+CREATE TABLE IF NOT EXISTS debts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    principal REAL NOT NULL CHECK (principal > 0),
+    start_date TEXT NOT NULL,
+    installment_egp REAL CHECK (installment_egp IS NULL OR installment_egp > 0),
+    due_day INTEGER CHECK (due_day IS NULL OR due_day BETWEEN 1 AND 28),
+    note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS watchlist (
@@ -213,6 +232,24 @@ def _dollar_lines(conn: sqlite3.Connection) -> None:
                      (currency, symbol))
 
 
+_MOVEMENT_COLUMNS = ("id, date, kind, from_asset, from_quantity, to_asset, to_quantity, value_egp, note, created_at,"
+                     " updated_at")
+
+
+def _places_and_repay(conn: sqlite3.Connection) -> None:
+    """Purchases get a place; movements get places and the repay kind. A CHECK cannot be altered in
+    SQLite, so a movements table from step 6 is copied into the new shape (ids kept) and replaced."""
+    _add_column("holdings", "place", "TEXT")(conn)
+    columns = {r["name"] for r in conn.execute("PRAGMA table_info(movements)")}
+    if "from_place" in columns:
+        return  # created by SCHEMA in its current shape
+    conn.execute(SCHEMA[SCHEMA.index("CREATE TABLE IF NOT EXISTS movements"):SCHEMA.index("-- «ديون")]
+                 .replace("CREATE TABLE IF NOT EXISTS movements", "CREATE TABLE movements_v7"))
+    conn.execute(f"INSERT INTO movements_v7 ({_MOVEMENT_COLUMNS}) SELECT {_MOVEMENT_COLUMNS} FROM movements")
+    conn.execute("DROP TABLE movements")
+    conn.execute("ALTER TABLE movements_v7 RENAME TO movements")
+
+
 # Note: SCHEMA runs before the steps, so it must not index a column a step adds.
 MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (1, "valuations.report (full Markdown report)", _add_column("valuations", "report", "TEXT")),
@@ -221,6 +258,7 @@ MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (4, "old purchases of a dollar EGX line are in dollars, their EGP cost unknown", _dollar_lines),
     (5, "deposits (created by SCHEMA)", lambda conn: None),
     (6, "movements (created by SCHEMA)", lambda conn: None),
+    (7, "places on purchases and movements, the repay kind, debts", _places_and_repay),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

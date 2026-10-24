@@ -14,11 +14,12 @@ import { ExportButton } from './export.js'
 import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
 import { MoveForm, MoveItem } from './moves.js'
 import { ActivityView } from './activity.js'
+import { DEBT_KIND, DebtRow, PlaceList, useDebtForm } from './debts.js'
 import { CURRENCY_SIGN, money, sign } from './units.mjs'
 import LEDGER_CSS from './ledger.css'
 
 export { CURRENCY_SIGN, money }
-export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق'], [DEPOSIT_KIND, 'شهادة/وديعة']]
+export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق'], [DEPOSIT_KIND, 'شهادة/وديعة'], [DEBT_KIND, 'دين أو قسط']]
 const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' }
 
 const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
@@ -108,7 +109,10 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   const [current, setCurrent] = useState('')
   const kindNow = custom ? kind : entry.kind
   const isDeposit = custom && kind === DEPOSIT_KIND
+  const isDebt = custom && kind === DEBT_KIND
   const dep = useDepositForm()
+  const debt = useDebtForm()
+  const [place, setPlace] = useState('')
   const isPound = !custom && entry.key === 'EGP'
   const fixedEgp = kindNow === 'currency'
   const [currency, setCurrency] = useState(custom || fixedEgp ? 'EGP' : entry.currency)
@@ -146,6 +150,20 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   async function submit(e) {
     e.preventDefault()
     setError('')
+    if (isDebt) {
+      const built = debt.build()
+      if (built.error) return setError(built.error)
+      setBusy(true)
+      try {
+        const made = await api('POST', '/egx/api/debts', built.body)
+        onDone(`debt:${made.id}`)
+      } catch (err) {
+        setError(err.message)
+      } finally {
+        setBusy(false)
+      }
+      return undefined
+    }
     if (isDeposit) {
       const built = dep.build()
       if (built.error) return setError(built.error)
@@ -166,7 +184,7 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
     if (parsedDay === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.')
     const costValue = parseNumberInput(costShown)
     if (cur !== 'EGP' && !(costValue > 0)) return setError('مفيش سعر تحويل معروف لليوم ده: اكتب المبلغ اللي دفعته بالجنيه.')
-    const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null }
+    const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null, place: place.trim() || null }
     body[mode === 'qty' ? 'quantity' : 'amount'] = q
     if (cur !== 'EGP') body.cost_egp = costValue
     if (custom) {
@@ -192,17 +210,17 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
   return h('form', { className: 'l-add', onSubmit: submit, noValidate: true, 'aria-label': 'إضافة أصل' },
     h('div', { className: 'l-add-head' },
       custom ? h(Logo, { mark: '+' }) : h(Logo, { symbol: entry.kind === 'stock' ? entry.symbol : null, mark: entry.mark }),
-      h('b', null, custom ? (isDeposit ? 'شهادة أو وديعة جديدة' : 'أصل جديد بالاسم') : entry.name),
+      h('b', null, custom ? (isDeposit ? 'شهادة أو وديعة جديدة' : isDebt ? 'دين أو قسط' : 'أصل جديد بالاسم') : entry.name),
       custom ? null : h('span', { className: 'q-meta' }, entry.kind_label)),
     custom ? h('div', { className: 'l-fields' },
       field('النوع', h('select', { className: 'q-input', value: kind, onChange: (e) => setKind(e.target.value) },
         KIND_CHOICES.map(([k, l]) => h('option', { key: k, value: k }, l)))),
-      isDeposit ? null : field('الاسم', input(name, setName, { maxLength: 80 })),
-      isDeposit ? null : h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'الرمز (اختياري)'),
+      isDeposit || isDebt ? null : field('الاسم', input(name, setName, { maxLength: 80 })),
+      isDeposit || isDebt ? null : h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'الرمز (اختياري)'),
         input(symbol, setSymbol, { maxLength: 16, dir: 'ltr' }),
         kind === 'stock' ? h('small', { className: 'q-meta' }, 'لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة') : null),
-      isDeposit ? null : field('السعر الحالي للوحدة (اختياري)', input(current, setCurrent, { inputMode: 'decimal', className: 'q-input num' }))) : null,
-    isDeposit ? dep.fields : h('div', { className: 'l-fields' },
+      isDeposit || isDebt ? null : field('السعر الحالي للوحدة (اختياري)', input(current, setCurrent, { inputMode: 'decimal', className: 'q-input num' }))) : null,
+    isDebt ? debt.fields : isDeposit ? dep.fields : h('div', { className: 'l-fields' },
       h('div', { className: 'q-stack' },
         h('span', { className: 'q-label' }, isPound ? 'المبلغ (EGP)' : mode === 'qty' ? quantityLabel(kindNow, entry ? entry.unit : '', entry ? entry.key : '') : `المبلغ المدفوع (${sign(cur)})`),
         h('input', { className: 'q-input num', inputMode: 'decimal', value: qty, 'aria-label': 'الكمية أو المبلغ', onChange: (e) => setQty(e.target.value) }),
@@ -218,6 +236,7 @@ export function AddLine({ entry, customName, onDone, onCancel }) {
       cur !== 'EGP' ? field('المبلغ اللي دفعته بالجنيه',
         h('input', { className: 'q-input num', inputMode: 'decimal', value: costShown, placeholder: 'ج.م', onChange: (e) => { setCost(e.target.value); setCostTouched(true) } })) : null,
       field('التاريخ (اختياري)', input(day, setDay, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
+      field('المكان (اختياري)', input(place, setPlace, { maxLength: 40, list: 'l-places', placeholder: 'البنك الأهلي، Thndr، كاش' })),
       field('ملاحظة (اختياري)', input(note, setNote, { maxLength: 200 }))),
     h('div', { className: 'l-actions' },
       h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy }, busy ? 'جارٍ الإضافة…' : 'إضافة'),
@@ -235,6 +254,7 @@ function LotItem({ lot, asset, onChanged }) {
   const [price, setPrice] = useState(String(lot.buy_price))
   const [day, setDay] = useState(lot.buy_date ? fmtDate(lot.buy_date) : '')
   const [note, setNote] = useState(lot.note || '')
+  const [place, setPlace] = useState(lot.place || '')
   const [cost, setCost] = useState(lot.cost_egp == null ? '' : String(Math.round(lot.cost_egp * 100) / 100))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
@@ -248,7 +268,7 @@ function LotItem({ lot, asset, onChanged }) {
     const q = parseNumberInput(qty), p = parseNumberInput(price), d = parseDayInput(day), c = parseNumberInput(cost)
     if (!(q > 0) || !(p > 0)) return setError('الكمية والسعر لازم يكونوا أكبر من صفر')
     if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة')
-    const body = { quantity: q, buy_price: p, buy_date: d, note }
+    const body = { quantity: q, buy_price: p, buy_date: d, note, place }
     if (isDeposit && asset.deposit) {
       const changed = terms.build(d)
       if (changed.error) return setError(changed.error)
@@ -267,6 +287,8 @@ function LotItem({ lot, asset, onChanged }) {
       lot.currency !== 'EGP' ? box('المدفوع بالجنيه', cost, setCost, { inputMode: 'decimal', style: { width: 120 } }) : null,
       box(isDeposit ? 'تاريخ البداية' : 'التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
       isDeposit && asset.deposit ? terms.fields : null,
+      isDeposit ? null : h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'المكان'),
+        h('input', { className: 'q-input', value: place, maxLength: 40, list: 'l-places', style: { width: 110 }, onChange: (e) => setPlace(e.target.value) })),
       h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة'),
         h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })),
       h('span', { className: 'l-lot-actions' },
@@ -279,6 +301,7 @@ function LotItem({ lot, asset, onChanged }) {
       : h('span', null, hid(hidden, fmtQty(lot.quantity)), ' ', asset.unit, ' × ', hidden ? frag(N(MASK), ' ', sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
     lot.currency !== 'EGP' ? h('span', { className: 'q-sec' }, lot.cost_egp == null ? 'التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها' : frag('التكلفة ', hid(hidden, money(lot.cost_egp)), ' ج.م')) : null,
     h('span', { className: 'q-sec' }, lot.buy_date ? N(fmtDate(lot.buy_date)) : 'من غير تاريخ'),
+    lot.place ? h('span', { className: 'q-sec' }, lot.place) : null,
     lot.note ? h('span', { className: 'q-sec' }, lot.note) : null,
     h('span', { className: 'l-lot-actions' },
       mode === 'confirm'
@@ -391,6 +414,8 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
         priced ? hid(hidden, money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
         priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
     open ? h('div', { className: 'l-detail' },
+      asset.places && asset.places.length
+        ? h('p', { className: 'l-hint' }, 'فين: ', asset.places.map((p, i) => h(React.Fragment, { key: p.place || '' }, i ? ' · ' : '', p.place || 'من غير مكان', ' ', hid(hidden, asset.key === 'EGP' ? money(p.quantity) : fmtQty(p.quantity))))) : null,
       h(Timeline, { asset, onChanged, onOpen }),
       asset.realized_egp && Math.abs(asset.realized_egp) >= 1
         ? h('p', { className: 'l-hint' }, 'ربح محقق من اللي اتحوّل ', hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), ' ج.م') : null,
@@ -398,7 +423,8 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
         ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : h('div', { className: 'l-inline' },
           h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => setMoving('transfer') }, 'تحويل منه'),
-          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('expense') }, 'خروج (صرفت أو سحبت)'))) : null,
+          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('expense') }, 'خروج (صرفت أو سحبت)'),
+          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('place') }, 'نقل لمكان تاني'))) : null,
       asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
       asset.key === 'EGP' || asset.kind === DEPOSIT_KIND || closed ? null : h('div', null,
         h('h3', null, 'السعر'),
@@ -445,8 +471,11 @@ export function Allocation({ allocation, hidden }) {
 export function TotalBlock({ totals }) {
   const hidden = usePrivacy()
   const unpriced = totals.unpriced.length
+  const owes = totals.debts > 0
   return h('section', { className: 'l-total', 'aria-label': 'الإجمالي' },
-    h('span', null, hid(hidden, money(totals.value || 0), 'l-big'), ' ', h('span', { className: 'l-unit' }, 'جنيه')),
+    h('span', null, hid(hidden, money(owes ? totals.net_worth : totals.value || 0), 'l-big'), ' ',
+      h('span', { className: 'l-unit' }, owes ? 'جنيه صافي (بعد الديون)' : 'جنيه')),
+    owes ? h('div', { className: 'l-usd' }, 'أصول ', hid(hidden, money(totals.value || 0)), ' · ديون ', hid(hidden, money(totals.debts))) : null,
     h(UsdLine, { totals, hidden }),
     h(Allocation, { allocation: totals.allocation, hidden }),
     totals.assets ? h('div', { className: 'l-line' },
@@ -491,7 +520,9 @@ export function PortfolioPage() {
       h('span', { className: 'q-h2' }, 'تعذّر تحميل السجل'),
       h('button', { type: 'button', className: 'q-btn', onClick: refresh }, 'حاول مرة تانية')))
   } else {
+    const assets = ledger.groups.flatMap((g) => g.assets)
     body = h('div', { className: 'l-col' },
+      h(PlaceList, { id: 'l-places', places: totals.places }),
       h(TotalBlock, { totals }),
       h(HistoryChart),
       h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
@@ -503,12 +534,16 @@ export function PortfolioPage() {
         h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
         picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
           onDone: added, onCancel: () => setPicked(null) }) : null),
-      view === 'activity' ? null : ledger.groups.length
+      view === 'activity' ? null : ledger.groups.length || (ledger.debts && ledger.debts.length)
         ? ledger.groups.map((g) => h('section', { key: g.group, className: 'l-group', 'aria-label': g.label },
           h('h2', null, g.label),
           g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
             focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset }))))
         : h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
+      view === 'activity' || !ledger.debts || !ledger.debts.length ? null : h('section', { className: 'l-group', 'aria-label': 'ديون وأقساط' },
+        h('h2', null, 'ديون وأقساط'),
+        ledger.debts.map((d) => h(DebtRow, { key: d.key, debt: d, assets, onChanged: refresh, onOpen: openAsset,
+          focused: focus && focus.key === d.key ? focus.at : null }))),
       h('p', { className: 'l-foot' }, 'الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ',
         'القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع.'))
   }

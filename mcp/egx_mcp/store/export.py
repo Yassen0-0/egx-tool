@@ -29,6 +29,7 @@ COLUMNS = (
     ("cost_egp", "التكلفة بالجنيه"),
     ("buy_date", "تاريخ الشرا"),
     ("note", "ملاحظة"),
+    ("place", "المكان"),
     ("current_unit_price", "السعر الحالي للوحدة"),
     ("price_currency", "عملة السعر"),
     ("price_date", "تاريخ السعر"),
@@ -47,6 +48,8 @@ MOVEMENT_COLUMNS = (
     ("value_egp", "القيمة بالجنيه"),
     ("realized_egp", "الربح المحقق بالجنيه"),
     ("note", "ملاحظة"),
+    ("from_place", "من مكان"),
+    ("to_place", "لمكان"),
 )
 
 
@@ -70,7 +73,7 @@ def _row(asset: dict, lot: dict) -> list:
     return [
         asset["key"], asset["name"], asset["kind_label"] or asset["kind"], GROUP_LABEL.get(asset["group"], asset["group"]),
         lot["quantity"], lot["buy_price"], lot["currency"], lot["fx_egp"] or None, cost,
-        lot["buy_date"], lot["note"],
+        lot["buy_date"], lot["note"], lot.get("place"),
         asset["price"], asset["price_currency"] if priced else None,
         (asset["price_as_of"] or "")[:10] or None, value, growth,
     ]
@@ -99,5 +102,5 @@ def ledger_csv(conn, at: datetime | None = None) -> dict:
             to = e["other"]["name"] if e["other"] else None
             writer.writerow([_cell(v) for v in (
                 e["movement"], e["date"], e["kind_label"], asset["name"], e["from_quantity"], to, e["to_quantity"],
-                e["value_egp"], e["realized"], e["note"])])
+                e["value_egp"], e["realized"], e["note"], e.get("from_place"), e.get("to_place"))])
     return {"filename": f"monos-ledger-{at.date().isoformat()}.csv", "csv": BOM + out.getvalue()}

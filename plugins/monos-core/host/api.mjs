@@ -150,6 +150,17 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('asset-remove', { asset: key })
     return sendJson(res, status, body)
   }
+  // «ديون وأقساط»: what the user owes; payments are movements of kind repay.
+  const debt = /^\/egx\/api\/debts(?:\/(\d+))?$/.exec(path)
+  if (debt) {
+    const debtId = debt[1] === undefined ? undefined : Number(debt[1])
+    let owed
+    if (method === 'POST' && debtId === undefined) owed = await runCli('debt-add', payload)
+    else if (method === 'PATCH' && debtId !== undefined) owed = await runCli('debt-update', { ...payload, debt_id: debtId })
+    else if (method === 'DELETE' && debtId !== undefined) owed = await runCli('debt-remove', { debt_id: debtId })
+    else return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, owed.status, owed.body)
+  }
   // «الحركات»: money moving from one asset to another (transfer) or out of the ledger (expense).
   const move = /^\/egx\/api\/movements(?:\/(\d+))?$/.exec(path)
   if (move) {

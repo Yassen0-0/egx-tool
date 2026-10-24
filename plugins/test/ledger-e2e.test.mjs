@@ -488,3 +488,88 @@ test('money moving: pounds to riyals, the other side one click away, a shortfall
   assert.match(seen.activity, /تحويل ?1,000 ج\.م من الجنيه المصري ← 70 SAR في الريال السعودي/)
   assert.match(seen.activity, /دخل ?5 SAR في الريال السعودي/)  // the gap recorded as money from outside
 })
+
+test('a debt: added by kind with its pounds received at a place, an installment paid, pounds moved between places', { skip }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const setValue = async (el, value) => {
+        const proto = el.tagName === 'SELECT' ? window.HTMLSelectElement.prototype : window.HTMLInputElement.prototype
+        await act(async () => {
+          if (el.type === 'checkbox') { el.click(); return }
+          Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+          el.dispatchEvent(new window.Event(el.tagName === 'SELECT' ? 'change' : 'input', { bubbles: true }))
+        })
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.querySelector('.l-name').textContent === name)
+      const detail = (name) => row(name).nextElementSibling
+      const labelIn = (scope, name) => [...scope.querySelectorAll('label, .q-stack')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
+
+      await wait(() => host.querySelector('input[role="combobox"]') && row('الجنيه المصري'), 'the ledger from the earlier tests')
+      await setValue(host.querySelector('input[role="combobox"]'), 'قرض العربية')
+      await wait(() => host.querySelector('[role="option"]'), 'the add-by-name option')
+      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      const form = () => host.querySelector('form.l-add')
+      await wait(form, 'the add line')
+      await setValue(labelIn(form(), 'النوع'), 'debt')
+      await setValue(labelIn(form(), 'اسمه'), 'قرض العربية')
+      await setValue(labelIn(form(), 'المبلغ اللي عليك'), '50,000')
+      await setValue(labelIn(form(), 'القسط الشهري'), '2500')
+      await setValue(labelIn(form(), 'يوم القسط'), '5')
+      await setValue([...form().querySelectorAll('input[type="checkbox"]')][0])
+      await setValue(labelIn(form(), 'في مكان'), 'الأهلي')
+      await click(button('إضافة', form()))
+      await wait(() => row('قرض العربية'), 'the debt row')
+      seen.total = text(host.querySelector('.l-total'))
+      seen.debt = text(row('قرض العربية'))
+
+      await click(row('قرض العربية'))
+      await click(button('سدّد', detail('قرض العربية')))
+      const repay = () => host.querySelector('form[aria-label="سداد"]')
+      await click(button('سجّل السداد', repay()))
+      await wait(() => text(detail('قرض العربية')).includes('السدادات (1)'), 'the payment')
+      seen.paid = text(detail('قرض العربية'))
+      seen.paidRow = text(row('قرض العربية'))
+
+      await click(row('الجنيه المصري'))
+      await wait(() => detail('الجنيه المصري') && text(detail('الجنيه المصري')).includes('فين:'), 'the places of the pounds')
+      seen.places = text(detail('الجنيه المصري'))
+      await click(button('نقل لمكان تاني', detail('الجنيه المصري')))
+      const move = () => host.querySelector('form[aria-label="نقل"]')
+      await setValue(labelIn(move(), 'خرج كام'), '1000')
+      await setValue(labelIn(move(), 'من مكان'), 'الأهلي')
+      await setValue(labelIn(move(), 'دخل كام'), '1000')
+      await setValue(labelIn(move(), 'لمكان'), 'كاش')
+      await click(button('سجّل', move()))
+      await wait(() => text(detail('الجنيه المصري')).includes('كاش 1,000'), 'the pounds in cash')
+      seen.moved = text(detail('الجنيه المصري'))
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.match(seen.total, /جنيه صافي \(بعد الديون\)/)
+  assert.match(seen.total, /ديون 50,000/)
+  assert.match(seen.debt, /قسط 2,500/)
+  assert.match(seen.debt, /50,000باقي من 50,000/)
+  assert.match(seen.paid, /−2,500 ج\.م من الدين/)
+  assert.match(seen.paid, /دفعت 2,500 ج\.م من الجنيه المصري/)
+  assert.match(seen.paidRow, /47,500باقي من 50,000/)
+  // A payment with no place named comes out of every place in proportion.
+  const before = Number(/فين: الأهلي ([\d,]+)/.exec(seen.places)[1].replace(/,/g, ''))
+  assert.ok(before < 50000 && before > 45000)
+  assert.match(seen.places, /سداد قرض العربية/)
+  assert.match(seen.moved, new RegExp(`الأهلي ${(before - 1000).toLocaleString('en-US')}`))
+  assert.match(seen.moved, /نقل من الأهلي لـ كاش/)
+})

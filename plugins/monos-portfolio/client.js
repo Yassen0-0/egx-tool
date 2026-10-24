@@ -58,7 +58,7 @@ var __monos = (() => {
   var { useState, useEffect, useCallback } = import_react.default;
   var h = import_react.default.createElement;
   var PANEL_ID = "egx-portfolio";
-  var N = (text2, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text2);
+  var N = (text3, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text3);
   var frag = (...children) => h(import_react.default.Fragment, null, ...children);
   async function api(method, path, body) {
     const init = { method, headers: {} };
@@ -152,16 +152,16 @@ var __monos = (() => {
     const r = Math.round(v * 1e4);
     return r > 0 ? "q-up" : r < 0 ? "q-down" : "";
   }
-  function parseNumberInput(text2) {
-    if (text2 == null) return null;
-    const latin = String(text2).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
+  function parseNumberInput(text3) {
+    if (text3 == null) return null;
+    const latin = String(text3).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
     if (!latin) return null;
     const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(latin) ? latin.replace(/,/g, "") : latin.replace(",", ".");
     const value = Number(normalized);
     return Number.isFinite(value) ? value : NaN;
   }
-  function parseDayInput(text2) {
-    const raw = String(text2 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
+  function parseDayInput(text3) {
+    const raw = String(text3 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
     if (!raw) return null;
     let y, m, d;
     let match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw);
@@ -485,8 +485,8 @@ var __monos = (() => {
     if (svg) {
       return h("img", { className: "l-logo", alt: "", style, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
     }
-    const text2 = String(mark || "?");
-    return h("span", { className: `l-logo l-mark${text2.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text2);
+    const text3 = String(mark || "?");
+    return h("span", { className: `l-logo l-mark${text3.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text3);
   }
 
   // plugins/monos-portfolio/src/history.css
@@ -571,8 +571,8 @@ var __monos = (() => {
 
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
-  function normalize(text2) {
-    return String(text2 == null ? "" : text2).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+  function normalize(text3) {
+    return String(text3 == null ? "" : text3).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
   }
   function rank(entry, query) {
     const q = normalize(query);
@@ -596,8 +596,8 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/export.js
-  function download(filename, text2) {
-    const url = URL.createObjectURL(new Blob([text2], { type: "text/csv;charset=utf-8" }));
+  function download(filename, text3) {
+    const url = URL.createObjectURL(new Blob([text3], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
@@ -640,22 +640,22 @@ var __monos = (() => {
     const [maturity, setMaturity] = useState("");
     const [payout, setPayout] = useState("monthly");
     const [note, setNote] = useState("");
-    const field2 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text2 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const fields = h(
       "div",
       { className: "l-fields" },
-      field2("البنك", text2(bank, setBank, { maxLength: 60 })),
-      field2("المبلغ (ج.م)", text2(amount2, setAmount, { inputMode: "decimal", className: "q-input num" })),
-      field2("العائد السنوي %", text2(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
-      field2("تاريخ البداية", text2(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field2("تاريخ الاستحقاق", text2(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field2("صرف العائد", h(
+      field3("البنك", text3(bank, setBank, { maxLength: 60 })),
+      field3("المبلغ (ج.م)", text3(amount2, setAmount, { inputMode: "decimal", className: "q-input num" })),
+      field3("العائد السنوي %", text3(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
+      field3("تاريخ البداية", text3(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field3("تاريخ الاستحقاق", text3(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field3("صرف العائد", h(
         "select",
         { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
         PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
       )),
-      field2("ملاحظة (اختياري)", text2(note, setNote, { maxLength: 200 }))
+      field3("ملاحظة (اختياري)", text3(note, setNote, { maxLength: 200 }))
     );
     function build() {
       const principal = parseNumberInput(amount2);
@@ -684,17 +684,17 @@ var __monos = (() => {
     const [rate, setRate] = useState(terms ? String(Number((terms.rate * 100).toFixed(4))) : "");
     const [maturity, setMaturity] = useState(terms ? fmtDate(terms.maturity_date) : "");
     const [payout, setPayout] = useState(terms?.payout || "monthly");
-    const field2 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text2 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const fields = frag(
-      field2("العائد السنوي %", text2(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
-      field2("تاريخ الاستحقاق", text2(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
-      field2("صرف العائد", h(
+      field3("العائد السنوي %", text3(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
+      field3("تاريخ الاستحقاق", text3(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
+      field3("صرف العائد", h(
         "select",
         { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
         PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
       )),
-      field2("البنك", text2(bank, setBank, { maxLength: 60, style: { width: 120 } }))
+      field3("البنك", text3(bank, setBank, { maxLength: 60, style: { width: 120 } }))
     );
     function build(start) {
       const percent = parseNumberInput(rate);
@@ -770,19 +770,32 @@ var __monos = (() => {
     const [topUp, setTopUp] = useState(false);
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
-    const transfer = kind === "transfer";
+    const [fromPlace, setFromPlace] = useState("");
+    const [toPlace, setToPlace] = useState("");
+    const within = kind === "place";
+    const transfer = kind === "transfer" || within;
+    const dest = within ? asset : to;
     const others = catalog ? catalog.filter((e) => e.key !== asset.key && e.kind !== "deposit") : null;
     const t = parseNumberInput(taken), a = parseNumberInput(arrived), d = parseDayInput(day), v = parseNumberInput(value);
-    const neitherPound = transfer && to && asset.key !== "EGP" && to.key !== "EGP";
+    const neitherPound = kind === "transfer" && to && asset.key !== "EGP" && to.key !== "EGP";
     async function submit(e) {
       e.preventDefault();
       setError("");
       if (!(t > 0)) return setError("اكتب الكمية اللي خرجت.");
-      if (transfer && !to) return setError("اختار الأصل اللي الفلوس راحت له.");
+      if (transfer && !dest) return setError("اختار الأصل اللي الفلوس راحت له.");
+      if (within && !toPlace.trim()) return setError("اكتب المكان اللي الفلوس راحت له.");
       if (transfer && !(a > 0)) return setError("اكتب الكمية اللي دخلت.");
       if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
-      const body = { kind, from_asset: asset.key, from_quantity: t, date: d, note: note.trim() || null, top_up: topUp };
-      if (transfer) Object.assign(body, { to_asset: to.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null });
+      const body = {
+        kind: within ? "transfer" : kind,
+        from_asset: asset.key,
+        from_quantity: t,
+        date: d,
+        note: note.trim() || null,
+        top_up: topUp,
+        from_place: fromPlace || null
+      };
+      if (transfer) Object.assign(body, { to_asset: dest.key, to_quantity: a, value_egp: neitherPound && v > 0 ? v : null, to_place: toPlace.trim() || null });
       setBusy(true);
       try {
         await api("POST", "/egx/api/movements", body);
@@ -793,11 +806,12 @@ var __monos = (() => {
         setBusy(false);
       }
     }
+    const title = within ? `نقل ${asset.name} لمكان تاني` : transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`;
     return h(
       "form",
-      { className: "l-add l-move", onSubmit: submit, noValidate: true, "aria-label": transfer ? "تحويل" : "خروج" },
-      h("b", null, transfer ? `تحويل من ${asset.name}` : `خروج من ${asset.name}`),
-      transfer ? to ? h(
+      { className: "l-add l-move", onSubmit: submit, noValidate: true, "aria-label": within ? "نقل" : transfer ? "تحويل" : "خروج" },
+      h("b", null, title),
+      kind === "transfer" ? to ? h(
         "div",
         { className: "l-inline" },
         h("span", null, "لـ ", h("b", null, to.name)),
@@ -823,7 +837,14 @@ var __monos = (() => {
           h("input", { className: "q-input num", inputMode: "decimal", value: taken, "aria-label": "الكمية اللي خرجت", onChange: (e) => setTaken(e.target.value) }),
           asset.quantity > 0 ? h("button", { type: "button", className: "q-link", style: { padding: 0, minHeight: 24, fontSize: 12 }, onClick: () => setTaken(String(asset.quantity)) }, "الكل") : null
         ),
-        transfer && to ? field(`دخل كام (${unitOf(to)})`, text(arrived, setArrived, { inputMode: "decimal", className: "q-input num", "aria-label": "الكمية اللي دخلت" })) : null,
+        asset.places && asset.places.length ? field("من مكان", h(
+          "select",
+          { className: "q-input", value: fromPlace, onChange: (e) => setFromPlace(e.target.value) },
+          h("option", { value: "" }, within ? "اختار" : "أي مكان"),
+          asset.places.filter((p) => p.place).map((p) => h("option", { key: p.place, value: p.place }, p.place))
+        )) : null,
+        transfer && dest ? field(`دخل كام (${unitOf(dest)})`, text(arrived, setArrived, { inputMode: "decimal", className: "q-input num", "aria-label": "الكمية اللي دخلت" })) : null,
+        transfer && dest ? field(within ? "لمكان" : "لمكان (اختياري)", text(toPlace, setToPlace, { maxLength: 40, list: "l-places" })) : null,
         field("التاريخ (اختياري)", text(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
         neitherPound ? field("كانت تساوي كام بالجنيه (اختياري)", text(value, setValue, { inputMode: "decimal", className: "q-input num", placeholder: "ج.م" })) : null,
         field("ملاحظة (اختياري)", text(note, setNote, { maxLength: 200 }))
@@ -839,7 +860,7 @@ var __monos = (() => {
         { className: "l-actions" },
         h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل"),
         h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
-        transfer && to ? h("span", { className: "q-meta" }, rateText(asset, t, to, a)) : null,
+        kind === "transfer" && to ? h("span", { className: "q-meta" }, rateText(asset, t, to, a)) : null,
         error ? h("span", { className: "q-error", role: "alert" }, error) : null
       )
     );
@@ -856,6 +877,8 @@ var __monos = (() => {
     const [error, setError] = useState("");
     const incoming = event.type === "in";
     const other = event.other;
+    const within = other && other.key === asset.key;
+    const placeText = frag(event.from_place ? ` من ${event.from_place}` : "", event.to_place ? ` لـ ${event.to_place}` : "");
     const run = async (action) => {
       setBusy(true);
       setError("");
@@ -895,7 +918,7 @@ var __monos = (() => {
         box(`خرج (${fromUnit})`, taken, setTaken, { inputMode: "decimal", style: { width: 110 } }),
         event.kind === "transfer" ? box(`دخل (${toUnit})`, arrived, setArrived, { inputMode: "decimal", style: { width: 110 } }) : null,
         box("التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
-        event.kind === "transfer" && asset.key !== "EGP" && other.key !== "EGP" ? box("القيمة بالجنيه", value, setValue, { inputMode: "decimal", style: { width: 110 } }) : null,
+        event.kind === "transfer" && !within && asset.key !== "EGP" && other.key !== "EGP" ? box("القيمة بالجنيه", value, setValue, { inputMode: "decimal", style: { width: 110 } }) : null,
         h(
           "label",
           { className: "q-stack" },
@@ -915,8 +938,8 @@ var __monos = (() => {
     return h(
       "div",
       { className: "l-lot l-move-item" },
-      incoming ? h("span", null, "+", amount(event.quantity, asset.key, asset.unit, hidden), " من ", link, " (", amount(event.from_quantity, other.key, other.unit, hidden), ")") : event.kind === "expense" ? h("span", null, "−", amount(event.from_quantity, asset.key, asset.unit, hidden), " خروج") : h("span", null, "−", amount(event.from_quantity, asset.key, asset.unit, hidden), " لـ ", link, " (", amount(event.to_quantity, other.key, other.unit, hidden), ")"),
-      event.value_egp != null && asset.key !== "EGP" && !(other && other.key === "EGP") ? h("span", { className: "q-sec" }, "بقيمة ", hidden ? N(MASK) : N(money(event.value_egp)), " ج.م") : null,
+      within ? h("span", null, incoming ? "+" : "−", amount(incoming ? event.to_quantity : event.from_quantity, asset.key, asset.unit, hidden), " نقل", placeText) : incoming ? h("span", null, "+", amount(event.quantity, asset.key, asset.unit, hidden), " من ", link, " (", amount(event.from_quantity, other.key, other.unit, hidden), ")", placeText) : event.kind === "expense" ? h("span", null, "−", amount(event.from_quantity, asset.key, asset.unit, hidden), " خروج", placeText) : event.kind === "repay" ? h("span", null, "−", amount(event.from_quantity, asset.key, asset.unit, hidden), " سداد ", link, placeText) : h("span", null, "−", amount(event.from_quantity, asset.key, asset.unit, hidden), " لـ ", link, " (", amount(event.to_quantity, other.key, other.unit, hidden), ")", placeText),
+      event.value_egp != null && !within && asset.key !== "EGP" && !(other && other.key === "EGP") ? h("span", { className: "q-sec" }, "بقيمة ", hidden ? N(MASK) : N(money(event.value_egp)), " ج.م") : null,
       spread ? h("span", { className: "q-sec" }, "سعر السوق يومها ", hidden ? N(MASK) : N(money(event.market_value_egp)), " ج.م") : null,
       event.realized != null && Math.abs(event.realized) >= 1 ? h("span", { className: "q-sec" }, "ربح محقق ", hidden ? N(MASK) : N(fmtSigned(event.realized, 0), toneOf(event.realized)), " ج.م") : null,
       h("span", { className: "q-sec" }, N(fmtDate(event.date))),
@@ -938,7 +961,7 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/activity.js
-  var KIND_CHOICES = [["", "الكل"], ["income", "دخل"], ["transfer", "تحويل"], ["expense", "خروج"]];
+  var KIND_CHOICES = [["", "الكل"], ["income", "دخل"], ["transfer", "تحويل"], ["expense", "خروج"], ["repay", "سداد"]];
   var MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   var monthName = (ym) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
   function ActivityView({ onOpen }) {
@@ -987,6 +1010,7 @@ var __monos = (() => {
         sum("دخل", t.income_egp),
         sum("خروج", t.expense_egp),
         sum("اتحوّل", t.transfer_egp),
+        t.repay_egp ? sum("سداد", t.repay_egp) : null,
         Math.abs(t.realized_egp) >= 1 ? h("span", null, "ربح محقق ", hidden ? N(MASK) : N(fmtSigned(t.realized_egp, 0), toneOf(t.realized_egp)), " ج.م") : null
       ),
       data.items.length ? data.items.map((i) => h(
@@ -994,7 +1018,7 @@ var __monos = (() => {
         { key: i.id, className: "l-lot l-act" },
         h("span", { className: "q-sec" }, N(fmtDate(i.date))),
         h("b", null, i.kind_label),
-        i.kind === "income" ? h("span", null, amount(i.to_quantity, i.to.key, i.to.unit, hidden), " في ", link(i.to)) : i.kind === "expense" ? h("span", null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), " من ", link(i.from)) : h(
+        i.kind === "income" ? h("span", null, amount(i.to_quantity, i.to.key, i.to.unit, hidden), " في ", link(i.to)) : i.kind === "expense" || i.kind === "repay" ? h("span", null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), " من ", link(i.from), i.kind === "repay" && i.to ? frag(" لـ ", link(i.to)) : null) : h(
           "span",
           null,
           amount(i.from_quantity, i.from.key, i.from.unit, hidden),
@@ -1012,14 +1036,277 @@ var __monos = (() => {
     );
   }
 
+  // plugins/monos-portfolio/src/debts.js
+  var DEBT_KIND = "debt";
+  var field2 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+  var text2 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+  function PlaceList({ id, places }) {
+    return h("datalist", { id }, (places || []).map((p) => h("option", { key: p, value: p })));
+  }
+  function useDebtForm() {
+    const [name, setName] = useState("");
+    const [principal, setPrincipal] = useState("");
+    const [start, setStart] = useState("");
+    const [installment, setInstallment] = useState("");
+    const [dueDay, setDueDay] = useState("");
+    const [received, setReceived] = useState(false);
+    const [place, setPlace] = useState("");
+    const [note, setNote] = useState("");
+    const fields = h(
+      "div",
+      { className: "l-fields" },
+      field2("اسمه (لمين أو إيه هو)", text2(name, setName, { maxLength: 80 })),
+      field2("المبلغ اللي عليك (ج.م)", text2(principal, setPrincipal, { inputMode: "decimal", className: "q-input num" })),
+      field2("من تاريخ (اختياري)", text2(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field2("القسط الشهري (اختياري)", text2(installment, setInstallment, { inputMode: "decimal", className: "q-input num" })),
+      field2("يوم القسط في الشهر (اختياري)", text2(dueDay, setDueDay, { inputMode: "numeric", className: "q-input num", placeholder: "1 لـ 28" })),
+      field2("ملاحظة (اختياري)", text2(note, setNote, { maxLength: 200 })),
+      h(
+        "label",
+        { className: "l-inline q-sec" },
+        h("input", { type: "checkbox", checked: received, onChange: (e) => setReceived(e.target.checked) }),
+        "الفلوس دي دخلت عندي بالجنيه (سجّلها دخل)"
+      ),
+      received ? field2("في مكان (اختياري)", text2(place, setPlace, { maxLength: 40, list: "l-places" })) : null
+    );
+    function build() {
+      const p = parseNumberInput(principal), i = parseNumberInput(installment), d = parseDayInput(start);
+      const day = dueDay.trim() ? Number(parseNumberInput(dueDay)) : null;
+      if (!name.trim()) return { error: "اكتب اسم الدين." };
+      if (!(p > 0)) return { error: "اكتب المبلغ اللي عليك." };
+      if (d === void 0) return { error: "اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي." };
+      if (installment.trim() && !(i > 0)) return { error: "القسط لازم يكون أكبر من صفر." };
+      if (day !== null && !(Number.isInteger(day) && day >= 1 && day <= 28)) return { error: "يوم القسط من 1 لـ 28." };
+      return {
+        body: {
+          name: name.trim(),
+          principal: p,
+          start_date: d,
+          installment_egp: i > 0 ? i : null,
+          due_day: day,
+          note: note.trim() || null,
+          received_into_egp: received,
+          place: received ? place.trim() || null : null
+        }
+      };
+    }
+    return { fields, build };
+  }
+  function RepayForm({ debt, assets, onDone, onCancel }) {
+    const payable = assets.filter((a) => a.quantity > 0 && a.kind !== "deposit");
+    const [from, setFrom] = useState(payable.find((a) => a.key === "EGP") ? "EGP" : payable[0] && payable[0].key || "");
+    const [taken, setTaken] = useState(debt.installment_egp ? String(debt.installment_egp) : "");
+    const [down, setDown] = useState("");
+    const [day, setDay] = useState("");
+    const [note, setNote] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const source = payable.find((a) => a.key === from);
+    async function submit(e) {
+      e.preventDefault();
+      setError("");
+      const t = parseNumberInput(taken), dn = parseNumberInput(down), d = parseDayInput(day);
+      if (!source) return setError("مفيش أصل تسدّد منه.");
+      if (!(t > 0)) return setError("اكتب المبلغ اللي دفعته.");
+      if (from !== "EGP" && !(dn > 0)) return setError("اكتب الدين قل قد إيه بالجنيه.");
+      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
+      setBusy(true);
+      try {
+        await api("POST", "/egx/api/movements", {
+          kind: "repay",
+          from_asset: from,
+          from_quantity: t,
+          to_asset: debt.key,
+          to_quantity: dn > 0 ? dn : null,
+          date: d,
+          note: note.trim() || null
+        });
+        onDone();
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h(
+      "form",
+      { className: "l-add l-move", onSubmit: submit, noValidate: true, "aria-label": "سداد" },
+      h("b", null, `سداد «${debt.name}»`),
+      h(
+        "div",
+        { className: "l-fields" },
+        field2("من", h(
+          "select",
+          { className: "q-input", value: from, onChange: (e) => setFrom(e.target.value) },
+          payable.map((a) => h("option", { key: a.key, value: a.key }, a.name))
+        )),
+        field2(`دفعت كام (${source && source.key !== "EGP" ? source.unit : "ج.م"})`, text2(taken, setTaken, { inputMode: "decimal", className: "q-input num", "aria-label": "المبلغ اللي دفعته" })),
+        field2(from === "EGP" ? "الدين قل كام (اختياري: نفس المبلغ)" : "الدين قل كام (ج.م)", text2(down, setDown, { inputMode: "decimal", className: "q-input num" })),
+        field2("التاريخ (اختياري)", text2(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+        field2("ملاحظة (اختياري)", text2(note, setNote, { maxLength: 200 }))
+      ),
+      h(
+        "div",
+        { className: "l-actions" },
+        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل السداد"),
+        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      )
+    );
+  }
+  function DebtEdit({ debt, onDone, onCancel }) {
+    const [name, setName] = useState(debt.name);
+    const [principal, setPrincipal] = useState(String(debt.principal));
+    const [installment, setInstallment] = useState(debt.installment_egp ? String(debt.installment_egp) : "");
+    const [dueDay, setDueDay] = useState(debt.due_day ? String(debt.due_day) : "");
+    const [error, setError] = useState("");
+    const save = async () => {
+      const p = parseNumberInput(principal), i = parseNumberInput(installment);
+      const day = dueDay.trim() ? Number(parseNumberInput(dueDay)) : null;
+      if (!(p > 0)) return setError("المبلغ لازم يكون أكبر من صفر");
+      try {
+        await api("PATCH", `/egx/api/debts/${debt.id}`, { name, principal: p, installment_egp: i > 0 ? i : null, due_day: day });
+        onDone();
+      } catch (err) {
+        setError(err.message);
+      }
+      return void 0;
+    };
+    return h(
+      "div",
+      { className: "l-lot" },
+      field2("الاسم", text2(name, setName, { maxLength: 80, style: { width: 160 } })),
+      field2("المبلغ", text2(principal, setPrincipal, { inputMode: "decimal", className: "q-input num", style: { width: 110 } })),
+      field2("القسط", text2(installment, setInstallment, { inputMode: "decimal", className: "q-input num", style: { width: 100 } })),
+      field2("يومه", text2(dueDay, setDueDay, { inputMode: "numeric", className: "q-input num", style: { width: 60 } })),
+      h(
+        "span",
+        { className: "l-lot-actions" },
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-p", onClick: save }, "حفظ"),
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: onCancel }, "إلغاء")
+      ),
+      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+    );
+  }
+  function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
+    const hidden = usePrivacy();
+    const [open, setOpen] = useState(false);
+    const [mode, setMode] = useState(null);
+    const [error, setError] = useState("");
+    const rowRef = import_react.default.useRef(null);
+    useEffect(() => {
+      if (!focused) return;
+      setOpen(true);
+      rowRef.current?.scrollIntoView?.({ block: "nearest" });
+    }, [focused]);
+    const done = () => {
+      setMode(null);
+      onChanged();
+    };
+    const remove = async () => {
+      try {
+        await api("DELETE", `/egx/api/debts/${debt.id}`, {});
+        onChanged();
+      } catch (e) {
+        setError(e.message);
+      }
+    };
+    const removePayment = async (id) => {
+      try {
+        await api("DELETE", `/egx/api/movements/${id}`, {});
+        onChanged();
+      } catch (e) {
+        setError(e.message);
+      }
+    };
+    const byKey = Object.fromEntries(assets.map((a) => [a.key, a]));
+    return h(
+      import_react.default.Fragment,
+      null,
+      h(
+        "button",
+        { type: "button", ref: rowRef, className: "l-row", "aria-expanded": open, onClick: () => setOpen(!open) },
+        h(Logo, { mark: "دين" }),
+        h(
+          "span",
+          { className: "q-stack" },
+          h("span", { className: "l-name" }, debt.name),
+          h(
+            "span",
+            { className: "l-sub" },
+            debt.settled ? h("span", null, "اتسدّد") : null,
+            debt.installment_egp ? h("span", null, "قسط ", hidden ? N(MASK) : N(money(debt.installment_egp))) : null,
+            debt.next_due_date ? h("span", null, "الجاي ", N(fmtDate(debt.next_due_date))) : null
+          )
+        ),
+        h(
+          "span",
+          { className: "l-value" },
+          hidden ? N(MASK) : N(money(debt.remaining_egp)),
+          h("span", { className: "l-growth q-sec" }, "باقي من ", hidden ? N(MASK) : N(money(debt.principal)))
+        )
+      ),
+      open ? h(
+        "div",
+        { className: "l-detail" },
+        h(
+          "div",
+          null,
+          h("h3", null, debt.payments.length ? `السدادات (${debt.payments.length})` : "لسه مفيش سدادات"),
+          debt.payments.map((p) => {
+            const source = byKey[p.from_asset];
+            return h(
+              "div",
+              { key: p.movement, className: "l-lot" },
+              h("span", null, "−", hidden ? N(MASK) : N(fmtNumber(p.paid_egp, 0)), " ج.م من الدين"),
+              h(
+                "span",
+                { className: "q-sec" },
+                "دفعت ",
+                amount(p.from_quantity, p.from_asset, source ? source.unit : "", hidden),
+                " من ",
+                h("button", { type: "button", className: "q-link", onClick: () => onOpen(p.from_asset) }, source ? source.name : p.from_asset)
+              ),
+              h("span", { className: "q-sec" }, N(fmtDate(p.date))),
+              p.note ? h("span", { className: "q-sec" }, p.note) : null,
+              h(
+                "span",
+                { className: "l-lot-actions" },
+                h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => removePayment(p.movement) }, "حذف")
+              )
+            );
+          })
+        ),
+        h(
+          "p",
+          { className: "l-hint" },
+          "من ",
+          N(fmtDate(debt.start_date)),
+          " · دفعت ",
+          hidden ? N(MASK) : N(money(debt.paid_egp)),
+          " ج.م",
+          debt.note ? frag(" · ", debt.note) : null
+        ),
+        mode === "repay" ? h(RepayForm, { debt, assets, onDone: done, onCancel: () => setMode(null) }) : mode === "edit" ? h(DebtEdit, { debt, onDone: done, onCancel: () => setMode(null) }) : h(
+          "div",
+          { className: "l-inline" },
+          debt.settled ? null : h("button", { type: "button", className: "q-btn q-btn-sm", onClick: () => setMode("repay") }, "سدّد"),
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف الدين")
+        ),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      ) : null
+    );
+  }
+
   // plugins/monos-portfolio/src/ledger.css
   var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
-  var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"]];
+  var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
   var QTY_LABEL = { stock: "عدد الأسهم", fund: "عدد الوثائق" };
   var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
-  var hid = (hidden, text2, cls) => hidden ? N(MASK) : N(text2, cls);
+  var hid = (hidden, text3, cls) => hidden ? N(MASK) : N(text3, cls);
   function priceLabel(kind, unit, key) {
     if (kind === "currency") return `سعر ${key} بالجنيه وقت الشرا`;
     if (kind === "gold") return `سعر ال${unit} وقت الشرا`;
@@ -1044,13 +1331,13 @@ var __monos = (() => {
   function Search({ catalog, onPick, onCustom }) {
     const [query, setQuery] = useState("");
     const [active, setActive] = useState(0);
-    const text2 = query.trim();
+    const text3 = query.trim();
     const loading = catalog === null;
-    const results = text2 && !loading ? search(catalog, text2) : [];
-    const options = text2 && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
+    const results = text3 && !loading ? search(catalog, text3) : [];
+    const options = text3 && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
     const pick = (option) => {
       if (!option) return;
-      if (option.addByName) onCustom(text2);
+      if (option.addByName) onCustom(text3);
       else onPick(option);
       setQuery("");
       setActive(0);
@@ -1106,13 +1393,13 @@ var __monos = (() => {
             pick(o);
           },
           onMouseEnter: () => setActive(i)
-        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text2))] : [
+        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text3))] : [
           h(Logo, { key: "l", symbol: o.kind === "stock" ? o.symbol : null, mark: o.mark }),
           h("span", { key: "t", className: "l-name" }, o.name),
           h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)
         ]))
       ) : null,
-      text2 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
+      text3 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
     );
   }
   function AddLine({ entry, customName, onDone, onCancel }) {
@@ -1123,7 +1410,10 @@ var __monos = (() => {
     const [current, setCurrent] = useState("");
     const kindNow = custom ? kind : entry.kind;
     const isDeposit = custom && kind === DEPOSIT_KIND;
+    const isDebt = custom && kind === DEBT_KIND;
     const dep = useDepositForm();
+    const debt = useDebtForm();
+    const [place, setPlace] = useState("");
     const isPound = !custom && entry.key === "EGP";
     const fixedEgp = kindNow === "currency";
     const [currency, setCurrency] = useState(custom || fixedEgp ? "EGP" : entry.currency);
@@ -1166,6 +1456,20 @@ var __monos = (() => {
     async function submit(e) {
       e.preventDefault();
       setError("");
+      if (isDebt) {
+        const built = debt.build();
+        if (built.error) return setError(built.error);
+        setBusy(true);
+        try {
+          const made = await api("POST", "/egx/api/debts", built.body);
+          onDone(`debt:${made.id}`);
+        } catch (err) {
+          setError(err.message);
+        } finally {
+          setBusy(false);
+        }
+        return void 0;
+      }
       if (isDeposit) {
         const built = dep.build();
         if (built.error) return setError(built.error);
@@ -1186,7 +1490,7 @@ var __monos = (() => {
       if (parsedDay === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
       const costValue = parseNumberInput(costShown);
       if (cur !== "EGP" && !(costValue > 0)) return setError("مفيش سعر تحويل معروف لليوم ده: اكتب المبلغ اللي دفعته بالجنيه.");
-      const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null };
+      const body = { buy_price: p, currency: cur, buy_date: parsedDay, note: note.trim() || null, place: place.trim() || null };
       body[mode === "qty" ? "quantity" : "amount"] = q;
       if (cur !== "EGP") body.cost_egp = costValue;
       if (custom) {
@@ -1203,7 +1507,7 @@ var __monos = (() => {
         setBusy(false);
       }
     }
-    const field2 = (label, input2) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input2);
+    const field3 = (label, input2) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input2);
     const input = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const currencySelect = h(
       "select",
@@ -1220,28 +1524,28 @@ var __monos = (() => {
         "div",
         { className: "l-add-head" },
         custom ? h(Logo, { mark: "+" }) : h(Logo, { symbol: entry.kind === "stock" ? entry.symbol : null, mark: entry.mark }),
-        h("b", null, custom ? isDeposit ? "شهادة أو وديعة جديدة" : "أصل جديد بالاسم" : entry.name),
+        h("b", null, custom ? isDeposit ? "شهادة أو وديعة جديدة" : isDebt ? "دين أو قسط" : "أصل جديد بالاسم" : entry.name),
         custom ? null : h("span", { className: "q-meta" }, entry.kind_label)
       ),
       custom ? h(
         "div",
         { className: "l-fields" },
-        field2("النوع", h(
+        field3("النوع", h(
           "select",
           { className: "q-input", value: kind, onChange: (e) => setKind(e.target.value) },
           KIND_CHOICES2.map(([k, l]) => h("option", { key: k, value: k }, l))
         )),
-        isDeposit ? null : field2("الاسم", input(name, setName, { maxLength: 80 })),
-        isDeposit ? null : h(
+        isDeposit || isDebt ? null : field3("الاسم", input(name, setName, { maxLength: 80 })),
+        isDeposit || isDebt ? null : h(
           "label",
           { className: "q-stack" },
           h("span", { className: "q-label" }, "الرمز (اختياري)"),
           input(symbol, setSymbol, { maxLength: 16, dir: "ltr" }),
           kind === "stock" ? h("small", { className: "q-meta" }, "لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة") : null
         ),
-        isDeposit ? null : field2("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
+        isDeposit || isDebt ? null : field3("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
       ) : null,
-      isDeposit ? dep.fields : h(
+      isDebt ? debt.fields : isDeposit ? dep.fields : h(
         "div",
         { className: "l-fields" },
         h(
@@ -1268,15 +1572,16 @@ var __monos = (() => {
           entry && entry.price != null ? h("small", { className: "q-meta" }, "آخر سعر ", priceWithSign(entry.price, entry.price_currency)) : null,
           farOff ? h("small", { className: "q-amber", role: "status" }, "السعر ده بعيد جدًا عن آخر سعر: راجع الوحدة والعملة") : null
         ),
-        cur !== "EGP" ? field2(
+        cur !== "EGP" ? field3(
           "المبلغ اللي دفعته بالجنيه",
           h("input", { className: "q-input num", inputMode: "decimal", value: costShown, placeholder: "ج.م", onChange: (e) => {
             setCost(e.target.value);
             setCostTouched(true);
           } })
         ) : null,
-        field2("التاريخ (اختياري)", input(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-        field2("ملاحظة (اختياري)", input(note, setNote, { maxLength: 200 }))
+        field3("التاريخ (اختياري)", input(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+        field3("المكان (اختياري)", input(place, setPlace, { maxLength: 40, list: "l-places", placeholder: "البنك الأهلي، Thndr، كاش" })),
+        field3("ملاحظة (اختياري)", input(note, setNote, { maxLength: 200 }))
       ),
       h(
         "div",
@@ -1303,6 +1608,7 @@ var __monos = (() => {
     const [price, setPrice] = useState(String(lot.buy_price));
     const [day, setDay] = useState(lot.buy_date ? fmtDate(lot.buy_date) : "");
     const [note, setNote] = useState(lot.note || "");
+    const [place, setPlace] = useState(lot.place || "");
     const [cost, setCost] = useState(lot.cost_egp == null ? "" : String(Math.round(lot.cost_egp * 100) / 100));
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
@@ -1325,7 +1631,7 @@ var __monos = (() => {
       const q = parseNumberInput(qty), p = parseNumberInput(price), d = parseDayInput(day), c = parseNumberInput(cost);
       if (!(q > 0) || !(p > 0)) return setError("الكمية والسعر لازم يكونوا أكبر من صفر");
       if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة");
-      const body = { quantity: q, buy_price: p, buy_date: d, note };
+      const body = { quantity: q, buy_price: p, buy_date: d, note, place };
       if (isDeposit && asset.deposit) {
         const changed = terms.build(d);
         if (changed.error) return setError(changed.error);
@@ -1350,6 +1656,12 @@ var __monos = (() => {
         lot.currency !== "EGP" ? box("المدفوع بالجنيه", cost, setCost, { inputMode: "decimal", style: { width: 120 } }) : null,
         box(isDeposit ? "تاريخ البداية" : "التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
         isDeposit && asset.deposit ? terms.fields : null,
+        isDeposit ? null : h(
+          "label",
+          { className: "q-stack" },
+          h("span", { className: "q-label" }, "المكان"),
+          h("input", { className: "q-input", value: place, maxLength: 40, list: "l-places", style: { width: 110 }, onChange: (e) => setPlace(e.target.value) })
+        ),
         h(
           "label",
           { className: "q-stack" },
@@ -1371,6 +1683,7 @@ var __monos = (() => {
       asset.key === "EGP" || asset.kind === DEPOSIT_KIND ? h("span", null, hid(hidden, money(lot.quantity)), " ج.م") : h("span", null, hid(hidden, fmtQty(lot.quantity)), " ", asset.unit, " × ", hidden ? frag(N(MASK), " ", sign(lot.currency)) : priceWithSign(lot.buy_price, lot.currency)),
       lot.currency !== "EGP" ? h("span", { className: "q-sec" }, lot.cost_egp == null ? "التكلفة بالجنيه مش معروفة: عدّل العملية واكتبها" : frag("التكلفة ", hid(hidden, money(lot.cost_egp)), " ج.م")) : null,
       h("span", { className: "q-sec" }, lot.buy_date ? N(fmtDate(lot.buy_date)) : "من غير تاريخ"),
+      lot.place ? h("span", { className: "q-sec" }, lot.place) : null,
       lot.note ? h("span", { className: "q-sec" }, lot.note) : null,
       h(
         "span",
@@ -1539,6 +1852,7 @@ var __monos = (() => {
       open ? h(
         "div",
         { className: "l-detail" },
+        asset.places && asset.places.length ? h("p", { className: "l-hint" }, "فين: ", asset.places.map((p, i) => h(import_react.default.Fragment, { key: p.place || "" }, i ? " · " : "", p.place || "من غير مكان", " ", hid(hidden, asset.key === "EGP" ? money(p.quantity) : fmtQty(p.quantity))))) : null,
         h(Timeline, { asset, onChanged, onOpen }),
         asset.realized_egp && Math.abs(asset.realized_egp) >= 1 ? h("p", { className: "l-hint" }, "ربح محقق من اللي اتحوّل ", hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), " ج.م") : null,
         movable ? moving ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => {
@@ -1548,7 +1862,8 @@ var __monos = (() => {
           "div",
           { className: "l-inline" },
           h("button", { type: "button", className: "q-btn q-btn-sm", onClick: () => setMoving("transfer") }, "تحويل منه"),
-          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("expense") }, "خروج (صرفت أو سحبت)")
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("expense") }, "خروج (صرفت أو سحبت)"),
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("place") }, "نقل لمكان تاني")
         ) : null,
         asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
         asset.key === "EGP" || asset.kind === DEPOSIT_KIND || closed ? null : h(
@@ -1621,10 +1936,18 @@ var __monos = (() => {
   function TotalBlock({ totals }) {
     const hidden = usePrivacy();
     const unpriced = totals.unpriced.length;
+    const owes = totals.debts > 0;
     return h(
       "section",
       { className: "l-total", "aria-label": "الإجمالي" },
-      h("span", null, hid(hidden, money(totals.value || 0), "l-big"), " ", h("span", { className: "l-unit" }, "جنيه")),
+      h(
+        "span",
+        null,
+        hid(hidden, money(owes ? totals.net_worth : totals.value || 0), "l-big"),
+        " ",
+        h("span", { className: "l-unit" }, owes ? "جنيه صافي (بعد الديون)" : "جنيه")
+      ),
+      owes ? h("div", { className: "l-usd" }, "أصول ", hid(hidden, money(totals.value || 0)), " · ديون ", hid(hidden, money(totals.debts))) : null,
       h(UsdLine, { totals, hidden }),
       h(Allocation, { allocation: totals.allocation, hidden }),
       totals.assets ? h(
@@ -1686,9 +2009,11 @@ var __monos = (() => {
         h("button", { type: "button", className: "q-btn", onClick: refresh }, "حاول مرة تانية")
       ));
     } else {
+      const assets = ledger.groups.flatMap((g) => g.assets);
       body = h(
         "div",
         { className: "l-col" },
+        h(PlaceList, { id: "l-places", places: totals.places }),
         h(TotalBlock, { totals }),
         h(HistoryChart),
         h(
@@ -1716,7 +2041,7 @@ var __monos = (() => {
             onCancel: () => setPicked(null)
           }) : null
         ),
-        view === "activity" ? null : ledger.groups.length ? ledger.groups.map((g) => h(
+        view === "activity" ? null : ledger.groups.length || ledger.debts && ledger.debts.length ? ledger.groups.map((g) => h(
           "section",
           { key: g.group, className: "l-group", "aria-label": g.label },
           h("h2", null, g.label),
@@ -1730,6 +2055,19 @@ var __monos = (() => {
             onOpen: openAsset
           }))
         )) : h("p", { className: "l-hint" }, "ابحث عن أصل وأضفه."),
+        view === "activity" || !ledger.debts || !ledger.debts.length ? null : h(
+          "section",
+          { className: "l-group", "aria-label": "ديون وأقساط" },
+          h("h2", null, "ديون وأقساط"),
+          ledger.debts.map((d) => h(DebtRow, {
+            key: d.key,
+            debt: d,
+            assets,
+            onChanged: refresh,
+            onOpen: openAsset,
+            focused: focus && focus.key === d.key ? focus.at : null
+          }))
+        ),
         h(
           "p",
           { className: "l-foot" },

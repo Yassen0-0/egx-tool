@@ -87,4 +87,4 @@ def test_movements_follow_in_their_own_table(conn):
     assert rows[at + 3][1:8] == ["2026-10-02", "تحويل", "الجنيه المصري", "1000", "الدولار الأمريكي", "20", "1000"]
     assert rows[at + 3][9] == "البنك" and rows[at + 4][2] == "خروج"
     lot = next(r for r in rows[2:at] if r[0] == "EGP")
-    assert lot[13] == "" and lot[14] == ""  # its money moved on: no value per purchase
+    assert lot[14] == "" and lot[15] == ""  # its money moved on: no value per purchase

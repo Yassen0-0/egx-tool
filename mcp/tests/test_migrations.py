@@ -89,3 +89,31 @@ def test_an_old_dollar_line_keeps_its_dollars_and_an_unknown_egp_cost(tmp_path):
     fixed = portfolio.update_holding(conn, rows["VLMR"]["id"], cost_egp=2400)
     assert fixed["cost_egp"] == 2400 and fixed["fx_egp"] == pytest.approx(48)
     conn.close()
+
+
+def test_step_7_keeps_the_movements_and_lets_a_debt_be_repaid(tmp_path):
+    path = tmp_path / "egx.sqlite"
+    old = connect(path)
+    from egx_mcp.store import portfolio
+    portfolio.add_holding(old, "EGP", buy_price=1, amount=1000, buy_date="2026-10-01")
+    portfolio.add_movement(old, "transfer", "EGP", 1000, "USD", 20, date="2026-10-02", note="x")
+    # Back to step 6's shape: no places, no repay kind.
+    old.executescript("""
+        CREATE TABLE m6 (id INTEGER PRIMARY KEY AUTOINCREMENT, date TEXT NOT NULL,
+            kind TEXT NOT NULL CHECK (kind IN ('transfer', 'expense')), from_asset TEXT NOT NULL,
+            from_quantity REAL NOT NULL, to_asset TEXT, to_quantity REAL, value_egp REAL, note TEXT,
+            created_at TEXT NOT NULL, updated_at TEXT NOT NULL);
+        INSERT INTO m6 SELECT id, date, kind, from_asset, from_quantity, to_asset, to_quantity, value_egp, note,
+            created_at, updated_at FROM movements;
+        DROP TABLE movements; ALTER TABLE m6 RENAME TO movements; DROP TABLE debts;
+        PRAGMA user_version = 6;""")
+    old.close()
+    conn = connect(path)
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+    row = dict(conn.execute("SELECT * FROM movements").fetchone())
+    assert (row["id"], row["to_asset"], row["note"], row["from_place"]) == (1, "USD", "x", None)
+    conn.execute("INSERT INTO movements (date, kind, from_asset, from_quantity, to_asset, to_quantity, created_at, updated_at)"
+                 " VALUES ('2026-10-03', 'repay', 'USD', 1, 'debt:1', 50, 'x', 'x')")
+    assert {r["name"] for r in conn.execute("PRAGMA table_info(holdings)")} >= {"place"}
+    assert len(list((tmp_path / "backups").glob("egx-*-before-v7.sqlite"))) == 1
+    conn.close()

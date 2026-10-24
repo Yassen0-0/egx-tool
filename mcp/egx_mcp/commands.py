@@ -55,27 +55,28 @@ def catalog_search(query: str) -> dict:
 def portfolio_add(asset: str | None = None, buy_price: float | None = None, quantity: float | None = None,
                   amount: float | None = None, currency: str | None = None, cost_egp: float | None = None,
                   buy_date: str | None = None, note: str | None = None, custom: dict | None = None,
-                  deposit: dict | None = None) -> dict:
+                  deposit: dict | None = None, place: str | None = None) -> dict:
     """Add one purchase: `asset` is a catalog key (EGX ticker, USD, XAU-G, XAU-OZ, BTC, ...) or `custom`
     = {kind, name, symbol, currency, price} for an asset added by name. Give quantity or the amount
     paid, the unit price in `currency` (a currency's price is in EGP), the date (YYYY-MM-DD), and the
     EGP actually paid (cost_egp) when the price is not in EGP and the user knows it. A bank certificate
     or deposit is `deposit` = {rate (annual, as a fraction: 27% is 0.27), start_date, maturity_date
     (YYYY-MM-DD), payout (monthly | quarterly | annual | maturity), bank} with the principal in EGP as
-    `amount`, and no asset, price or custom. Confirm with the user before calling."""
+    `amount`, and no asset, price or custom. `place` is where the asset is («البنك الأهلي», «Thndr»,
+    «كاش»), when the user says. Confirm with the user before calling."""
     with _db() as conn:
         return portfolio.add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date,
-                                     note, custom, deposit)
+                                     note, custom, deposit, place)
 
 
 def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,
                      buy_date: str | None = None, note: str | None = None, cost_egp: float | None = None,
-                     deposit: dict | None = None) -> dict:
+                     deposit: dict | None = None, place: str | None = None) -> dict:
     """Edit one purchase; the EGP cost keeps the rate saved at purchase unless cost_egp is given. A
     certificate's terms change with `deposit` = any of {rate (a fraction), start_date, maturity_date,
     payout, bank}; its buy_date is its start date. Confirm with the user before calling."""
     with _db() as conn:
-        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note, cost_egp, deposit)
+        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note, cost_egp, deposit, place)
 
 
 def portfolio_remove(holding_id: int) -> dict:
@@ -92,23 +93,53 @@ def asset_remove(asset: str) -> dict:
 
 def movement_add(kind: str = "transfer", from_asset: str | None = None, from_quantity: float | None = None,
                  to_asset: str | None = None, to_quantity: float | None = None, date: str | None = None,
-                 value_egp: float | None = None, note: str | None = None, top_up: bool = False) -> dict:
+                 value_egp: float | None = None, note: str | None = None, top_up: bool = False,
+                 from_place: str | None = None, to_place: str | None = None) -> dict:
     """Record money moving: kind `transfer` takes from_quantity out of from_asset and puts to_quantity of
-    to_asset in («حوّلت 1000 جنيه لـ 20 دولار»: EGP 1000 → USD 20; a sale is a transfer to EGP); kind
-    `expense` takes it out of the ledger (spent, withdrawn). Keys from catalog_search; each quantity in
-    its asset's own unit; date YYYY-MM-DD. value_egp is the EGP the transfer was worth when the user knows
-    it and neither side is EGP. More than the asset held that day is refused unless top_up records the
-    gap as money from outside: ask the user before setting it. Confirm with the user before calling."""
+    to_asset in («حوّلت 1000 جنيه لـ 20 دولار»: EGP 1000 → USD 20; a sale is a transfer to EGP; the
+    same asset with another to_place moves it between places, «نقلت 100 دولار من الأهلي لـ Thndr»);
+    kind `expense` takes it out of the ledger (spent, withdrawn); kind `repay` pays a debt (to_asset
+    debt:<id> from portfolio_summary's debts, to_quantity the EGP the debt went down by). Keys from
+    catalog_search; each quantity in its asset's own unit; date YYYY-MM-DD; places as the user names
+    them. value_egp is the EGP the transfer was worth when the user knows it and neither side is EGP.
+    More than the asset held that day is refused unless top_up records the gap as money from outside:
+    ask the user before setting it. Confirm with the user before calling."""
     with _db() as conn:
         return portfolio.add_movement(conn, kind, from_asset, from_quantity, to_asset, to_quantity, date,
-                                      value_egp, note, top_up)
+                                      value_egp, note, top_up, from_place, to_place)
 
 
 def movement_update(movement_id: int, from_quantity: float | None = None, to_quantity: float | None = None,
-                    date: str | None = None, value_egp: float | None = None, note: str | None = None) -> dict:
+                    date: str | None = None, value_egp: float | None = None, note: str | None = None,
+                    from_place: str | None = None, to_place: str | None = None) -> dict:
     """Edit a movement (its id is in the asset's events). Confirm with the user before calling."""
     with _db() as conn:
-        return portfolio.update_movement(conn, movement_id, from_quantity, to_quantity, date, value_egp, note)
+        return portfolio.update_movement(conn, movement_id, from_quantity, to_quantity, date, value_egp, note,
+                                         from_place, to_place)
+
+
+def debt_add(name: str | None = None, principal: float | None = None, start_date: str | None = None, installment_egp: float | None = None,
+             due_day: int | None = None, note: str | None = None, received_into_egp: bool = False,
+             place: str | None = None) -> dict:
+    """Record a debt («عليّ قرض 50,000 للبنك»): what is owed from start_date, optionally the monthly
+    installment and its day (1-28). received_into_egp also records the borrowed pounds as money in
+    EGP (at place). Payments are movement_add kind repay. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.add_debt(conn, name, principal, start_date, installment_egp, due_day, note,
+                                  received_into_egp, place)
+
+
+def debt_update(debt_id: int, name: str | None = None, principal: float | None = None, start_date: str | None = None,
+                installment_egp: float | None = None, due_day: int | None = None, note: str | None = None) -> dict:
+    """Edit a debt. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.update_debt(conn, debt_id, name, principal, start_date, installment_egp, due_day, note)
+
+
+def debt_remove(debt_id: int) -> dict:
+    """Remove a debt without payments. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.remove_debt(conn, debt_id)
 
 
 def movement_remove(movement_id: int) -> dict:
@@ -186,7 +217,7 @@ def prices_sync() -> dict:
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
 MCP_TOOLS = (
     portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
-    movement_add, movement_update, movement_remove, price_set, fx_rate, fund_components_set, wealth_history,
+    movement_add, movement_update, movement_remove, debt_add, debt_update, debt_remove, price_set, fx_rate, fund_components_set, wealth_history,
     ledger_activity, web_search, web_fetch,
 )
 CLI_COMMANDS = {
@@ -201,6 +232,9 @@ CLI_COMMANDS = {
     "movement-add": movement_add,
     "movement-update": movement_update,
     "movement-remove": movement_remove,
+    "debt-add": debt_add,
+    "debt-update": debt_update,
+    "debt-remove": debt_remove,
     "price-set": price_set,
     "fx-rate": fx_rate,
     "history": wealth_history,

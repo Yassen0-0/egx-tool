@@ -27,7 +27,7 @@ from ..errors import LedgerInputError
 from ..market import store
 from ..market.calendar import now_cairo
 from ..market.prices import close_on, formula_price, formula_price_on, price_state
-from . import deposits, movements
+from . import debts, deposits, movements
 from .db import now_iso
 
 DISCLAIMER = "الأرقام كما أدخلها المستخدم، والأسعار إغلاق متأخر أو سعر كتبه المستخدم. وصف للأرقام، وليس توصية بالشراء أو البيع."
@@ -235,16 +235,19 @@ def add_holding(
     note: str | None = None,
     custom: dict | None = None,
     deposit: dict | None = None,
+    place: str | None = None,
 ) -> dict:
     """Add one purchase: an asset from the catalog (or a new one by name in `custom`), the quantity
-    or the amount paid, the unit price in `currency`, and optionally the EGP the user actually paid.
-    A bank certificate or deposit is `deposit` alone, with its principal as the amount."""
+    or the amount paid, the unit price in `currency`, optionally the EGP the user actually paid and
+    where the asset is (`place`). A bank certificate or deposit is `deposit` alone, with its
+    principal as the amount."""
     if deposit is not None:
         return _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     if (asset is None) == (custom is None):
         raise LedgerInputError("اختار أصل من البحث أو أضفه بالاسم")
     try:
-        return _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom)
+        return _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
+                            place=place)
     except Exception:
         conn.rollback()  # an asset added by name stays only with a valid purchase
         raise
@@ -267,8 +270,16 @@ def _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     return get_holding(conn, holding_id)
 
 
+def _place(value: str | None) -> str | None:
+    """A place as typed («البنك الأهلي», «Thndr»), trimmed; blank is none."""
+    text = str(value or "").strip()
+    if len(text) > 40:
+        raise LedgerInputError("اسم المكان أطول من اللازم")
+    return text or None
+
+
 def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
-                 commit=True) -> dict:
+                 commit=True, place=None) -> dict:
     entry = _custom_asset(conn, custom) if custom is not None else _entry(conn, asset)
     if entry["key"] == "EGP":
         buy_price, currency = 1.0, "EGP"
@@ -296,9 +307,9 @@ def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, b
     stamp = now_iso()
     cursor = conn.execute(
         "INSERT INTO holdings (symbol, quantity, buy_price, buy_date, note, created_at, updated_at, kind, name,"
-        " currency, fx_egp, cost_egp) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        " currency, fx_egp, cost_egp, place) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
         (entry["key"], quantity, buy_price, buy_date, (note or "").strip() or None, stamp, stamp, entry["kind"],
-         entry["name"], currency, fx, paid * fx),
+         entry["name"], currency, fx, paid * fx, _place(place)),
     )
     if custom is not None and custom.get("price") not in (None, ""):
         set_price(conn, entry["key"], custom["price"], custom.get("currency") or entry["currency"])  # commits
@@ -323,8 +334,9 @@ def update_holding(
     note: str | None = None,
     cost_egp: float | None = None,
     deposit: dict | None = None,
+    place: str | None = None,
 ) -> dict:
-    """Edit a purchase. The cost is recomputed with the rate saved at purchase, not today's; an EGP
+    """Edit a purchase (`place` None keeps it, blank clears it). The cost is recomputed with the rate saved at purchase, not today's; an EGP
     amount (for a purchase in another currency) sets a new implied rate instead. A certificate's
     terms change with `deposit` (some of rate, start_date, maturity_date, payout, bank), and its date
     is its start date."""
@@ -347,11 +359,11 @@ def update_holding(
             buy_date = deposits.update(conn, holding_id, changes)["start_date"]
     conn.execute(
         "UPDATE holdings SET quantity = ?, buy_price = ?, buy_date = ?, note = ?, fx_egp = ?, cost_egp = ?,"
-        " updated_at = ? WHERE id = ?",
+        " place = ?, updated_at = ? WHERE id = ?",
         (quantity, buy_price, current["buy_date"] if buy_date in (None, "") else _day(buy_date),
          current["note"] if note is None else (note.strip() or None), fx or 0,
          None if fx is None else quantity * buy_price * fx,
-         now_iso(), holding_id),
+         current["place"] if place is None else _place(place), now_iso(), holding_id),
     )
     _commit_unless_short(conn, before)
     return get_holding(conn, holding_id)
@@ -398,7 +410,8 @@ def _shortfalls(conn: sqlite3.Connection) -> dict:
 
 def _short_text(conn: sqlite3.Connection, short: dict) -> str:
     name = (find(conn, short["asset"]) or {"name": short["asset"]})["name"]
-    return (f"رصيد {name} يوم {short['date']} كان {_num(short['held'])}، والحركة محتاجة {_num(short['taken'])}:"
+    where = f" في {short['place']}" if short.get("place") else ""
+    return (f"رصيد {name}{where} يوم {short['date']} كان {_num(short['held'])}، والحركة محتاجة {_num(short['taken'])}:"
             f" ناقص {_num(short['short'])}.")
 
 
@@ -431,14 +444,14 @@ def get_movement(conn: sqlite3.Connection, movement_id: int) -> dict:
     return dict(row)
 
 
-def _top_up(conn: sqlite3.Connection, entry: dict, quantity: float, day: str) -> None:
+def _top_up(conn: sqlite3.Connection, entry: dict, quantity: float, day: str, place: str | None = None) -> None:
     """The shortfall as a purchase on the movement's day, at that day's price (money from outside)."""
     price = price_on(conn, entry, day)
     if price is None or rate_on(conn, price["currency"], day) is None:
         raise LedgerInputError(f"مفيش سعر معروف لـ {entry['name']} يوم {day}: أضف الشرا ده بنفسك من البحث بسعره،"
                                " وبعدين سجّل التحويل")
     _add_holding(conn, entry["key"], price["price"], quantity, None, price["currency"], None, day,
-                 "الفرق اتسجّل كدخل مع تحويل", None, commit=False)
+                 "الفرق اتسجّل كدخل مع تحويل", None, commit=False, place=place)
 
 
 def add_movement(
@@ -452,21 +465,34 @@ def add_movement(
     value_egp: float | None = None,
     note: str | None = None,
     top_up: bool = False,
+    from_place: str | None = None,
+    to_place: str | None = None,
 ) -> dict:
     """Money leaving an asset: into another (transfer: what left and what arrived, each in its own
-    unit) or out of the ledger (expense). `value_egp` is what the transfer was worth when the user
-    knows it. Taking more than the asset held that day is refused, unless `top_up` records the gap
-    as money from outside first."""
+    unit; the same asset from one place to another), out of the ledger (expense) or towards a debt
+    (repay: to_asset debt:<id>, to_quantity the EGP the debt went down by, what left by default when
+    it is pounds). `value_egp` is what the transfer was worth when the user knows it. Taking more
+    than the asset (or the named place) held that day is refused, unless `top_up` records the gap as
+    money from outside first."""
     if kind not in movements.KIND_LABEL:
-        raise LedgerInputError("نوع الحركة لازم يكون تحويل أو خروج")
+        raise LedgerInputError("نوع الحركة لازم يكون تحويل أو خروج أو سداد")
     source = _movable(conn, from_asset, "اختار الأصل اللي الفلوس خرجت منه")
     taken = _positive(from_quantity, "اكتب الكمية اللي خرجت")
-    target, arrived = None, None
+    from_place, to_place = _place(from_place), _place(to_place)
+    target_key, arrived = None, None
     if kind == "transfer":
-        target = _movable(conn, to_asset, "اختار الأصل اللي الفلوس راحت له")
-        if target["key"] == source["key"]:
-            raise LedgerInputError("التحويل لازم يكون لأصل تاني")
+        target_key = _movable(conn, to_asset, "اختار الأصل اللي الفلوس راحت له")["key"]
+        if target_key == source["key"] and from_place == to_place:
+            raise LedgerInputError("التحويل لازم يكون لأصل تاني، أو لنفس الأصل في مكان تاني")
         arrived = _positive(to_quantity, "اكتب الكمية اللي دخلت")
+    elif kind == "repay":
+        if not str(to_asset or "").startswith(debts.PREFIX):
+            raise LedgerInputError("اختار الدين اللي بتسدّده")
+        target_key = debts.key(_debt(conn, str(to_asset))["id"])
+        if to_quantity in (None, "") and source["key"] == "EGP":
+            to_quantity = taken
+        arrived = _positive(to_quantity, "اكتب الدين قل قد إيه بالجنيه")
+        to_place = None
     elif to_asset not in (None, "") or to_quantity not in (None, ""):
         raise LedgerInputError("الخروج مالوش أصل بيدخل فيه؛ لو الفلوس راحت لأصل تاني سجّلها تحويل")
     day = _day(date) or now_cairo().date().isoformat()
@@ -475,19 +501,90 @@ def add_movement(
     stamp = now_iso()
     movement_id = conn.execute(
         "INSERT INTO movements (date, kind, from_asset, from_quantity, to_asset, to_quantity, value_egp, note,"
-        " created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-        (day, kind, source["key"], taken, target and target["key"], arrived, value, (note or "").strip() or None,
-         stamp, stamp)).lastrowid
+        " created_at, updated_at, from_place, to_place) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+        (day, kind, source["key"], taken, target_key, arrived, value, (note or "").strip() or None,
+         stamp, stamp, from_place, to_place)).lastrowid
     try:
         if top_up:
             gap = _shortfalls(conn).get((movement_id, source["key"]))
             if gap:
-                _top_up(conn, source, gap["short"], day)
+                _top_up(conn, source, gap["short"], day, gap["place"])
+        _check_debt(conn, target_key)
     except Exception:
         conn.rollback()
         raise
     _commit_unless_short(conn, before, TOP_UP_HINT)
     return get_movement(conn, movement_id)
+
+
+def _debt(conn: sqlite3.Connection, key: str) -> dict:
+    try:
+        return debts.get(conn, int(key[len(debts.PREFIX):]))
+    except ValueError:
+        raise LedgerInputError(f"الدين {key} مش موجود") from None
+
+
+def add_debt(conn: sqlite3.Connection, name: str | None = None, principal: float | None = None,
+             start_date: str | None = None, installment_egp: float | None = None, due_day: int | None = None,
+             note: str | None = None, received_into_egp: bool = False, place: str | None = None) -> dict:
+    """A debt from its start date (default today). `received_into_egp` also records the borrowed
+    pounds as money coming into EGP (at `place`), so what the user is worth does not move."""
+    terms = debts.validate(name, principal, start_date or now_cairo().date().isoformat(), installment_egp, due_day)
+    try:
+        debt_id = debts.add(conn, terms, note)
+        if received_into_egp:
+            _add_holding(conn, "EGP", 1.0, terms["principal"], None, "EGP", None, terms["start_date"],
+                         f"قرض: {terms['name']}", None, commit=False, place=place)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+    return debts.get(conn, debt_id)
+
+
+def update_debt(conn: sqlite3.Connection, debt_id: int, name: str | None = None, principal: float | None = None,
+                start_date: str | None = None, installment_egp: float | None = None, due_day: int | None = None,
+                note: str | None = None) -> dict:
+    """Edit a debt (a field left out keeps its value); what was owed can never drop below what was paid."""
+    current = debts.get(conn, debt_id)
+    terms = debts.validate(current["name"] if name is None else name,
+                           current["principal"] if principal in (None, "") else principal,
+                           current["start_date"] if start_date in (None, "") else start_date,
+                           current["installment_egp"] if installment_egp is None else installment_egp,
+                           current["due_day"] if due_day is None else due_day)
+    conn.execute("UPDATE debts SET name = ?, principal = ?, start_date = ?, installment_egp = ?, due_day = ?, note = ?,"
+                 " updated_at = ? WHERE id = ?",
+                 (terms["name"], terms["principal"], terms["start_date"], terms["installment_egp"], terms["due_day"],
+                  current["note"] if note is None else (note.strip() or None), now_iso(), debt_id))
+    try:
+        _check_debt(conn, debts.key(debt_id))
+    except Exception:
+        conn.rollback()
+        raise
+    conn.commit()
+    return debts.get(conn, debt_id)
+
+
+def remove_debt(conn: sqlite3.Connection, debt_id: int) -> dict:
+    """Remove a debt that has no payments (they are removed first, from the debt's row)."""
+    debt = debts.get(conn, debt_id)
+    if conn.execute("SELECT 1 FROM movements WHERE to_asset = ? LIMIT 1", (debts.key(debt_id),)).fetchone():
+        raise LedgerInputError("الدين ده عليه سدادات: احذفها الأول، وبعدين احذف الدين")
+    conn.execute("DELETE FROM debts WHERE id = ?", (debt_id,))
+    conn.commit()
+    return {"removed": debt}
+
+
+def _check_debt(conn: sqlite3.Connection, key: str | None) -> None:
+    """A debt never goes below zero: its payments add up to what was owed at most."""
+    if not key or not key.startswith(debts.PREFIX):
+        return
+    debt = _debt(conn, key)
+    paid = conn.execute("SELECT COALESCE(SUM(to_quantity), 0) FROM movements WHERE kind = 'repay' AND to_asset = ?",
+                        (key,)).fetchone()[0]
+    if paid > debt["principal"] + movements.EPS:
+        raise LedgerInputError(f"السداد أكبر من الباقي من «{debt['name']}»: الدين {_num(debt['principal'])}،"
+                               f" والسدادات كده {_num(paid)}")
 
 
 def update_movement(
@@ -498,22 +595,34 @@ def update_movement(
     date: str | None = None,
     value_egp: float | None = None,
     note: str | None = None,
+    from_place: str | None = None,
+    to_place: str | None = None,
 ) -> dict:
-    """Edit a movement's quantities, day, EGP value or note; what follows it is worked out again."""
+    """Edit a movement's quantities, day, EGP value, note or places (None keeps one, blank clears
+    it); what follows it is worked out again."""
     current = get_movement(conn, movement_id)
     taken = current["from_quantity"] if from_quantity in (None, "") else _positive(from_quantity, "اكتب الكمية اللي خرجت")
     arrived = current["to_quantity"]
+    places = (current["from_place"] if from_place is None else _place(from_place),
+              current["to_place"] if to_place is None or current["kind"] == "repay" else _place(to_place))
+    if current["kind"] == "transfer" and current["to_asset"] == current["from_asset"] and places[0] == places[1]:
+        raise LedgerInputError("النقل لنفس الأصل لازم يكون لمكان تاني")
     if to_quantity not in (None, ""):
-        if current["kind"] != "transfer":
+        if current["kind"] == "expense":
             raise LedgerInputError("الخروج مالوش كمية بتدخل")
         arrived = _positive(to_quantity, "اكتب الكمية اللي دخلت")
     value = current["value_egp"] if value_egp in (None, "") else _positive(value_egp, "القيمة بالجنيه لازم تكون أكبر من صفر")
     before = _shortfalls(conn)
     conn.execute(
-        "UPDATE movements SET from_quantity = ?, to_quantity = ?, date = ?, value_egp = ?, note = ?, updated_at = ?"
-        " WHERE id = ?",
+        "UPDATE movements SET from_quantity = ?, to_quantity = ?, date = ?, value_egp = ?, note = ?, from_place = ?,"
+        " to_place = ?, updated_at = ? WHERE id = ?",
         (taken, arrived, _day(date) or current["date"], value,
-         current["note"] if note is None else (note.strip() or None), now_iso(), movement_id))
+         current["note"] if note is None else (note.strip() or None), *places, now_iso(), movement_id))
+    try:
+        _check_debt(conn, current["to_asset"] if current["kind"] == "repay" else None)
+    except Exception:
+        conn.rollback()
+        raise
     _commit_unless_short(conn, before)
     return get_movement(conn, movement_id)
 
@@ -563,7 +672,7 @@ def fund_components(conn: sqlite3.Connection, fund: str) -> list[dict]:
 # ── the ledger ───────────────────────────────────────────────────────────────
 
 def _lot(row: dict) -> dict:
-    keys = ("id", "quantity", "buy_price", "currency", "fx_egp", "cost_egp", "buy_date", "note", "created_at",
+    keys = ("id", "quantity", "buy_price", "currency", "fx_egp", "cost_egp", "buy_date", "note", "place", "created_at",
             "updated_at")
     return {k: row[k] for k in keys}
 
@@ -647,6 +756,10 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
     for row in conn.execute("SELECT * FROM holdings ORDER BY id"):
         lots.setdefault(row["symbol"], []).append(dict(row))
     book = _book(conn, lambda key, quantity, day: value_on(conn, entries.get(key), quantity, day))
+    owed = debts.rows(debts.load(conn), book["debts"], at.date())
+    # A repayment's other side is a debt: named in the asset's events like any asset.
+    named = {**entries, **{d["key"]: {"key": d["key"], "name": d["name"], "unit": "ج.م", "kind": "debt", "symbol": None,
+                                      "mark": "دين"} for d in owed}}
 
     terms = deposits.load(conn)
     assets = []
@@ -678,7 +791,7 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             "price_egp": unit_egp, "price_as_of": price["as_of"] if price else None,
             "price_source": price["source"] if price else None, "stale": price["stale"] if price else None,
             "today_change": today, "today_as_of": price["day"] if fresh else None,
-            "lots": [_lot(r) for r in rows], "events": _events(held["events"], entries),
+            "places": held["places"], "lots": [_lot(r) for r in rows], "events": _events(held["events"], named),
             "components": fund_components(conn, key) if entry["kind"] == "fund" else [],
         })
 
@@ -698,14 +811,18 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         if members:
             members.sort(key=lambda a: (a["value_egp"] is None, -(a["value_egp"] or 0), a["name"]))
             groups.append({"group": group, "label": label, "assets": members})
-    usd = _usd_total(conn, value if priced else None, at)
-    gold = _gold_total(conn, value if priced else None, at)
+    debt_total = sum(d["remaining_egp"] for d in owed)
+    net = value - debt_total if priced else (-debt_total if owed else None)
+    usd = _usd_total(conn, net, at)
+    gold = _gold_total(conn, net, at)
+    places = sorted({p["place"] for a in assets for p in a.get("places") or [] if p["place"]})
     return {
         "as_of": at.isoformat(timespec="minutes"),
         "totals": {
             **usd,
             **gold,
             "allocation": _allocation(groups, value),
+            "debts": debt_total, "net_worth": net, "places": places,
             "assets": sum(1 for a in assets if a["group"] != CLOSED_GROUP[0]),
             "realized": sum(a["realized_egp"] for a in assets),
             "value": value if priced else None,
@@ -719,6 +836,7 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             "today_as_of": max(a["today_as_of"] for a in moved) if moved else None,
         },
         "groups": groups,
+        "debts": owed,
         "disclaimer": DISCLAIMER,
     }
 

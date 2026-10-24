@@ -8,7 +8,7 @@ from datetime import datetime
 from ..errors import LedgerInputError
 from .portfolio import portfolio_summary
 
-KINDS = {"income": "دخل", "transfer": "تحويل", "expense": "خروج"}
+KINDS = {"income": "دخل", "transfer": "تحويل", "expense": "خروج", "repay": "سداد"}
 
 
 def _side(asset: dict) -> dict:
@@ -24,7 +24,8 @@ def _items(summary: dict) -> list[dict]:
             day = lot["buy_date"] or lot["created_at"][:10]
             items.append({"id": f"lot:{lot['id']}", "kind": "income", "kind_label": KINDS["income"], "date": day,
                           "from": None, "from_quantity": None, "to": _side(asset), "to_quantity": lot["quantity"],
-                          "value_egp": lot["cost_egp"], "realized_egp": None, "note": lot["note"]})
+                          "value_egp": lot["cost_egp"], "realized_egp": None, "note": lot["note"],
+                          "from_place": None, "to_place": lot.get("place")})
         for e in asset["events"]:
             if e["type"] != "out":
                 continue
@@ -33,7 +34,7 @@ def _items(summary: dict) -> list[dict]:
             items.append({"id": f"move:{e['movement']}", "kind": e["kind"], "kind_label": KINDS[e["kind"]],
                           "date": e["date"], "from": _side(asset), "from_quantity": e["from_quantity"], "to": to,
                           "to_quantity": e["to_quantity"], "value_egp": e["value_egp"], "realized_egp": e["realized"],
-                          "note": e["note"]})
+                          "note": e["note"], "from_place": e.get("from_place"), "to_place": e.get("to_place")})
     items.sort(key=lambda i: (i["date"], i["id"]), reverse=True)
     return items
 
@@ -54,7 +55,7 @@ def ledger_activity(conn: sqlite3.Connection, month: str | None = None, kind: st
     or one asset (either side), newest first, with what they add up to in EGP."""
     month = _month(month)
     if kind not in (None, "") and kind not in KINDS:
-        raise LedgerInputError("النوع لازم يكون دخل أو تحويل أو خروج")
+        raise LedgerInputError("النوع لازم يكون دخل أو تحويل أو خروج أو سداد")
     everything = _items(portfolio_summary(conn, at))
     months = sorted({i["date"][:7] for i in everything}, reverse=True)
     items = [i for i in everything
@@ -67,6 +68,7 @@ def ledger_activity(conn: sqlite3.Connection, month: str | None = None, kind: st
     return {
         "month": month, "kind": kind or None, "asset": asset or None, "months": months, "items": items,
         "totals": {"income_egp": total("income"), "expense_egp": total("expense"), "transfer_egp": total("transfer"),
+                   "repay_egp": total("repay"),
                    "realized_egp": sum(i["realized_egp"] for i in items if i["realized_egp"] is not None),
                    "count": len(items)},
     }

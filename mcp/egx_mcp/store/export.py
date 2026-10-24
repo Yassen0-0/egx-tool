@@ -3,6 +3,8 @@
 The text starts with a UTF-8 BOM so Excel reads the Arabic; numbers use a dot and dates are ISO.
 The values are the ledger's own (store/portfolio.py): an asset's latest known price applied to each
 lot, so the rows add up to the screen's totals. A figure that is not known stays an empty cell.
+Once money has left an asset (store/movements.py) its lots no longer add up to what is held, so
+their value cells stay empty; the movements follow in a second table, one row each.
 """
 
 import csv
@@ -33,7 +35,19 @@ COLUMNS = (
     ("current_value_egp", "القيمة الحالية بالجنيه"),
     ("growth", "النمو"),
 )
-GROUP_LABEL = {"currencies": "عملات", "bitcoin": "بتكوين", "stocks": "أسهم", "funds": "صناديق"}
+GROUP_LABEL = {"currencies": "عملات", "bitcoin": "بتكوين", "stocks": "أسهم", "funds": "صناديق", "closed": "اتصرفت بالكامل"}
+MOVEMENT_COLUMNS = (
+    ("movement_id", "رقم الحركة"),
+    ("date", "التاريخ"),
+    ("kind", "النوع"),
+    ("from_asset", "خرج من"),
+    ("from_quantity", "الكمية اللي خرجت"),
+    ("to_asset", "دخل في"),
+    ("to_quantity", "الكمية اللي دخلت"),
+    ("value_egp", "القيمة بالجنيه"),
+    ("realized_egp", "الربح المحقق بالجنيه"),
+    ("note", "ملاحظة"),
+)
 
 
 def _cell(value) -> str:
@@ -48,7 +62,8 @@ def _cell(value) -> str:
 
 def _row(asset: dict, lot: dict) -> list:
     unit_egp = asset["price_egp"]
-    value = lot["quantity"] * unit_egp if unit_egp is not None else None
+    moved_out = any(e["type"] == "out" for e in asset["events"])
+    value = lot["quantity"] * unit_egp if unit_egp is not None and not moved_out else None
     cost = lot["cost_egp"]
     growth = value / cost - 1 if value is not None and cost else None
     priced = asset["price"] is not None
@@ -70,8 +85,19 @@ def ledger_csv(conn, at: datetime | None = None) -> dict:
     writer = csv.writer(out, quoting=csv.QUOTE_MINIMAL, lineterminator="\r\n")
     writer.writerow([title for _, title in COLUMNS])
     writer.writerow([code for code, _ in COLUMNS])
+    outs = []
     for group in summary["groups"]:
         for asset in group["assets"]:
             for lot in asset["lots"]:
                 writer.writerow([_cell(v) for v in _row(asset, lot)])
+            outs += [(asset, e) for e in asset["events"] if e["type"] == "out"]
+    if outs:
+        writer.writerow([])
+        writer.writerow([title for _, title in MOVEMENT_COLUMNS])
+        writer.writerow([code for code, _ in MOVEMENT_COLUMNS])
+        for asset, e in sorted(outs, key=lambda pair: (pair[1]["date"], pair[1]["movement"])):
+            to = e["other"]["name"] if e["other"] else None
+            writer.writerow([_cell(v) for v in (
+                e["movement"], e["date"], e["kind_label"], asset["name"], e["from_quantity"], to, e["to_quantity"],
+                e["value_egp"], e["realized"], e["note"])])
     return {"filename": f"monos-ledger-{at.date().isoformat()}.csv", "csv": BOM + out.getvalue()}

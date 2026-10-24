@@ -105,7 +105,7 @@ def formula_price(conn: sqlite3.Connection, key: str, at: datetime) -> dict | No
             "stale": date.fromisoformat(day) < due, "change": now - before if fresh_any else None}
 
 
-def _close_on(conn: sqlite3.Connection, ticker: str, day: str) -> tuple[float, str] | None:
+def close_on(conn: sqlite3.Connection, ticker: str, day: str) -> tuple[float, str] | None:
     row = conn.execute("SELECT close, date FROM daily_bars WHERE symbol = ? AND date <= ? AND close > 0"
                        " ORDER BY date DESC LIMIT 1", (ticker, day)).fetchone()
     if row is None or date.fromisoformat(row[1]) < date.fromisoformat(day) - FEED_TOLERANCE:
@@ -121,7 +121,7 @@ def formula_price_on(conn: sqlite3.Connection, key: str, day: str) -> dict | Non
     currency, parts, factor = formula
     value, days = factor, []
     for ticker, power in parts:
-        found = _close_on(conn, ticker, day)
+        found = close_on(conn, ticker, day)
         if found is None:
             return None
         value *= found[0] ** power

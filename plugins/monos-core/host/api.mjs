@@ -145,6 +145,17 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('asset-remove', { asset: key })
     return sendJson(res, status, body)
   }
+  // «الحركات»: money moving from one asset to another (transfer) or out of the ledger (expense).
+  const move = /^\/egx\/api\/movements(?:\/(\d+))?$/.exec(path)
+  if (move) {
+    const moveId = move[1] === undefined ? undefined : Number(move[1])
+    let moved
+    if (method === 'POST' && moveId === undefined) moved = await runCli('movement-add', payload)
+    else if (method === 'PATCH' && moveId !== undefined) moved = await runCli('movement-update', { ...payload, movement_id: moveId })
+    else if (method === 'DELETE' && moveId !== undefined) moved = await runCli('movement-remove', { movement_id: moveId })
+    else return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, moved.status, moved.body)
+  }
   const match = /^\/egx\/api\/holdings(?:\/(\d+))?$/.exec(path)
   if (!match) return sendJson(res, 404, { error: 'not found' })
   const id = match[1] === undefined ? undefined : Number(match[1])

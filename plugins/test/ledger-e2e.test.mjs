@@ -394,3 +394,87 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
   assert.match(seen.edited, /الاستحقاق 01\/01\/2030/)
   assert.match(seen.edited, /العائد في السنة 30,000 ج\.م/)
 })
+
+test('money moving: pounds to riyals, the other side one click away, a shortfall named then topped up, a sale back', { skip }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const setValue = async (el, value) => {
+        const proto = el.type === 'checkbox' ? null : window.HTMLInputElement.prototype
+        await act(async () => {
+          if (proto) {
+            Object.getOwnPropertyDescriptor(proto, 'value').set.call(el, value)
+            el.dispatchEvent(new window.Event('input', { bubbles: true }))
+          } else el.click()
+        })
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.querySelector('.l-name').textContent === name)
+      const detail = (name) => row(name).nextElementSibling
+      const form = () => host.querySelector('form.l-move')
+      const field = (name) => form() && [...form().querySelectorAll('label, .q-stack')].find((l) => l.textContent.startsWith(name))
+      const labelled = (name) => field(name).querySelector('input')
+      const submit = () => click(button('سجّل', form()))
+
+      await wait(() => row('الجنيه المصري'), 'the pounds from the earlier tests')
+      await click(row('الجنيه المصري'))
+      await click(button('تحويل منه', detail('الجنيه المصري')))
+      await submit()
+      seen.noQuantity = form().querySelector('[role="alert"]').textContent
+      await setValue(labelled('خرج كام'), '1000')
+      await setValue(form().querySelector('input[role="combobox"]'), 'ريال')
+      await wait(() => form().querySelector('[role="option"]'), 'the riyal in the move search')
+      await act(async () => { form().querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      await wait(() => field('دخل كام'), 'the arrived field')
+      await setValue(labelled('دخل كام'), '70')
+      seen.rate = text(form())
+      await submit()
+      await wait(() => text(detail('الجنيه المصري')).includes('الحركات'), 'the transfer in the pounds')
+      seen.out = text(detail('الجنيه المصري'))
+
+      // The other side of a movement opens with one click.
+      await click([...detail('الجنيه المصري').querySelectorAll('.l-move-item button.q-link')].find((b) => b.textContent === 'الريال السعودي'))
+      await wait(() => row('الريال السعودي').getAttribute('aria-expanded') === 'true', 'the riyal row to open')
+      seen.in = text(detail('الريال السعودي'))
+
+      // 75 riyals sold for 1,050 pounds: only 70 are held, then the 5 are recorded as money from outside.
+      await click(button('تحويل منه', detail('الريال السعودي')))
+      await setValue(labelled('خرج كام'), '75')
+      await setValue(form().querySelector('input[role="combobox"]'), 'جنيه')
+      await wait(() => form().querySelector('[role="option"]'), 'the pound in the move search')
+      await act(async () => { form().querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      await wait(() => field('دخل كام'), 'the arrived field')
+      await setValue(labelled('دخل كام'), '1050')
+      await submit()
+      await wait(() => form().querySelector('[role="alert"]'), 'the shortfall')
+      seen.short = form().querySelector('[role="alert"]').textContent
+      await setValue(form().querySelector('input[type="checkbox"]'))
+      await submit()
+      await wait(() => row('الريال السعودي') && row('الريال السعودي').closest('section').getAttribute('aria-label') === 'اتصرفت بالكامل', 'the riyal to close')
+      seen.closed = text(row('الريال السعودي').closest('section'))
+      seen.total = text(host.querySelector('.l-total'))
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.match(seen.noQuantity, /اكتب الكمية اللي خرجت/)
+  assert.match(seen.rate, /سعرك 14\.29 ج\.م للـ SAR/)
+  assert.match(seen.out, /−1,000 ج\.م لـ الريال السعودي \(70 SAR\)/)
+  assert.match(seen.out, /الحركات/)
+  assert.match(seen.in, /\+70 SAR من الجنيه المصري \(1,000 ج\.م\)/)
+  assert.match(seen.in, /سعر السوق يومها 971 ج\.م/)  // 70 × 52 / 3.75
+  assert.match(seen.short, /ناقص 5/)
+  assert.match(seen.closed, /اتحوّل أو اتصرف كله/)
+  assert.match(seen.total, /ربح محقق −19/)  // 1,050 − (1,000 + 5 × 13.87)
+})

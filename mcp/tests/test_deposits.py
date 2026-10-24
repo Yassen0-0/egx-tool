@@ -45,11 +45,11 @@ def test_old_database_gets_the_deposits_table(tmp_path):
     first.commit()
     first.close()
     conn = connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION == 5
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION >= 5
     assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 1
     assert [r["name"] for r in conn.execute("PRAGMA table_info(deposits)")] == [
         "holding_id", "rate", "start_date", "maturity_date", "payout", "bank"]
-    assert len(list((tmp_path / "backups").glob("egx-*-before-v5.sqlite"))) == 1
+    assert len(list((tmp_path / "backups").glob(f"egx-*-before-v{SCHEMA_VERSION}.sqlite"))) == 1
     lot = add(conn)
     assert lot["symbol"] == f"deposit:{lot['id']}"
     conn.close()

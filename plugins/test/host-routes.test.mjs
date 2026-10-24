@@ -73,6 +73,17 @@ test('each holdings route maps to its egx-cli command', async () => {
   assert.deepEqual(remove.body, { command: 'portfolio-remove', payload: { holding_id: 3 } })
 })
 
+test('each movements route maps to its egx-cli command', async () => {
+  const body = { kind: 'transfer', from_asset: 'EGP', from_quantity: 1000, to_asset: 'USD', to_quantity: 20 }
+  assert.deepEqual((await call('POST', '/egx/api/movements', { body, headers: SAME_ORIGIN })).body, { command: 'movement-add', payload: body })
+  const edit = await call('PATCH', '/egx/api/movements/4', { body: { note: 'x' }, headers: SAME_ORIGIN })
+  assert.deepEqual(edit.body, { command: 'movement-update', payload: { note: 'x', movement_id: 4 } })
+  const remove = await call('DELETE', '/egx/api/movements/4', { body: {}, headers: SAME_ORIGIN })
+  assert.deepEqual(remove.body, { command: 'movement-remove', payload: { movement_id: 4 } })
+  assert.equal((await call('DELETE', '/egx/api/movements', { body: {}, headers: SAME_ORIGIN })).status, 405)
+  assert.equal((await call('POST', '/egx/api/movements', { body, headers: { 'content-type': 'application/json' } })).status, 403)
+})
+
 test('the history route asks for a whole number of days and falls back to the default', async () => {
   assert.deepEqual((await call('GET', '/egx/api/history?days=90')).body, { command: 'history', payload: { days: 90 } })
   assert.deepEqual((await call('GET', '/egx/api/history')).body, { command: 'history', payload: {} })

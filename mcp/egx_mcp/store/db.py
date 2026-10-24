@@ -151,6 +151,24 @@ CREATE TABLE IF NOT EXISTS deposits (
     bank TEXT
 );
 
+-- «الحركات»: money moving out of an asset, into another (transfer) or out of the ledger (expense).
+-- Purchases stay in holdings: each one is money coming in. Quantities are what left and what
+-- arrived, in each asset's own unit; value_egp is the EGP the user says the transfer was worth.
+CREATE TABLE IF NOT EXISTS movements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('transfer', 'expense')),
+    from_asset TEXT NOT NULL,
+    from_quantity REAL NOT NULL CHECK (from_quantity > 0),
+    to_asset TEXT,
+    to_quantity REAL CHECK (to_quantity IS NULL OR to_quantity > 0),
+    value_egp REAL CHECK (value_egp IS NULL OR value_egp > 0),
+    note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    CHECK ((kind = 'transfer') = (to_asset IS NOT NULL AND to_quantity IS NOT NULL))
+);
+
 CREATE TABLE IF NOT EXISTS watchlist (
     symbol TEXT PRIMARY KEY,
     added_at TEXT NOT NULL
@@ -202,6 +220,7 @@ MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (3, "ledger_snapshots (created by SCHEMA)", lambda conn: None),
     (4, "old purchases of a dollar EGX line are in dollars, their EGP cost unknown", _dollar_lines),
     (5, "deposits (created by SCHEMA)", lambda conn: None),
+    (6, "movements (created by SCHEMA)", lambda conn: None),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

@@ -9,7 +9,8 @@ from . import commands
 from .errors import LedgerInputError
 
 INSTRUCTIONS = """\
-The user's ledger of assets in EGP («السجل»): read it, find assets, and add or edit purchases and prices.
+The user's ledger of assets in EGP («السجل»): read it, find assets, and add or edit purchases, prices
+and movements (money transferred from one asset to another, or spent).
 Every number comes from these tools; never compute values yourself.
 Describe the numbers only: never buy, sell or hold advice. Confirm with the user before any change.
 """

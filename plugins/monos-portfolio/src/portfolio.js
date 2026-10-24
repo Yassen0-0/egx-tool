@@ -3,7 +3,7 @@
 // (/egx/api/portfolio); this screen only shows it and sends what the user types. ES module.
 // The ledger comes from the shared store (identity.js), so the sidebar's «Monos» row agrees with it.
 import { N, QM_CSS, React, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
-import { DASH, fmtDate, fmtDayMonth, fmtNumber, fmtPct, fmtPrice, fmtQty, parseDayInput, parseNumberInput, toneOf } from '../../shared/format.mjs'
+import { DASH, fmtDate, fmtDayMonth, fmtPct, fmtPrice, fmtQty, fmtSigned, parseDayInput, parseNumberInput, toneOf } from '../../shared/format.mjs'
 import { PanelHeader, monos, useMonos } from '../../shared/identity.js'
 import { Skeleton } from '../../shared/components.js'
 import { Logo } from '../../shared/logo.js'
@@ -12,15 +12,14 @@ import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
 import { ExportButton } from './export.js'
 import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
+import { MoveForm, MoveItem } from './moves.js'
+import { CURRENCY_SIGN, money, sign } from './units.mjs'
 import LEDGER_CSS from './ledger.css'
 
-export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
+export { CURRENCY_SIGN, money }
 export const KIND_CHOICES = [['currency', 'عملة'], ['gold', 'ذهب'], ['bitcoin', 'بتكوين'], ['stock', 'سهم'], ['fund', 'صندوق'], [DEPOSIT_KIND, 'شهادة/وديعة']]
 const QTY_LABEL = { stock: 'عدد الأسهم', fund: 'عدد الوثائق' }
 
-/** Whole pounds for values and costs: the column reads as amounts, not prices. */
-export const money = (v) => fmtNumber(v, 0)
-const sign = (currency) => CURRENCY_SIGN[currency] || currency
 const priceWithSign = (v, currency) => frag(N(fmtPrice(v)), ' ', sign(currency))
 /** A number span that reads «•••••» while the numbers are hidden (shared/privacy.js); the tone
  * colour is dropped too, so a red or green figure does not give the sign away. */
@@ -345,35 +344,62 @@ function Components({ asset, catalog, onChanged }) {
       error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
 }
 
-export function AssetRow({ asset, catalog, fresh, onChanged }) {
+/** The asset's purchases and movements in order (Python's `events`); a certificate has its lots. */
+function Timeline({ asset, onChanged, onOpen }) {
+  const events = asset.events.length ? asset.events : asset.lots.map((lot) => ({ type: 'lot', id: lot.id }))
+  const lots = Object.fromEntries(asset.lots.map((lot) => [lot.id, lot]))
+  const moved = events.some((e) => e.type !== 'lot')
+  return h('div', null,
+    h('h3', null, moved ? `الحركات (${events.length})` : events.length > 1 ? `العمليات (${events.length})` : 'العملية'),
+    events.map((e) => e.type === 'lot'
+      ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged })
+      : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen })))
+}
+
+export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) {
   const hidden = usePrivacy()
   const [open, setOpen] = useState(false)
   const [confirm, setConfirm] = useState(false)
+  const [moving, setMoving] = useState(null)
   const [error, setError] = useState('')
+  const rowRef = React.useRef(null)
+  useEffect(() => {
+    if (!focused) return
+    setOpen(true)
+    rowRef.current?.scrollIntoView?.({ block: 'nearest' })
+  }, [focused])
+  const closed = asset.group === 'closed'
+  const movable = asset.kind !== DEPOSIT_KIND && asset.quantity > 0
   const priced = asset.value_egp != null
   const removeAll = async () => {
     try { await api('DELETE', `/egx/api/assets/${encodeURIComponent(asset.key)}`, {}); onChanged() } catch (e) { setError(e.message) }
   }
   const sourceText = asset.price_source === 'manual' ? 'كتبته أنت' : asset.price_source === 'EODHD' ? 'إغلاق EODHD' : null
   return h(React.Fragment, null,
-    h('button', { type: 'button', className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open, onClick: () => setOpen(!open) },
+    h('button', { type: 'button', ref: rowRef, className: `l-row${fresh ? ' l-new' : ''}`, 'aria-expanded': open, onClick: () => setOpen(!open) },
       h(Logo, { symbol: asset.kind === 'stock' ? asset.symbol : null, mark: asset.mark }),
       h('span', { className: 'q-stack' },
         h('span', { className: 'l-name' }, asset.name),
         h('span', { className: 'l-sub' },
-          asset.key === 'EGP' ? null : h('span', null, hidden ? frag(N(MASK), ' ', asset.unit) : quantityText(asset)),
+          asset.key === 'EGP' || closed ? null : h('span', null, hidden ? frag(N(MASK), ' ', asset.unit) : quantityText(asset)),
+          closed ? h('span', null, 'اتحوّل أو اتصرف كله') : null,
           asset.kind === 'stock' && asset.symbol ? h('span', { className: 'q-sym' }, asset.symbol) : null,
           asset.kind === DEPOSIT_KIND ? depositSub(asset, hidden) : null,
-          !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
+          closed ? null : !priced ? h('span', null, 'من غير سعر') : asset.stale && asset.price_as_of ? h('span', null, 'سعر ', N(fmtDayMonth(asset.price_as_of))) : null)),
       h('span', { className: 'l-value' },
         priced ? hid(hidden, money(asset.value_egp)) : h('span', { className: 'num q-ter' }, DASH),
         priced && asset.growth != null ? hid(hidden, fmtPct(asset.growth, { signed: true }), `l-growth ${toneOf(asset.growth)}`) : null)),
     open ? h('div', { className: 'l-detail' },
-      h('div', null,
-        h('h3', null, asset.lots.length > 1 ? `العمليات (${asset.lots.length})` : 'العملية'),
-        asset.lots.map((lot) => h(LotItem, { key: `${lot.id}:${lot.updated_at}`, lot, asset, onChanged }))),
+      h(Timeline, { asset, onChanged, onOpen }),
+      asset.realized_egp && Math.abs(asset.realized_egp) >= 1
+        ? h('p', { className: 'l-hint' }, 'ربح محقق من اللي اتحوّل ', hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), ' ج.م') : null,
+      movable ? (moving
+        ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
+        : h('div', { className: 'l-inline' },
+          h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => setMoving('transfer') }, 'تحويل منه'),
+          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('expense') }, 'خروج (صرفت أو سحبت)'))) : null,
       asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
-      asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? null : h('div', null,
+      asset.key === 'EGP' || asset.kind === DEPOSIT_KIND || closed ? null : h('div', null,
         h('h3', null, 'السعر'),
         priced || asset.price != null
           ? h('p', { className: 'l-hint' }, 'آخر سعر ', hidden ? frag(N(MASK), ' ', sign(asset.price_currency)) : priceWithSign(asset.price, asset.price_currency),
@@ -409,6 +435,7 @@ export function TotalBlock({ totals }) {
     totals.assets ? h('div', { className: 'l-line' },
       h('span', null, 'التكلفة ', hid(hidden, money(totals.cost))),
       totals.growth != null ? h('span', null, 'النمو ', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
+      totals.realized && Math.abs(totals.realized) >= 1 ? h('span', null, 'ربح محقق ', hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null,
       unpriced ? h('span', null, N(String(unpriced)), unpriced === 1 ? ' أصل من غير سعر، خارج الإجمالي' : ' أصول من غير سعر، خارج الإجمالي') : null) : null)
 }
 
@@ -418,6 +445,7 @@ export function PortfolioPage() {
   const [catalog, reloadCatalog] = useCatalog()
   const [picked, setPicked] = useState(null)
   const [fresh, setFresh] = useState(null)
+  const [focus, setFocus] = useState(null)
   useEffect(() => { monos.refresh() }, [])
   const refresh = () => monos.refresh()
   const added = (key) => {
@@ -454,7 +482,8 @@ export function PortfolioPage() {
       ledger.groups.length
         ? ledger.groups.map((g) => h('section', { key: g.group, className: 'l-group', 'aria-label': g.label },
           h('h2', null, g.label),
-          g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh }))))
+          g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, fresh: a.key === fresh, onChanged: refresh,
+            focused: focus && focus.key === a.key ? focus.at : null, onOpen: (key) => setFocus({ key, at: Date.now() }) }))))
         : h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
       h('p', { className: 'l-foot' }, 'الأرقام كما أدخلتها، والأسعار إغلاق متأخر أو سعر كتبته أنت، وكل سعر بتاريخه. ',
         'القيمة والتكلفة بالجنيه، والنمو من تكلفة الشرا. وصف للأرقام، وليس توصية بالشراء أو البيع.'))

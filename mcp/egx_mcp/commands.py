@@ -22,9 +22,11 @@ def _db():
 
 
 def portfolio_summary() -> dict:
-    """The ledger in EGP: total value, cost, growth, today's move, and the assets in five groups
-    (currencies with gold, bitcoin, stocks, funds, bank certificates and deposits), each with its
-    purchases (lots), its price and that price's date and source (a certificate has its terms instead). Describe these numbers; never turn them into buy or sell advice."""
+    """The ledger in EGP: total value, cost, growth, realised gains, today's move, and the assets in five
+    groups (currencies with gold, bitcoin, stocks, funds, bank certificates and deposits) plus the ones
+    whose money all moved on, each with its purchases (lots), its movements in order with the balance
+    after each (events), its price and that price's date and source (a certificate has its terms
+    instead). Describe these numbers; never turn them into buy or sell advice."""
     with _db() as conn:
         return portfolio.portfolio_summary(conn)
 
@@ -87,6 +89,33 @@ def asset_remove(asset: str) -> dict:
         return portfolio.remove_asset(conn, asset)
 
 
+def movement_add(kind: str = "transfer", from_asset: str | None = None, from_quantity: float | None = None,
+                 to_asset: str | None = None, to_quantity: float | None = None, date: str | None = None,
+                 value_egp: float | None = None, note: str | None = None, top_up: bool = False) -> dict:
+    """Record money moving: kind `transfer` takes from_quantity out of from_asset and puts to_quantity of
+    to_asset in («حوّلت 1000 جنيه لـ 20 دولار»: EGP 1000 → USD 20; a sale is a transfer to EGP); kind
+    `expense` takes it out of the ledger (spent, withdrawn). Keys from catalog_search; each quantity in
+    its asset's own unit; date YYYY-MM-DD. value_egp is the EGP the transfer was worth when the user knows
+    it and neither side is EGP. More than the asset held that day is refused unless top_up records the
+    gap as money from outside: ask the user before setting it. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.add_movement(conn, kind, from_asset, from_quantity, to_asset, to_quantity, date,
+                                      value_egp, note, top_up)
+
+
+def movement_update(movement_id: int, from_quantity: float | None = None, to_quantity: float | None = None,
+                    date: str | None = None, value_egp: float | None = None, note: str | None = None) -> dict:
+    """Edit a movement (its id is in the asset's events). Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.update_movement(conn, movement_id, from_quantity, to_quantity, date, value_egp, note)
+
+
+def movement_remove(movement_id: int) -> dict:
+    """Remove a movement: what left comes back. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.remove_movement(conn, movement_id)
+
+
 def price_set(asset: str, price: float, currency: str | None = None, date: str | None = None) -> dict:
     """Record the price the user gives for an asset on a day (default today), e.g. a fund's unit
     price; a newer market price wins over it. Confirm with the user before calling."""
@@ -132,7 +161,7 @@ def prices_sync() -> dict:
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
 MCP_TOOLS = (
     portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
-    price_set, fx_rate, fund_components_set, wealth_history,
+    movement_add, movement_update, movement_remove, price_set, fx_rate, fund_components_set, wealth_history,
 )
 CLI_COMMANDS = {
     "portfolio-summary": portfolio_summary,
@@ -143,6 +172,9 @@ CLI_COMMANDS = {
     "portfolio-update": portfolio_update,
     "portfolio-remove": portfolio_remove,
     "asset-remove": asset_remove,
+    "movement-add": movement_add,
+    "movement-update": movement_update,
+    "movement-remove": movement_remove,
     "price-set": price_set,
     "fx-rate": fx_rate,
     "history": wealth_history,

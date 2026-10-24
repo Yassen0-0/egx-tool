@@ -75,3 +75,16 @@ def test_the_cli_command_returns_the_same_shape(tmp_path, monkeypatch):
     monkeypatch.setenv("EGX_DATA_DIR", str(tmp_path))
     result = cli.run("ledger-export", None)
     assert set(result) == {"filename", "csv"} and result["csv"].startswith("﻿")
+
+
+def test_movements_follow_in_their_own_table(conn):
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=1000, buy_date="2026-10-01")
+    portfolio.add_movement(conn, "transfer", "EGP", 1000, "USD", 20, date="2026-10-02", note="البنك")
+    portfolio.add_movement(conn, "expense", "USD", 5, date="2026-10-03")
+    rows = list(csv.reader(io.StringIO(ledger_csv(conn, AT)["csv"].lstrip("﻿"))))
+    at = rows.index([])
+    assert rows[at + 2][:3] == ["movement_id", "date", "kind"]
+    assert rows[at + 3][1:8] == ["2026-10-02", "تحويل", "الجنيه المصري", "1000", "الدولار الأمريكي", "20", "1000"]
+    assert rows[at + 3][9] == "البنك" and rows[at + 4][2] == "خروج"
+    lot = next(r for r in rows[2:at] if r[0] == "EGP")
+    assert lot[13] == "" and lot[14] == ""  # its money moved on: no value per purchase

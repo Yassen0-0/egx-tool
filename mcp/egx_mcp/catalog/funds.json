@@ -1,4 +1,1039 @@
 {
-  "note": "Funds the ledger search knows. Starts empty: a fund that is not here is added by name and becomes searchable. Each entry: {\"slug\": \"...\", \"name\": \"Arabic name\", \"name_en\": \"...\", \"manager\": \"...\", \"currency\": \"EGP\", \"aliases\": []}. The unit price (NAV) is typed by the user until a source is chosen.",
-  "funds": []
+ "note": "Egyptian mutual funds the ledger search knows, gathered from public reports in October 2026; names can differ slightly from the official ones, and a fund that is not here is added by name. Each entry: slug, name (Arabic), name_en, manager (a key of `managers`, each with its name, the letters of its logo circle and the words that find it), type (money, fixed, equity, index, balanced, gold, silver; absent when not known), islamic, currency (EGP when absent), aliases. The unit price (NAV) is typed by the user or recorded by the assistant.",
+ "managers": {
+  "beltone": {
+   "name": "بلتون",
+   "aliases": [
+    "beltone"
+   ],
+   "mark": "بل"
+  },
+  "azimut": {
+   "name": "أزيموت",
+   "aliases": [
+    "azimut",
+    "az",
+    "ازيموت مصر"
+   ],
+   "mark": "AZ"
+  },
+  "hermes": {
+   "name": "هيرميس",
+   "aliases": [
+    "efg",
+    "efg hermes",
+    "hermes",
+    "اي اف جي"
+   ],
+   "mark": "EFG"
+  },
+  "ci": {
+   "name": "سي آي",
+   "aliases": [
+    "ci",
+    "ci capital",
+    "ciam",
+    "سي اي كابيتال"
+   ],
+   "mark": "CI"
+  },
+  "cib": {
+   "name": "CIB",
+   "aliases": [
+    "cib",
+    "التجاري الدولي",
+    "البنك التجاري الدولي"
+   ],
+   "mark": "CIB"
+  },
+  "nbe": {
+   "name": "البنك الأهلي",
+   "aliases": [
+    "nbe",
+    "الأهلي",
+    "الاهلي المصري",
+    "afim",
+    "الأهلي لإدارة الاستثمارات"
+   ],
+   "mark": "أه"
+  },
+  "bm": {
+   "name": "بنك مصر",
+   "aliases": [
+    "banque misr",
+    "bm"
+   ],
+   "mark": "مص"
+  },
+  "mubasher": {
+   "name": "مباشر",
+   "aliases": [
+    "mubasher",
+    "مباشر كابيتال"
+   ],
+   "mark": "مب"
+  },
+  "ni": {
+   "name": "إن آي كابيتال",
+   "aliases": [
+    "ni capital",
+    "ان اي كابيتال"
+   ],
+   "mark": "NI"
+  },
+  "thndr": {
+   "name": "ثاندر",
+   "aliases": [
+    "thndr",
+    "ثندر"
+   ],
+   "mark": "ثن"
+  },
+  "adib": {
+   "name": "أبوظبي الإسلامي",
+   "aliases": [
+    "adib",
+    "مصرف أبوظبي الإسلامي"
+   ],
+   "mark": "AD"
+  },
+  "hdb": {
+   "name": "بنك التعمير والإسكان",
+   "aliases": [
+    "hdb",
+    "الإسكان"
+   ],
+   "mark": "إس"
+  },
+  "bdc": {
+   "name": "بنك القاهرة",
+   "aliases": [
+    "banque du caire",
+    "bdc"
+   ],
+   "mark": "قا"
+  },
+  "boukra": {
+   "name": "بُكرة",
+   "aliases": [
+    "boukra",
+    "بكرة"
+   ],
+   "mark": "بك"
+  }
+ },
+ "funds": [
+  {
+   "slug": "beltone-sabaek",
+   "name": "صندوق بلتون إيفولف للاستثمار في الذهب (سبائك)",
+   "name_en": "Beltone Evolve Gold Fund (Sabaek)",
+   "manager": "beltone",
+   "type": "gold",
+   "aliases": [
+    "سبائك",
+    "sabaek",
+    "بلتون ايفولف"
+   ]
+  },
+  {
+   "slug": "beltone-silver",
+   "name": "صندوق بلتون إيفولف للاستثمار في الفضة",
+   "name_en": "Beltone Evolve Silver Fund",
+   "manager": "beltone",
+   "type": "silver"
+  },
+  {
+   "slug": "beltone-yomy-b",
+   "name": "صندوق بلتون ذو العائد اليومي التراكمي (يومي B)",
+   "name_en": "Beltone Daily Cumulative Return Fund (Yomy-B)",
+   "manager": "beltone",
+   "type": "money",
+   "aliases": [
+    "يومي",
+    "يومي b",
+    "yomy"
+   ]
+  },
+  {
+   "slug": "beltone-b-secure",
+   "name": "صندوق بلتون B-Secure للدخل الثابت",
+   "name_en": "Beltone B-Secure Fixed Income Fund",
+   "manager": "beltone",
+   "type": "fixed",
+   "aliases": [
+    "بي سكيور",
+    "b-secure",
+    "b secure"
+   ]
+  },
+  {
+   "slug": "beltone-kobonat-b",
+   "name": "صندوق بلتون ذو العائد الدوري (كوبونات B)",
+   "name_en": "Beltone Kobonat-B Fund",
+   "manager": "beltone",
+   "type": "fixed",
+   "aliases": [
+    "كوبونات",
+    "kobonat"
+   ]
+  },
+  {
+   "slug": "beltone-usd-fi",
+   "name": "صندوق بلتون دولار للدخل الثابت",
+   "name_en": "Beltone Fixed Income USD Fund",
+   "manager": "beltone",
+   "type": "fixed",
+   "currency": "USD",
+   "aliases": [
+    "بلتون الدولاري",
+    "بلتون دولار"
+   ]
+  },
+  {
+   "slug": "beltone-mia-mia",
+   "name": "صندوق بلتون مية مية (BMM)",
+   "name_en": "Beltone 100/100 Fund (BMM)",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "مية مية",
+    "100/100",
+    "bmm"
+   ]
+  },
+  {
+   "slug": "beltone-wafra",
+   "name": "صندوق بلتون وفرة لمؤشر الشريعة EGX33",
+   "name_en": "Beltone Wafra Fund (EGX33 Shariah)",
+   "manager": "beltone",
+   "type": "index",
+   "islamic": true,
+   "aliases": [
+    "وفرة",
+    "wafra",
+    "bwa",
+    "egx33"
+   ]
+  },
+  {
+   "slug": "beltone-egx30-etf",
+   "name": "صندوق مؤشر EGX30 المتداول (EGX30 ETF)",
+   "name_en": "EGX30 Index ETF",
+   "manager": "beltone",
+   "type": "index",
+   "aliases": [
+    "egx30etf",
+    "egx30 etf",
+    "egx30"
+   ]
+  },
+  {
+   "slug": "beltone-b70",
+   "name": "صندوق بلتون B-70 لمؤشر EGX70",
+   "name_en": "Beltone B-70 Fund (EGX70)",
+   "manager": "beltone",
+   "type": "index",
+   "aliases": [
+    "b-70",
+    "b70",
+    "egx70"
+   ]
+  },
+  {
+   "slug": "beltone-b35",
+   "name": "صندوق بلتون B-35 لمؤشر EGX35",
+   "name_en": "Beltone B-35 Fund (EGX35)",
+   "manager": "beltone",
+   "type": "index",
+   "aliases": [
+    "b-35",
+    "b35",
+    "egx35"
+   ]
+  },
+  {
+   "slug": "beltone-egx100",
+   "name": "صندوق بلتون لمؤشر EGX100",
+   "name_en": "Beltone EGX100 Fund",
+   "manager": "beltone",
+   "type": "index",
+   "aliases": [
+    "egx100"
+   ]
+  },
+  {
+   "slug": "beltone-real-estate",
+   "name": "صندوق بلتون للقطاع العقاري (B-Real Estate)",
+   "name_en": "Beltone Real Estate Fund (BRE)",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "بلتون العقاري",
+    "bre"
+   ]
+  },
+  {
+   "slug": "beltone-financial",
+   "name": "صندوق بلتون للقطاع المالي",
+   "name_en": "Beltone Financials Fund (BFI)",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "bfi"
+   ]
+  },
+  {
+   "slug": "beltone-industrial",
+   "name": "صندوق بلتون للقطاع الصناعي",
+   "name_en": "Beltone Industrials Fund (BIN)",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "bin"
+   ]
+  },
+  {
+   "slug": "beltone-consumer",
+   "name": "صندوق بلتون للسلع الاستهلاكية",
+   "name_en": "Beltone Consumer Fund (BCO)",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "bco",
+    "beltone consumer"
+   ]
+  },
+  {
+   "slug": "beltone-trohat",
+   "name": "صندوق بلتون طروحات",
+   "name_en": "Beltone Trohat (IPO) Fund",
+   "manager": "beltone",
+   "type": "equity",
+   "aliases": [
+    "طروحات",
+    "trohat"
+   ]
+  },
+  {
+   "slug": "adib-elnaharda",
+   "name": "صندوق النهارده النقدي",
+   "name_en": "ADIB Elnaharda Money Market Fund",
+   "manager": "adib",
+   "type": "money",
+   "islamic": true,
+   "aliases": [
+    "النهارده",
+    "naharda"
+   ]
+  },
+  {
+   "slug": "az-gold",
+   "name": "صندوق AZ جولد للاستثمار في الذهب",
+   "name_en": "AZ Gold Fund (AZG)",
+   "manager": "azimut",
+   "type": "gold",
+   "islamic": true,
+   "aliases": [
+    "az gold",
+    "az-gold",
+    "azg",
+    "ازيموت جولد"
+   ]
+  },
+  {
+   "slug": "az-metals",
+   "name": "صندوق AZ معادن للمعادن النفيسة",
+   "name_en": "AZ Metals Precious Metals Fund",
+   "manager": "azimut",
+   "type": "gold",
+   "aliases": [
+    "az معادن",
+    "az metals",
+    "معادن نفيسة"
+   ]
+  },
+  {
+   "slug": "az-opportunities",
+   "name": "صندوق فرص AZ للأسهم",
+   "name_en": "AZ Opportunities Fund (AZO)",
+   "manager": "azimut",
+   "type": "equity",
+   "aliases": [
+    "فرص",
+    "azo",
+    "az opportunities"
+   ]
+  },
+  {
+   "slug": "az-sharia-opportunities",
+   "name": "صندوق فرص الشريعة AZ",
+   "name_en": "AZ Sharia Opportunities Fund",
+   "manager": "azimut",
+   "type": "equity",
+   "islamic": true,
+   "aliases": [
+    "فرص الشريعة"
+   ]
+  },
+  {
+   "slug": "az-lv",
+   "name": "صندوق AZ LV للأسهم منخفضة التقلبات (EGX35-LV)",
+   "name_en": "AZ Low Volatility Fund (EGX35-LV)",
+   "manager": "azimut",
+   "type": "index",
+   "aliases": [
+    "az lv",
+    "egx35"
+   ]
+  },
+  {
+   "slug": "az-savings",
+   "name": "صندوق ادخار AZ (عائد يومي تراكمي)",
+   "name_en": "AZ Savings Fund (AZS)",
+   "manager": "azimut",
+   "type": "fixed",
+   "aliases": [
+    "ادخار",
+    "azs",
+    "az savings"
+   ]
+  },
+  {
+   "slug": "az-thndr-tawfeer",
+   "name": "صندوق ثاندر توفير AZ النقدي",
+   "name_en": "AZ Thndr Savings Money Market Fund",
+   "manager": "azimut",
+   "type": "money",
+   "islamic": true,
+   "aliases": [
+    "توفير",
+    "ثندر توفير"
+   ]
+  },
+  {
+   "slug": "az-nasser",
+   "name": "صندوق ناصر AZ للدخل الثابت",
+   "name_en": "Nasser AZ Fixed Income Fund",
+   "manager": "azimut",
+   "type": "fixed",
+   "aliases": [
+    "ناصر"
+   ]
+  },
+  {
+   "slug": "az-istihqaq-2030",
+   "name": "صندوق AZ استحقاق 2030 (دولار)",
+   "name_en": "AZ Istihqaq 2030 USD Fund",
+   "manager": "azimut",
+   "type": "fixed",
+   "currency": "USD",
+   "aliases": [
+    "استحقاق 2030",
+    "استحقاق"
+   ]
+  },
+  {
+   "slug": "hermes-mm",
+   "name": "صندوق هيرميس النقدي",
+   "name_en": "EFG Hermes Money Market Fund",
+   "manager": "hermes",
+   "type": "money"
+  },
+  {
+   "slug": "hermes-fi-usd",
+   "name": "صندوق هيرميس للدخل الثابت بالدولار",
+   "name_en": "EFG Hermes Fixed Income USD Fund",
+   "manager": "hermes",
+   "type": "fixed",
+   "currency": "USD"
+  },
+  {
+   "slug": "hermes-gold",
+   "name": "صندوق هيرميس للذهب",
+   "name_en": "EFG Hermes Gold Fund",
+   "manager": "hermes",
+   "type": "gold"
+  },
+  {
+   "slug": "hermes-eq",
+   "name": "صندوق هيرميس للأسهم",
+   "name_en": "EFG Hermes Equity Fund",
+   "manager": "hermes",
+   "type": "equity"
+  },
+  {
+   "slug": "hermes-eq-shariah",
+   "name": "صندوق هيرميس للأسهم المتوافق مع الشريعة",
+   "name_en": "EFG Hermes Equity Shariah Fund",
+   "manager": "hermes",
+   "type": "equity",
+   "islamic": true
+  },
+  {
+   "slug": "ci-gold",
+   "name": "صندوق سي آي للذهب (جولد مصر)",
+   "name_en": "CI Gold Fund (CGO)",
+   "manager": "ci",
+   "type": "gold",
+   "aliases": [
+    "جولد مصر",
+    "cgo",
+    "ci gold"
+   ]
+  },
+  {
+   "slug": "ci-egx30-capped",
+   "name": "صندوق مصر إكويتي (CI EGX30 Capped)",
+   "name_en": "Misr Equity Fund (CI EGX30 Capped)",
+   "manager": "ci",
+   "type": "index",
+   "aliases": [
+    "مصر اكويتي",
+    "ci30",
+    "egx30 capped"
+   ]
+  },
+  {
+   "slug": "ci-hd20",
+   "name": "صندوق سي آي HD20",
+   "name_en": "CI HD20 Fund (C20)",
+   "manager": "ci",
+   "type": "equity",
+   "aliases": [
+    "hd20",
+    "c20"
+   ]
+  },
+  {
+   "slug": "ci-sector-building",
+   "name": "صندوق سي آي القطاعي: البناء (الإصدار الأول)",
+   "name_en": "CI Sectors Fund 1 (Building)",
+   "manager": "ci",
+   "type": "equity"
+  },
+  {
+   "slug": "ci-sector-technology",
+   "name": "صندوق سي آي القطاعي: التكنولوجيا (الإصدار الثاني)",
+   "name_en": "CI Sectors Fund 2 (Technology)",
+   "manager": "ci",
+   "type": "equity",
+   "aliases": [
+    "ci technology"
+   ]
+  },
+  {
+   "slug": "ci-sector-exporting",
+   "name": "صندوق سي آي القطاعي: التصدير (الإصدار الثالث)",
+   "name_en": "CI Sectors Fund 3 (Exporting)",
+   "manager": "ci",
+   "type": "equity",
+   "aliases": [
+    "ciam exporting"
+   ]
+  },
+  {
+   "slug": "ci-sector-consumer",
+   "name": "صندوق سي آي القطاعي: الاستهلاكي (الإصدار الرابع)",
+   "name_en": "CI Sectors Fund 4 (Consumer)",
+   "manager": "ci",
+   "type": "equity",
+   "aliases": [
+    "ci consuming"
+   ]
+  },
+  {
+   "slug": "ci-digital-pay",
+   "name": "صندوق سي آي للمدفوعات الرقمية",
+   "name_en": "CI Digital Pay Fund",
+   "manager": "ci",
+   "type": "equity",
+   "aliases": [
+    "ci digital pay"
+   ]
+  },
+  {
+   "slug": "ci-misr-yomy",
+   "name": "صندوق مصر اليومي النقدي (سي آي)",
+   "name_en": "CI Misr Daily Money Market Fund",
+   "manager": "ci",
+   "type": "money",
+   "aliases": [
+    "مصر اليومي"
+   ]
+  },
+  {
+   "slug": "ci-kol-shahr",
+   "name": "صندوق كل شهر لأدوات الدين (سي آي)",
+   "name_en": "CI Kol Shahr Fixed Income Fund",
+   "manager": "ci",
+   "type": "fixed",
+   "aliases": [
+    "كل شهر"
+   ]
+  },
+  {
+   "slug": "cib-osoul",
+   "name": "صندوق CIB أصول النقدي",
+   "name_en": "CIB Osoul Money Market Fund",
+   "manager": "cib",
+   "type": "money",
+   "aliases": [
+    "أصول",
+    "osoul"
+   ]
+  },
+  {
+   "slug": "cib-thabat",
+   "name": "صندوق CIB ثبات للدخل الثابت",
+   "name_en": "CIB Thabat Fixed Income Fund",
+   "manager": "cib",
+   "type": "fixed",
+   "aliases": [
+    "ثبات",
+    "thabat"
+   ]
+  },
+  {
+   "slug": "cib-istethmar",
+   "name": "صندوق CIB استثمار للأسهم",
+   "name_en": "CIB Istethmar Equity Fund",
+   "manager": "cib",
+   "type": "equity",
+   "aliases": [
+    "استثمار",
+    "istethmar"
+   ]
+  },
+  {
+   "slug": "cib-aman",
+   "name": "صندوق أمان للأسهم (CIB وفيصل الإسلامي)",
+   "name_en": "CIB & Faisal Islamic Aman Equity Fund",
+   "manager": "cib",
+   "type": "equity",
+   "islamic": true,
+   "aliases": [
+    "أمان",
+    "aman",
+    "فيصل"
+   ]
+  },
+  {
+   "slug": "nbe-01",
+   "name": "صندوق الأهلي الأول (01) المتوازن",
+   "name_en": "NBE Fund 01 (Balanced)",
+   "manager": "nbe",
+   "type": "balanced"
+  },
+  {
+   "slug": "nbe-02",
+   "name": "صندوق الأهلي الثاني (02) للأسهم",
+   "name_en": "NBE Fund 02 (Equity)",
+   "manager": "nbe",
+   "type": "equity"
+  },
+  {
+   "slug": "nbe-03",
+   "name": "صندوق الأهلي الثالث (03) للأسهم التراكمي",
+   "name_en": "NBE Fund 03 (Equity, cumulative)",
+   "manager": "nbe",
+   "type": "equity"
+  },
+  {
+   "slug": "nbe-04",
+   "name": "صندوق الأهلي النقدي اليومي التراكمي (04)",
+   "name_en": "NBE Fund 04 (Money Market)",
+   "manager": "nbe",
+   "type": "money",
+   "aliases": [
+    "الأهلي النقدي"
+   ]
+  },
+  {
+   "slug": "nbe-05",
+   "name": "صندوق الأهلي الخامس (05) للأسهم ذو العائد والجوائز",
+   "name_en": "NBE Fund 05 (Equity with prizes)",
+   "manager": "nbe",
+   "type": "equity"
+  },
+  {
+   "slug": "nbe-06-bashayer",
+   "name": "صندوق الأهلي بشائر (06) للأسهم الإسلامي",
+   "name_en": "NBE Bashayer Fund 06 (Islamic equity)",
+   "manager": "nbe",
+   "type": "equity",
+   "islamic": true,
+   "aliases": [
+    "بشائر"
+   ]
+  },
+  {
+   "slug": "nbe-07-qeema",
+   "name": "صندوق الأهلي قيمة (07)",
+   "name_en": "NBE Qeema Fund 07 (Multi-asset)",
+   "manager": "nbe",
+   "type": "balanced",
+   "aliases": [
+    "قيمة"
+   ]
+  },
+  {
+   "slug": "nbe-09-elwaed",
+   "name": "صندوق الأهلي الواعد (09) للدخل الثابت",
+   "name_en": "NBE Elwaed Fund 09 (Fixed income)",
+   "manager": "nbe",
+   "type": "fixed",
+   "aliases": [
+    "الواعد"
+   ]
+  },
+  {
+   "slug": "nbe-10-misr-insurance",
+   "name": "صندوق مصر للتأمين النقدي (10)",
+   "name_en": "Misr Insurance Money Market Fund 10",
+   "manager": "nbe",
+   "type": "money",
+   "aliases": [
+    "مصر للتأمين"
+   ]
+  },
+  {
+   "slug": "nbe-11-ataa",
+   "name": "صندوق الأهلي عطاء (11)",
+   "name_en": "NBE Ataa Fund 11",
+   "manager": "nbe",
+   "aliases": [
+    "عطاء"
+   ]
+  },
+  {
+   "slug": "nbe-12-hayah",
+   "name": "صندوق الأهلي حياة (12) المتوازن مع التأمين على الحياة",
+   "name_en": "NBE Hayah Fund 12 (Balanced with life insurance)",
+   "manager": "nbe",
+   "type": "balanced",
+   "aliases": [
+    "الأهلي حياة"
+   ]
+  },
+  {
+   "slug": "ahly-dahab",
+   "name": "صندوق الأهلي وإيفولف للاستثمار في الذهب (دهب)",
+   "name_en": "Al Ahly Evolve Gold Fund (Dahab)",
+   "manager": "nbe",
+   "type": "gold",
+   "aliases": [
+    "الأهلي دهب",
+    "al ahly dahab"
+   ]
+  },
+  {
+   "slug": "ahly-wethaq",
+   "name": "صندوق وثاق النقدي",
+   "name_en": "Wethaq Money Market Fund",
+   "manager": "nbe",
+   "type": "money",
+   "aliases": [
+    "وثاق",
+    "wethaq"
+   ]
+  },
+  {
+   "slug": "ahly-tamayoz",
+   "name": "صندوق الأهلي تميز النقدي",
+   "name_en": "Al Ahly Tamayoz Money Market Fund",
+   "manager": "nbe",
+   "type": "money",
+   "aliases": [
+    "تميز"
+   ]
+  },
+  {
+   "slug": "ahly-horus",
+   "name": "صندوق حورس النقدي",
+   "name_en": "Horus Money Market Fund",
+   "manager": "nbe",
+   "type": "money",
+   "aliases": [
+    "حورس"
+   ]
+  },
+  {
+   "slug": "bm-first",
+   "name": "صندوق بنك مصر الأول (دخل دوري ربع سنوي)",
+   "name_en": "Banque Misr Fund 1 (Quarterly income)",
+   "manager": "bm"
+  },
+  {
+   "slug": "bm-second",
+   "name": "صندوق بنك مصر الثاني (نمو رأسمالي)",
+   "name_en": "Banque Misr Fund 2 (Capital growth)",
+   "manager": "bm",
+   "type": "equity"
+  },
+  {
+   "slug": "bm-third",
+   "name": "صندوق بنك مصر الثالث (عائد تراكمي وتوزيع دوري)",
+   "name_en": "Banque Misr Fund 3",
+   "manager": "bm"
+  },
+  {
+   "slug": "bm-hesn",
+   "name": "صندوق بنك مصر الرابع (الحصن)",
+   "name_en": "Banque Misr Al Hesn Fund 4",
+   "manager": "bm",
+   "islamic": true,
+   "aliases": [
+    "الحصن"
+   ]
+  },
+  {
+   "slug": "bm-yom-b-yom",
+   "name": "صندوق بنك مصر النقدي (يوم بيوم)",
+   "name_en": "Banque Misr Money Market Fund (Yom b Yom)",
+   "manager": "bm",
+   "type": "money",
+   "aliases": [
+    "يوم بيوم",
+    "يوم ب يوم"
+   ]
+  },
+  {
+   "slug": "bm-yom-b-yom-usd",
+   "name": "صندوق بنك مصر النقدي بالدولار (يوم بيوم دولار)",
+   "name_en": "Banque Misr USD Money Market Fund",
+   "manager": "bm",
+   "type": "money",
+   "currency": "USD",
+   "aliases": [
+    "يوم بيوم دولار"
+   ]
+  },
+  {
+   "slug": "bm-yom-b-yom-eur",
+   "name": "صندوق بنك مصر النقدي باليورو (يوم بيوم يورو)",
+   "name_en": "Banque Misr EUR Money Market Fund",
+   "manager": "bm",
+   "type": "money",
+   "currency": "EUR",
+   "aliases": [
+    "يوم بيوم يورو"
+   ]
+  },
+  {
+   "slug": "bm-omr",
+   "name": "صندوق العمر (تراكمي مع التأمين على الحياة)",
+   "name_en": "Banque Misr Al Omr Fund",
+   "manager": "bm",
+   "aliases": [
+    "العمر"
+   ]
+  },
+  {
+   "slug": "mubasher-ashom",
+   "name": "صندوق أسهم مباشر",
+   "name_en": "Mubasher Equity Fund",
+   "manager": "mubasher",
+   "type": "equity"
+  },
+  {
+   "slug": "mubasher-cash",
+   "name": "صندوق كاش مباشر النقدي",
+   "name_en": "Cash Mubasher Money Market Fund",
+   "manager": "mubasher",
+   "type": "money"
+  },
+  {
+   "slug": "mubasher-dahab",
+   "name": "صندوق دهب مباشر (مباشر إيفولف للذهب)",
+   "name_en": "Dahab Mubasher Gold Fund",
+   "manager": "mubasher",
+   "type": "gold",
+   "aliases": [
+    "دهب مباشر",
+    "ذهب مباشر"
+   ]
+  },
+  {
+   "slug": "mubasher-silver",
+   "name": "صندوق مباشر للفضة",
+   "name_en": "Mubasher Silver Fund (MSI)",
+   "manager": "mubasher",
+   "type": "silver",
+   "aliases": [
+    "msi"
+   ]
+  },
+  {
+   "slug": "mubasher-dollar",
+   "name": "صندوق دولار مباشر للدخل الثابت",
+   "name_en": "Dollar Mubasher Fixed Income Fund",
+   "manager": "mubasher",
+   "type": "fixed",
+   "currency": "USD",
+   "aliases": [
+    "دولار مباشر"
+   ]
+  },
+  {
+   "slug": "ni-sioula",
+   "name": "صندوق سيولة النقدي اليومي التراكمي (إن آي كابيتال)",
+   "name_en": "NI Capital Sioula Money Market Fund",
+   "manager": "ni",
+   "type": "money",
+   "aliases": [
+    "سيولة",
+    "sioula"
+   ]
+  },
+  {
+   "slug": "ni-sahmy-70",
+   "name": "صندوق سهمي 70 (إن آي كابيتال)",
+   "name_en": "NI Capital Sahmy 70 Fund",
+   "manager": "ni",
+   "type": "index",
+   "aliases": [
+    "سهمي",
+    "egx70"
+   ]
+  },
+  {
+   "slug": "thndr-egx70",
+   "name": "صندوق ثاندر EGX70",
+   "name_en": "Thndr EGX70 Fund (T70)",
+   "manager": "thndr",
+   "type": "index",
+   "aliases": [
+    "t70",
+    "egx70"
+   ]
+  },
+  {
+   "slug": "thndr-metals",
+   "name": "صندوق ثاندر للمعادن",
+   "name_en": "Thndr Metals Fund",
+   "manager": "thndr",
+   "type": "gold"
+  },
+  {
+   "slug": "hdb-iskan-mm",
+   "name": "صندوق الإسكان النقدي",
+   "name_en": "Iskan Money Market Fund",
+   "manager": "hdb",
+   "type": "money",
+   "aliases": [
+    "الإسكان النقدي"
+   ]
+  },
+  {
+   "slug": "bdc-cairo-yomy",
+   "name": "صندوق بنك القاهرة اليومي النقدي",
+   "name_en": "Banque du Caire Daily Fund",
+   "manager": "bdc",
+   "type": "money",
+   "aliases": [
+    "القاهرة اليومي"
+   ]
+  },
+  {
+   "slug": "boukra-shkmgeya",
+   "name": "صندوق الشكمجية للمعادن",
+   "name_en": "Boukra Shkmgeya Metals Fund",
+   "manager": "boukra",
+   "type": "gold",
+   "islamic": true,
+   "aliases": [
+    "الشكمجية"
+   ]
+  },
+  {
+   "slug": "gig-mm",
+   "name": "صندوق جي آي جي النقدي",
+   "name_en": "GIG Money Market Fund (PGM)",
+   "type": "money",
+   "aliases": [
+    "gig",
+    "pgm"
+   ]
+  },
+  {
+   "slug": "odin-mm",
+   "name": "صندوق أودين النقدي",
+   "name_en": "Odin Money Market Fund",
+   "type": "money",
+   "aliases": [
+    "odin"
+   ]
+  },
+  {
+   "slug": "diamond-mm",
+   "name": "صندوق دايموند النقدي",
+   "name_en": "Diamond Money Market Fund (ADM)",
+   "type": "money",
+   "aliases": [
+    "adm",
+    "diamond"
+   ]
+  },
+  {
+   "slug": "bareeq",
+   "name": "صندوق بريق",
+   "name_en": "Bareeq Fund (ABR)",
+   "type": "money",
+   "aliases": [
+    "abr",
+    "bareeq"
+   ]
+  },
+  {
+   "slug": "misr-takaful",
+   "name": "صندوق مصر تكافل",
+   "name_en": "Misr Takaful Fund (MTF)",
+   "type": "fixed",
+   "islamic": true,
+   "aliases": [
+    "تكافل",
+    "mtf"
+   ]
+  },
+  {
+   "slug": "al-barakat",
+   "name": "صندوق البركات النقدي",
+   "name_en": "Al Barakat Money Market Fund",
+   "type": "money",
+   "islamic": true,
+   "aliases": [
+    "البركات"
+   ]
+  },
+  {
+   "slug": "kenz-forsa",
+   "name": "صندوق كنز فرص",
+   "name_en": "Kenz Forsa Fund",
+   "type": "equity"
+  },
+  {
+   "slug": "kasb",
+   "name": "صندوق كسب",
+   "name_en": "Kasb Fund",
+   "type": "equity"
+  },
+  {
+   "slug": "trend",
+   "name": "صندوق تريند",
+   "name_en": "Trend Fund",
+   "type": "equity"
+  },
+  {
+   "slug": "al-hayah",
+   "name": "صندوق الحياة",
+   "name_en": "Al Hayah Fund",
+   "type": "equity"
+  },
+  {
+   "slug": "namaa",
+   "name": "صندوق نماء",
+   "name_en": "Namaa Fund",
+   "type": "equity"
+  }
+ ]
 }

@@ -20,7 +20,7 @@ export function normalize(text) {
 }
 
 /** 0 = the symbol, key or an alias exactly; 1 = a name or alias (or one of its words) starts with
- * the query; 2 = it appears inside one; null = no match. */
+ * the query; 2 = it appears inside one; 3 = each of its words starts a word in one; null = no match. */
 export function rank(entry, query) {
   const q = normalize(query)
   if (!q) return null
@@ -29,6 +29,9 @@ export function rank(entry, query) {
   const texts = [entry.name, entry.name_en, ...(entry.aliases || [])].filter(Boolean).map(normalize)
   if (texts.some((t) => t.startsWith(q) || t.split(' ').some((w) => w.startsWith(q)))) return 1
   if (texts.some((t) => t.includes(q))) return 2
+  // «بلتون ذهب»: every word starts a word somewhere in the names and aliases.
+  const words = texts.flatMap((t) => t.split(' '))
+  if (q.includes(' ') && q.split(' ').every((part) => words.some((w) => w.startsWith(part)))) return 3
   return null
 }
 

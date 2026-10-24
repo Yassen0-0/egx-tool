@@ -49,7 +49,7 @@ export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, Se
         places, onDone: (key) => done(key, 'اتسجّلت عملية الشرا'), onCancel: () => setPicked(null) })
       : h('div', { className: 'q-stack' },
         h(SearchBox, { catalog, autoFocus: true, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        h('p', { className: 'l-hint' }, 'اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو اسم صندوق. ومش لاقيه؟ ضيفه بالاسم.'))
+        h('p', { className: 'l-hint' }, 'اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق (سبائك، بلتون ذهب، أزيموت نقدي). ومش لاقيه؟ ضيفه بالاسم.'))
   } else if (type === 'debt' || type === 'deposit') {
     body = h(AddLine, { key: type, entry: null, customName: '', initialKind: type === 'debt' ? DEBT_KIND : DEPOSIT_KIND, lockKind: true, places,
       onDone: (key) => done(key, type === 'debt' ? 'اتسجّل الدين' : 'اتسجّلت الشهادة'), onCancel })

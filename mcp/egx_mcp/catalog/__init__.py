@@ -5,7 +5,8 @@
 - bitcoin, priced in USD;
 - EGX30 stocks from universe/egx30.json, plus any stock the user still holds after it left the index;
 - S&P 500 funds listed in New York (SPY, IVV, VOO), in dollars, priced by their own close;
-- funds from funds.json (empty at first);
+- Egyptian mutual funds from funds.json (money market, fixed income, equity, index, balanced, gold,
+  silver), with their manager and type in the label and the search;
 - assets the user added by name (custom_assets, key custom:<id>);
 - bank certificates and deposits (kind deposit, key deposit:<holding id>): one holding each, valued by
   store/deposits.py and never searched.
@@ -32,6 +33,17 @@ GROUPS = (("currencies", "عملات"), ("bitcoin", "بتكوين"), ("stocks", 
 GROUP_OF = {"currency": "currencies", "gold": "currencies", "bitcoin": "bitcoin", "stock": "stocks", "fund": "funds",
             "deposit": "deposits"}
 UNIT = {"stock": "سهم", "fund": "وثيقة", "bitcoin": "BTC", "deposit": "جنيه"}
+# A fund's type (funds.json): its label, and the words that find it.
+FUND_TYPES = {
+    "money": ("نقدي", ("نقدي", "سيولة", "money market")),
+    "fixed": ("دخل ثابت", ("دخل ثابت", "ادوات دين", "fixed income")),
+    "equity": ("أسهم", ("اسهم", "equity")),
+    "index": ("مؤشر", ("مؤشر", "اسهم", "index")),
+    "balanced": ("متوازن", ("متوازن", "balanced")),
+    "gold": ("ذهب", ("ذهب", "دهب", "gold")),
+    "silver": ("فضة", ("فضة", "فضه", "silver")),
+}
+ISLAMIC_ALIASES = ("اسلامي", "شريعة", "متوافق مع الشريعة", "sharia")
 DEPOSIT_PREFIX = "deposit:"
 
 CURRENCIES = (
@@ -101,11 +113,22 @@ def builtin_catalog() -> tuple[dict, ...]:
                               (c["name"],), STOCK_CURRENCY.get(c["symbol"], "EGP")))
     for key, symbol, name, name_en in US_FUNDS:
         entries.append(_entry(key, "fund", name, name_en, symbol, SP500_ALIASES + (name_en,), "USD", "وحدة", symbol))
-    for f in json.loads(FUNDS_FILE.read_text(encoding="utf-8"))["funds"]:
-        entries.append(_entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], None,
-                              (*f.get("aliases", ()), *([f["manager"]] if f.get("manager") else [])),
-                              f.get("currency", "EGP")))
+    funds = json.loads(FUNDS_FILE.read_text(encoding="utf-8"))
+    entries += [_fund(f, funds.get("managers", {})) for f in funds["funds"]]
     return tuple(entries)
+
+
+def _fund(f: dict, managers: dict) -> dict:
+    """A fund from funds.json: «صندوق ذهب · بلتون» as its label; its manager, type and «إسلامي» find it."""
+    manager = managers.get(f.get("manager") or "", {})
+    label, type_words = FUND_TYPES.get(f.get("type") or "", (None, ()))
+    aliases = (*f.get("aliases", ()), *([manager["name"]] if manager else ()), *manager.get("aliases", ()), *type_words,
+               *(ISLAMIC_ALIASES if f.get("islamic") else ()))
+    entry = _entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], None, aliases,
+                   f.get("currency", "EGP"))
+    entry["kind_label"] = " · ".join(filter(None, (f"صندوق {label}" if label else "صندوق", manager.get("name"))))
+    entry["mark"] = manager.get("mark") or _mark(f["name"], None)
+    return entry
 
 
 def deposit_entry(key: str, name: str) -> dict:
@@ -187,6 +210,10 @@ def _rank(entry: dict, query: str) -> int | None:
         return 1
     if any(query in t for t in texts):
         return 2
+    # «بلتون ذهب»: every word starts a word somewhere in the names and aliases.
+    words = {w for t in texts for w in t.split()}
+    if " " in query and all(any(w.startswith(q) for w in words) for q in query.split()):
+        return 3
     return None
 
 

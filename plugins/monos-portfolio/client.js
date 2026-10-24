@@ -898,6 +898,8 @@ var __monos = (() => {
     const texts = [entry.name, entry.name_en, ...entry.aliases || []].filter(Boolean).map(normalize);
     if (texts.some((t) => t.startsWith(q) || t.split(" ").some((w) => w.startsWith(q)))) return 1;
     if (texts.some((t) => t.includes(q))) return 2;
+    const words = texts.flatMap((t) => t.split(" "));
+    if (q.includes(" ") && q.split(" ").every((part) => words.some((w) => w.startsWith(part)))) return 3;
     return null;
   }
   var KIND_ORDER = { currency: 0, gold: 1, bitcoin: 2, stock: 3, fund: 4 };
@@ -1968,7 +1970,7 @@ var __monos = (() => {
         "div",
         { className: "q-stack" },
         h(SearchBox, { catalog, autoFocus: true, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
-        h("p", { className: "l-hint" }, "اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو اسم صندوق. ومش لاقيه؟ ضيفه بالاسم.")
+        h("p", { className: "l-hint" }, "اكتب اسم الأصل: دولار، دهب 21، COMI، SPY، أو صندوق (سبائك، بلتون ذهب، أزيموت نقدي). ومش لاقيه؟ ضيفه بالاسم.")
       );
     } else if (type === "debt" || type === "deposit") {
       body = h(AddLine2, {

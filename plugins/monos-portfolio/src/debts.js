@@ -7,6 +7,7 @@ import { DateField } from '../../shared/form.js'
 import { Logo } from '../../shared/logo.js'
 import { Chevron } from '../../shared/components.js'
 import { Collapse, canMove, land } from '../../shared/motion.js'
+import { deleteWithUndo, usePendingKeys } from '../../shared/undo.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { amount } from './moves.js'
 import { money } from './units.mjs'
@@ -144,9 +145,9 @@ export function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
   const remove = async () => {
     try { await api('DELETE', `/egx/api/debts/${debt.id}`, {}); onChanged() } catch (e) { setError(e.message) }
   }
-  const removePayment = async (id) => {
-    try { await api('DELETE', `/egx/api/movements/${id}`, {}); onChanged() } catch (e) { setError(e.message) }
-  }
+  const waiting = usePendingKeys()
+  const removePayment = (id) => deleteWithUndo(`move:${id}`, 'اتمسح السداد', async () => { await api('DELETE', `/egx/api/movements/${id}`, {}); onChanged() })
+  const payments = debt.payments.filter((p) => !waiting.has(`move:${p.movement}`))
   const byKey = Object.fromEntries(assets.map((a) => [a.key, a]))
   return h(React.Fragment, null,
     h('button', { type: 'button', ref: rowRef, className: 'l-row', 'aria-expanded': open, onClick: () => setOpen(!open) },
@@ -163,8 +164,8 @@ export function DebtRow({ debt, assets, focused, onChanged, onOpen }) {
       h(Chevron)),
     h(Collapse, { open }, h('div', { className: 'l-detail' },
       h('div', null,
-        h('h3', null, debt.payments.length ? `السدادات (${debt.payments.length})` : 'لسه مفيش سدادات'),
-        debt.payments.map((p) => {
+        h('h3', null, payments.length ? `السدادات (${payments.length})` : 'لسه مفيش سدادات'),
+        payments.map((p) => {
           const source = byKey[p.from_asset]
           return h('div', { key: p.movement, className: 'l-lot' },
             h('span', null, '−', hidden ? N(MASK) : N(fmtNumber(p.paid_egp, 0)), ' ج.م من الدين'),

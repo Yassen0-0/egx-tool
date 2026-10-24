@@ -282,8 +282,7 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
       // Deleting the only purchase of the gold removes the asset.
       await click(row('الذهب عيار 24 (جرام)'))
       const gold = row('الذهب عيار 24 (جرام)').nextElementSibling
-      await click(button('حذف', gold.querySelector('.l-lot')))
-      await click(button('احذف العملية', gold))
+      await click(button('حذف', gold.querySelector('.l-lot')))  // no confirm: «تراجع» in a toast where the engine animates
       await wait(() => !row('الذهب عيار 24 (جرام)'), 'the gold row to go')
       seen.final = text()
     },
@@ -747,4 +746,46 @@ test('«سجّل»: N opens it, a kind is picked, yesterday is one chip away, th
   assert.match(seen.toast, /اتسجّل الخروج/)
   assert.match(seen.pounds, /−100 ج\.م خروج/)
   assert.ok(seen.debtForm.includes('اسمه (لمين أو إيه هو)') && !seen.debtForm.includes('النوع'))
+})
+
+test('«تراجع»: a deleted line hides at once and comes back from the toast, with nothing sent', { skip }, async () => {
+  const seen = {}
+  const deletes = []
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: (path, init = {}) => { if (init.method === 'DELETE') deletes.push(path); return backend(path, init) },
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      window.__MONOS_UNDO_MS__ = 60000  // an undo window, as where the engine animates
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.querySelector('.l-name').textContent === name)
+      const bank = 'البنك التجاري الدولي'
+      const lots = () => row(bank).nextElementSibling.querySelectorAll('.l-lot[data-kind="lot"]').length
+
+      await wait(() => row(bank), 'the stock from the earlier tests')
+      await click(row(bank))
+      seen.before = lots()
+      await click(button('حذف', row(bank).nextElementSibling.querySelector('.l-lot[data-kind="lot"]')))
+      seen.hidden = lots()
+      seen.toast = text(host.querySelector('.q-toasts'))
+      await click(button('تراجع', host.querySelector('.q-toasts')))
+      seen.back = lots()
+      window.__MONOS_UNDO_MS__ = 0
+      await wait(() => host.querySelector('.h-chart'), 'the chart, so no request is still on its way when the page goes')
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.equal(seen.hidden, seen.before - 1)
+  assert.match(seen.toast, /اتمسحت العملية ?تراجع/)
+  assert.equal(seen.back, seen.before)
+  assert.deepEqual(deletes, [])
 })

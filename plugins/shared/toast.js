@@ -6,11 +6,11 @@ import { liveDom } from './motion.js'
 const MAX = 3
 export const toasts = pageShared('toasts', () => ({
   items: [], next: 1, subscribers: new Set(),
-  push(text, action) {
+  push(text, action, ms = 5000) {
     const id = this.next++
     this.items = [...this.items.slice(-(MAX - 1)), { id, text, action }]
     this.notify()
-    if (liveDom()) setTimeout(() => this.dismiss(id), 5000)
+    if (liveDom()) setTimeout(() => this.dismiss(id), ms)
     return id
   },
   dismiss(id) { this.items = this.items.filter((t) => t.id !== id); this.notify() },

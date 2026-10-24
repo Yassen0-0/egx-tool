@@ -6,6 +6,7 @@ import { N, api, frag, h, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtNumber, fmtQty, fmtSigned, parseDayInput, parseNumberInput, resolveDay, toneOf } from '../../shared/format.mjs'
 import { DateField, NumberInput } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
+import { deleteWithUndo, usePending } from '../../shared/undo.js'
 import { money } from './units.mjs'
 
 /** «1,000 ج.م» for pounds, «20 USD» / «1.5 وثيقة» for anything else. */
@@ -129,9 +130,11 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
     if (v > 0) body.value_egp = v
     return run(() => api('PATCH', `/egx/api/movements/${event.movement}`, body))
   }
-  const remove = () => run(() => api('DELETE', `/egx/api/movements/${event.movement}`, {}))
+  const gone = usePending(`move:${event.movement}`)
+  const remove = () => deleteWithUndo(`move:${event.movement}`, 'اتمسحت الحركة', async () => { await api('DELETE', `/egx/api/movements/${event.movement}`, {}); onChanged() })
   const link = other ? h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(other.key) }, other.name) : null
 
+  if (gone) return null
   if (mode === 'edit') {
     const box = (label, val, set, extra = {}) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label),
       h('input', { className: 'q-input num', value: val, onChange: (e) => set(e.target.value), ...extra }))
@@ -171,10 +174,7 @@ export function MoveItem({ event, asset, onChanged, onOpen }) {
     h('span', { className: 'q-sec' }, 'الرصيد بعدها ', amount(event.balance, asset.key, asset.unit, hidden)),
     event.note ? h('span', { className: 'q-sec' }, event.note) : null,
     h('span', { className: 'l-lot-actions' },
-      mode === 'confirm'
-        ? [h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', disabled: busy, onClick: remove }, 'احذف الحركة'),
-          h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')]
-        : [h('button', { key: 'e', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
-          h('button', { key: 'r', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: () => setMode('confirm') }, 'حذف')]),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: remove }, 'حذف')),
     error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
 }

@@ -635,6 +635,8 @@ def upcoming(assets: list[dict], owed: list[dict], today: date) -> list[dict]:
         if debt["next_due_date"] and debt["next_due_date"] <= until:
             out.append({"date": debt["next_due_date"], "kind": "installment", "label": f"قسط {debt['name']}",
                         "amount_egp": debt["installment_egp"], "key": debt["key"]})
+    for u in out:
+        u["in_days"] = (date.fromisoformat(u["date"]) - today).days
     return sorted(out, key=lambda u: (u["date"], u["label"]))
 
 

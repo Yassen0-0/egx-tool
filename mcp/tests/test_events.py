@@ -114,3 +114,4 @@ def test_what_is_due_soon(conn):
     soon = summary(conn)["upcoming"]
     assert [(u["date"], u["kind"]) for u in soon] == [("2026-10-20", "installment"), ("2026-11-15", "payout")]
     assert soon[1]["amount_egp"] == pytest.approx(2000) and soon[0]["label"] == "قسط قرض"
+    assert [u["in_days"] for u in soon] == [5, 31]

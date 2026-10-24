@@ -5,6 +5,7 @@ import { N, api, frag, h, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtQty, parseNumberInput, resolveDay } from '../../shared/format.mjs'
 import { DateField } from '../../shared/form.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
+import { deleteWithUndo, usePending } from '../../shared/undo.js'
 import { money } from './units.mjs'
 
 const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
@@ -23,10 +24,10 @@ export function PaidItem({ event, onOpen }) {
 /** Bonus shares or a split in a stock's timeline. */
 export function ActionItem({ event, asset, onChanged }) {
   const hidden = usePrivacy()
-  const [error, setError] = useState('')
-  const remove = async () => {
-    try { await api('DELETE', `/egx/api/actions/${event.id}`, {}); onChanged() } catch (e) { setError(e.message) }
-  }
+  const gone = usePending(`action:${event.id}`)
+  const remove = () => deleteWithUndo(`action:${event.id}`, event.kind === 'bonus' ? 'اتشالت الأسهم المجانية' : 'اتشال التقسيم',
+    async () => { await api('DELETE', `/egx/api/actions/${event.id}`, {}); onChanged() })
+  if (gone) return null
   return h('div', { className: 'l-lot l-move-item', 'data-kind': event.kind },
     h('span', null, '+', hidden ? N(MASK) : N(fmtQty(event.quantity)), ' ', asset.unit,
       event.kind === 'bonus' ? ' أسهم مجانية' : frag(' تقسيم (كل سهم بقى ', N(fmtQty(event.ratio)), ')')),
@@ -34,8 +35,7 @@ export function ActionItem({ event, asset, onChanged }) {
     h('span', { className: 'q-sec' }, 'الرصيد بعدها ', hidden ? N(MASK) : N(fmtQty(event.balance))),
     event.note ? h('span', { className: 'q-sec' }, event.note) : null,
     h('span', { className: 'l-lot-actions' },
-      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: remove }, 'حذف')),
-    error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: remove }, 'حذف')))
 }
 
 /** A stock's or fund's cash dividend, or its bonus shares or split. `kind` is dividend, bonus or split. */
@@ -73,13 +73,25 @@ export function StockEventForm({ asset, kind, onDone, onCancel }) {
 }
 
 /** «الجاي قريب»: certificate payouts and maturities and debt installments in the coming weeks. */
+const MONTHS = ['يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو', 'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر']
+const SHOWN = 4
+
+/** «بعد 12 يوم» from Python's in_days. */
+const inDays = (n) => (n == null ? null : n <= 0 ? 'النهارده' : n === 1 ? 'بكرة' : `بعد ${n} يوم`)
+
 export function Upcoming({ items, onOpen }) {
   const hidden = usePrivacy()
+  const [all, setAll] = useState(false)
   if (!items || !items.length) return null
+  const shown = all ? items : items.slice(0, SHOWN)
   return h('section', { className: 'l-upcoming', 'aria-label': 'الجاي قريب' },
     h('h2', null, 'الجاي قريب'),
-    items.map((u) => h('div', { key: `${u.kind}:${u.key}:${u.date}`, className: 'l-lot' },
-      h('span', { className: 'q-sec' }, N(fmtDate(u.date))),
-      h('button', { type: 'button', className: 'q-link', onClick: () => onOpen(u.key) }, u.label),
-      u.amount_egp != null ? h('span', null, hidden ? N(MASK) : N(money(u.amount_egp)), ' ج.م') : null)))
+    shown.map((u) => h('button', { key: `${u.kind}:${u.key}:${u.date}`, type: 'button', className: 'l-due', onClick: () => onOpen(u.key),
+      title: fmtDate(u.date) },
+      h('span', { className: 'l-due-tile', 'aria-hidden': true }, N(String(Number(u.date.slice(8, 10)))), h('small', null, MONTHS[Number(u.date.slice(5, 7)) - 1])),
+      h('span', { className: 'l-due-label' }, u.label),
+      u.amount_egp != null ? h('span', { className: 'l-due-amount' }, hidden ? N(MASK) : N(money(u.amount_egp)), ' ج.م') : null,
+      h('span', { className: 'l-due-when' }, inDays(u.in_days)))),
+    items.length > SHOWN ? h('button', { type: 'button', className: 'q-link', onClick: () => setAll(!all) },
+      all ? 'أقل' : frag('كمان ', N(String(items.length - SHOWN)))) : null)
 }

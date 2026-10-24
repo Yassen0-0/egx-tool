@@ -1027,6 +1027,109 @@ var __monos = (() => {
     );
   }
 
+  // plugins/shared/toast.js
+  var MAX = 3;
+  var toasts = pageShared("toasts", () => ({
+    items: [],
+    next: 1,
+    subscribers: /* @__PURE__ */ new Set(),
+    push(text4, action, ms = 5e3) {
+      const id = this.next++;
+      this.items = [...this.items.slice(-(MAX - 1)), { id, text: text4, action }];
+      this.notify();
+      if (liveDom()) setTimeout(() => this.dismiss(id), ms);
+      return id;
+    },
+    dismiss(id) {
+      this.items = this.items.filter((t) => t.id !== id);
+      this.notify();
+    },
+    notify() {
+      for (const fn of this.subscribers) fn(this.items);
+    }
+  }));
+  function Toasts() {
+    const [items, setItems] = useState(toasts.items);
+    useEffect(() => {
+      toasts.subscribers.add(setItems);
+      return () => {
+        toasts.subscribers.delete(setItems);
+      };
+    }, []);
+    return h(
+      "div",
+      { className: "q-toasts", role: "status", "aria-live": "polite" },
+      items.map((t) => h(
+        "div",
+        { key: t.id, className: "q-toast" },
+        h("span", null, t.text),
+        t.action ? h("button", { type: "button", className: "q-link", onClick: () => {
+          toasts.dismiss(t.id);
+          t.action.run();
+        } }, t.action.label) : null,
+        h("button", { type: "button", className: "q-toast-x", "aria-label": "قفل", onClick: () => toasts.dismiss(t.id) }, "×")
+      ))
+    );
+  }
+
+  // plugins/shared/undo.js
+  var UNDO_MS = 6e3;
+  var undoMs = () => globalThis.__MONOS_UNDO_MS__ ?? (liveDom() ? UNDO_MS : 0);
+  var pending = pageShared("pending-deletes", () => {
+    const store = {
+      keys: /* @__PURE__ */ new Set(),
+      subscribers: /* @__PURE__ */ new Set(),
+      waiting: /* @__PURE__ */ new Map(),
+      notify() {
+        for (const fn of this.subscribers) fn(new Set(this.keys));
+      },
+      flush() {
+        for (const run of [...this.waiting.values()]) run();
+      }
+    };
+    globalThis.document?.addEventListener?.("visibilitychange", () => {
+      if (document.visibilityState === "hidden") store.flush();
+    });
+    globalThis.addEventListener?.("pagehide", () => store.flush());
+    return store;
+  });
+  function deleteWithUndo(key, text4, commit) {
+    const ms = undoMs();
+    const fail = (e) => toasts.push(`مش هينفع تتمسح: ${e.message}`, null, 8e3);
+    if (!ms) return Promise.resolve().then(commit).catch(fail);
+    pending.keys.add(key);
+    pending.notify();
+    let timer = 0;
+    const done = () => {
+      clearTimeout(timer);
+      pending.waiting.delete(key);
+      pending.keys.delete(key);
+      pending.notify();
+    };
+    const run = () => {
+      pending.waiting.delete(key);
+      Promise.resolve().then(commit).catch(fail).finally(done);
+    };
+    timer = setTimeout(run, ms);
+    pending.waiting.set(key, () => {
+      clearTimeout(timer);
+      run();
+    });
+    toasts.push(text4, { label: "تراجع", run: done }, ms);
+    return Promise.resolve();
+  }
+  function usePendingKeys() {
+    const [keys, setKeys] = useState(pending.keys);
+    useEffect(() => {
+      pending.subscribers.add(setKeys);
+      return () => {
+        pending.subscribers.delete(setKeys);
+      };
+    }, []);
+    return keys;
+  }
+  var usePending = (key) => usePendingKeys().has(key);
+
   // plugins/monos-portfolio/src/units.mjs
   var CURRENCY_SIGN = { EGP: "ج.م", USD: "$", EUR: "€", GBP: "£", SAR: "ر.س", AED: "د.إ" };
   var money = (v) => fmtNumber(v, 0);
@@ -1197,8 +1300,13 @@ var __monos = (() => {
       if (v > 0) body.value_egp = v;
       return run(() => api("PATCH", `/egx/api/movements/${event.movement}`, body));
     };
-    const remove = () => run(() => api("DELETE", `/egx/api/movements/${event.movement}`, {}));
+    const gone = usePending(`move:${event.movement}`);
+    const remove = () => deleteWithUndo(`move:${event.movement}`, "اتمسحت الحركة", async () => {
+      await api("DELETE", `/egx/api/movements/${event.movement}`, {});
+      onChanged();
+    });
     const link = other ? h("button", { type: "button", className: "q-link", onClick: () => onOpen(other.key) }, other.name) : null;
+    if (gone) return null;
     if (mode === "edit") {
       const box = (label, val, set, extra = {}) => h(
         "label",
@@ -1244,13 +1352,8 @@ var __monos = (() => {
       h(
         "span",
         { className: "l-lot-actions" },
-        mode === "confirm" ? [
-          h("button", { key: "d", type: "button", className: "q-btn q-btn-sm q-btn-danger", disabled: busy, onClick: remove }, "احذف الحركة"),
-          h("button", { key: "c", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("view") }, "إلغاء")
-        ] : [
-          h("button", { key: "e", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
-          h("button", { key: "r", type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => setMode("confirm") }, "حذف")
-        ]
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف")
       ),
       error ? h("span", { className: "q-error", role: "alert" }, error) : null
     );
@@ -1443,14 +1546,12 @@ var __monos = (() => {
         setError(e.message);
       }
     };
-    const removePayment = async (id) => {
-      try {
-        await api("DELETE", `/egx/api/movements/${id}`, {});
-        onChanged();
-      } catch (e) {
-        setError(e.message);
-      }
-    };
+    const waiting = usePendingKeys();
+    const removePayment = (id) => deleteWithUndo(`move:${id}`, "اتمسح السداد", async () => {
+      await api("DELETE", `/egx/api/movements/${id}`, {});
+      onChanged();
+    });
+    const payments = debt.payments.filter((p) => !waiting.has(`move:${p.movement}`));
     const byKey = Object.fromEntries(assets.map((a) => [a.key, a]));
     return h(
       import_react.default.Fragment,
@@ -1485,8 +1586,8 @@ var __monos = (() => {
         h(
           "div",
           null,
-          h("h3", null, debt.payments.length ? `السدادات (${debt.payments.length})` : "لسه مفيش سدادات"),
-          debt.payments.map((p) => {
+          h("h3", null, payments.length ? `السدادات (${payments.length})` : "لسه مفيش سدادات"),
+          payments.map((p) => {
             const source = byKey[p.from_asset];
             return h(
               "div",
@@ -1691,15 +1792,16 @@ var __monos = (() => {
   }
   function ActionItem({ event, asset, onChanged }) {
     const hidden = usePrivacy();
-    const [error, setError] = useState("");
-    const remove = async () => {
-      try {
+    const gone = usePending(`action:${event.id}`);
+    const remove = () => deleteWithUndo(
+      `action:${event.id}`,
+      event.kind === "bonus" ? "اتشالت الأسهم المجانية" : "اتشال التقسيم",
+      async () => {
         await api("DELETE", `/egx/api/actions/${event.id}`, {});
         onChanged();
-      } catch (e) {
-        setError(e.message);
       }
-    };
+    );
+    if (gone) return null;
     return h(
       "div",
       { className: "l-lot l-move-item", "data-kind": event.kind },
@@ -1719,8 +1821,7 @@ var __monos = (() => {
         "span",
         { className: "l-lot-actions" },
         h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف")
-      ),
-      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      )
     );
   }
   function StockEventForm({ asset, kind, onDone, onCancel }) {
@@ -1778,20 +1879,37 @@ var __monos = (() => {
       )
     );
   }
+  var MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  var SHOWN = 4;
+  var inDays = (n) => n == null ? null : n <= 0 ? "النهارده" : n === 1 ? "بكرة" : `بعد ${n} يوم`;
   function Upcoming({ items, onOpen }) {
     const hidden = usePrivacy();
+    const [all, setAll] = useState(false);
     if (!items || !items.length) return null;
+    const shown = all ? items : items.slice(0, SHOWN);
     return h(
       "section",
       { className: "l-upcoming", "aria-label": "الجاي قريب" },
       h("h2", null, "الجاي قريب"),
-      items.map((u) => h(
-        "div",
-        { key: `${u.kind}:${u.key}:${u.date}`, className: "l-lot" },
-        h("span", { className: "q-sec" }, N(fmtDate(u.date))),
-        h("button", { type: "button", className: "q-link", onClick: () => onOpen(u.key) }, u.label),
-        u.amount_egp != null ? h("span", null, hidden ? N(MASK) : N(money(u.amount_egp)), " ج.م") : null
-      ))
+      shown.map((u) => h(
+        "button",
+        {
+          key: `${u.kind}:${u.key}:${u.date}`,
+          type: "button",
+          className: "l-due",
+          onClick: () => onOpen(u.key),
+          title: fmtDate(u.date)
+        },
+        h("span", { className: "l-due-tile", "aria-hidden": true }, N(String(Number(u.date.slice(8, 10)))), h("small", null, MONTHS[Number(u.date.slice(5, 7)) - 1])),
+        h("span", { className: "l-due-label" }, u.label),
+        u.amount_egp != null ? h("span", { className: "l-due-amount" }, hidden ? N(MASK) : N(money(u.amount_egp)), " ج.م") : null,
+        h("span", { className: "l-due-when" }, inDays(u.in_days))
+      )),
+      items.length > SHOWN ? h(
+        "button",
+        { type: "button", className: "q-link", onClick: () => setAll(!all) },
+        all ? "أقل" : frag("كمان ", N(String(items.length - SHOWN)))
+      ) : null
     );
   }
 
@@ -1927,60 +2045,25 @@ var __monos = (() => {
     );
   }
 
-  // plugins/shared/toast.js
-  var MAX = 3;
-  var toasts = pageShared("toasts", () => ({
-    items: [],
-    next: 1,
-    subscribers: /* @__PURE__ */ new Set(),
-    push(text4, action) {
-      const id = this.next++;
-      this.items = [...this.items.slice(-(MAX - 1)), { id, text: text4, action }];
-      this.notify();
-      if (liveDom()) setTimeout(() => this.dismiss(id), 5e3);
-      return id;
-    },
-    dismiss(id) {
-      this.items = this.items.filter((t) => t.id !== id);
-      this.notify();
-    },
-    notify() {
-      for (const fn of this.subscribers) fn(this.items);
-    }
-  }));
-  function Toasts() {
-    const [items, setItems] = useState(toasts.items);
-    useEffect(() => {
-      toasts.subscribers.add(setItems);
-      return () => {
-        toasts.subscribers.delete(setItems);
-      };
-    }, []);
-    return h(
-      "div",
-      { className: "q-toasts", role: "status", "aria-live": "polite" },
-      items.map((t) => h(
-        "div",
-        { key: t.id, className: "q-toast" },
-        h("span", null, t.text),
-        t.action ? h("button", { type: "button", className: "q-link", onClick: () => {
-          toasts.dismiss(t.id);
-          t.action.run();
-        } }, t.action.label) : null,
-        h("button", { type: "button", className: "q-toast-x", "aria-label": "قفل", onClick: () => toasts.dismiss(t.id) }, "×")
-      ))
-    );
-  }
-
   // plugins/monos-portfolio/src/activity.js
   var KIND_CHOICES = [["", "الكل"], ["income", "دخل"], ["transfer", "تحويل"], ["expense", "خروج"], ["repay", "سداد"]];
-  var MONTHS = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
-  var monthName = (ym) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
-  function ActivityView({ onOpen }) {
+  var MONTHS2 = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
+  var monthName = (ym) => `${MONTHS2[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
+  function byDay(items) {
+    const days = [];
+    for (const i of items) {
+      const last = days[days.length - 1];
+      if (last && last.date === i.date) last.items.push(i);
+      else days.push({ date: i.date, items: [i] });
+    }
+    return days;
+  }
+  function ActivityView({ onOpen, onCompose }) {
     const hidden = usePrivacy();
     const [month, setMonth] = useState("");
     const [kind, setKind] = useState("");
     const [data, setData] = useState(void 0);
+    const [tries, setTries] = useState(0);
     useEffect(() => {
       let live = true;
       const query = new URLSearchParams({ month, kind }).toString();
@@ -1992,9 +2075,19 @@ var __monos = (() => {
       return () => {
         live = false;
       };
-    }, [month, kind]);
-    if (data === void 0) return h("div", { "aria-busy": true }, h(Skeleton, { width: "100%" }), h(Skeleton, { width: "80%" }));
-    if (data === null) return h("p", { className: "q-error", role: "alert" }, "تعذّر تحميل الحركات");
+    }, [month, kind, tries]);
+    if (data === void 0) return h("div", { "aria-busy": true, className: "q-stack", style: { gap: 12 } }, h(Skeleton, { width: "100%", height: 14 }), h(Skeleton, { width: "80%", height: 14 }), h(Skeleton, { width: "60%", height: 14 }));
+    if (data === null) {
+      return h(
+        "div",
+        { className: "l-inline", role: "alert" },
+        h("span", { className: "q-error" }, "تعذّر تحميل الحركات"),
+        h("button", { type: "button", className: "q-btn q-btn-sm", onClick: () => {
+          setData(void 0);
+          setTries(tries + 1);
+        } }, "حاول مرة تانية")
+      );
+    }
     const t = data.totals;
     const sum = (label, v, cls) => h("span", null, label, " ", hidden ? N(MASK) : N(money(v), cls), " ج.م");
     const link = (side) => h("button", { type: "button", className: "q-link", onClick: () => onOpen(side.key) }, side.name);
@@ -2011,9 +2104,16 @@ var __monos = (() => {
           data.months.map((m) => h("option", { key: m, value: m }, monthName(m)))
         ),
         h(
-          "select",
-          { className: "q-input", style: { width: 120 }, value: kind, "aria-label": "النوع", onChange: (e) => setKind(e.target.value) },
-          KIND_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
+          "div",
+          { className: "q-seg", role: "radiogroup", "aria-label": "النوع" },
+          KIND_CHOICES.map(([value, label]) => h("button", {
+            key: value,
+            type: "button",
+            role: "radio",
+            "aria-checked": kind === value,
+            tabIndex: kind === value ? 0 : -1,
+            onClick: () => setKind(value)
+          }, label))
         )
       ),
       h(
@@ -2025,31 +2125,45 @@ var __monos = (() => {
         t.repay_egp ? sum("سداد", t.repay_egp) : null,
         Math.abs(t.realized_egp) >= 1 ? h("span", null, "ربح محقق ", hidden ? N(MASK) : N(fmtSigned(t.realized_egp, 0), toneOf(t.realized_egp)), " ج.م") : null
       ),
-      data.items.length ? data.items.map((i) => h(
+      data.items.length ? byDay(data.items).map((d) => h(
         "div",
-        { key: i.id, className: "l-lot l-act" },
-        h("span", { className: "q-sec" }, N(fmtDate(i.date))),
-        h("b", null, i.kind_label),
-        i.kind === "income" ? h("span", null, amount(i.to_quantity, i.to.key, i.to.unit, hidden), " في ", link(i.to)) : i.kind === "expense" || i.kind === "repay" ? h("span", null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), " من ", link(i.from), i.kind === "repay" && i.to ? frag(" لـ ", link(i.to)) : null) : h(
+        { key: d.date, className: "l-day" },
+        h("h3", { className: "l-day-head" }, N(fmtDate(d.date))),
+        d.items.map((i) => h(
+          "div",
+          { key: i.id, className: "l-lot l-act" },
+          h("b", null, i.kind_label),
+          i.kind === "income" ? h("span", null, amount(i.to_quantity, i.to.key, i.to.unit, hidden), " في ", link(i.to)) : i.kind === "expense" || i.kind === "repay" ? h("span", null, amount(i.from_quantity, i.from.key, i.from.unit, hidden), " من ", link(i.from), i.kind === "repay" && i.to ? frag(" لـ ", link(i.to)) : null) : h(
+            "span",
+            null,
+            amount(i.from_quantity, i.from.key, i.from.unit, hidden),
+            " من ",
+            link(i.from),
+            " ← ",
+            amount(i.to_quantity, i.to.key, i.to.unit, hidden),
+            " في ",
+            link(i.to)
+          ),
+          i.value_egp != null && !(i.to && i.to.key === "EGP" && i.kind === "income") ? h("span", { className: "q-sec" }, "بقيمة ", hidden ? N(MASK) : N(money(i.value_egp)), " ج.م") : null,
+          i.realized_egp != null && Math.abs(i.realized_egp) >= 1 ? h("span", { className: "q-sec" }, "ربح محقق ", hidden ? N(MASK) : N(fmtSigned(i.realized_egp, 0), toneOf(i.realized_egp))) : null,
+          i.note ? h("span", { className: "q-sec" }, i.note) : null
+        ))
+      )) : h(
+        "div",
+        { className: "l-empty" },
+        h("p", { className: "l-hint" }, "مفيش حركات في الفترة دي."),
+        onCompose ? h(
           "span",
-          null,
-          amount(i.from_quantity, i.from.key, i.from.unit, hidden),
-          " من ",
-          link(i.from),
-          " ← ",
-          amount(i.to_quantity, i.to.key, i.to.unit, hidden),
-          " في ",
-          link(i.to)
-        ),
-        i.value_egp != null && !(i.to && i.to.key === "EGP" && i.kind === "income") ? h("span", { className: "q-sec" }, "بقيمة ", hidden ? N(MASK) : N(money(i.value_egp)), " ج.م") : null,
-        i.realized_egp != null && Math.abs(i.realized_egp) >= 1 ? h("span", { className: "q-sec" }, "ربح محقق ", hidden ? N(MASK) : N(fmtSigned(i.realized_egp, 0), toneOf(i.realized_egp))) : null,
-        i.note ? h("span", { className: "q-sec" }, i.note) : null
-      )) : h("p", { className: "l-hint" }, "مفيش حركات في الفترة دي.")
+          { className: "q-chips", style: { justifyContent: "center" } },
+          h("button", { type: "button", className: "q-chip", onClick: () => onCompose("expense") }, "+ سجّل خروج"),
+          h("button", { type: "button", className: "q-chip", onClick: () => onCompose("transfer") }, "+ سجّل تحويل")
+        ) : null
+      )
     );
   }
 
   // plugins/monos-portfolio/src/ledger.css
-  var ledger_default = "/* «Monos / السجل» (docs/الواجهة.md): one column, the money first. Host tokens only (--dsw-alias-*),\n   so light and dark follow the app; spacing and motion come from shared/styles.css (--q-*). */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--q-6) var(--q-5) var(--q-7); display: flex; flex-direction: column; gap: var(--q-5); }\n@media (max-width: 760px) { .qm .l-col { padding: var(--q-4) var(--q-4) var(--q-5); } }\n/* The column arrives once: its sections rise in turn (on mount only; a refresh does not remount). */\n.qm .l-col > * { animation: q-rise var(--q-d-large) var(--q-ease-enter) backwards; }\n.qm .l-col > :nth-child(2) { animation-delay: 30ms; }\n.qm .l-col > :nth-child(3) { animation-delay: 60ms; }\n.qm .l-col > :nth-child(4) { animation-delay: 90ms; }\n.qm .l-col > :nth-child(5) { animation-delay: 120ms; }\n.qm .l-col > :nth-child(n+6) { animation-delay: 150ms; }\n\n/* The hero: «صافي ثروتك», the number, dollars and gold, the figures, the shares */\n.qm .l-total { display: flex; flex-direction: column; gap: var(--q-1); }\n.qm .l-eyebrow { display: flex; align-items: center; gap: var(--q-3); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-hero { display: inline-flex; align-items: baseline; gap: var(--q-2); flex-wrap: wrap; }\n.qm .l-total .l-big { font-size: 36px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }\n.qm .l-total .l-unit { font-size: 16px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: var(--q-3); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--q-3) var(--q-3) var(--q-2); border-inline-start: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi:first-child { border-inline-start: 0; padding-inline-start: 0; }\n.qm .l-kpi-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpi .num { font-size: 20px; font-weight: 600; }\n.qm .l-warn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: var(--q-2); padding: 6px 10px;\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 40%, transparent); border-radius: var(--dsw-radius-sm);\n  background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent); color: var(--dsw-alias-state-warn-label);\n  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--q-d-micro); }\n.qm .l-warn:hover { background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 14%, transparent); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: var(--q-2); margin-top: var(--q-3); }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 10px; border-radius: var(--dsw-radius-sm); overflow: hidden;\n  animation: l-grow var(--q-d-slow) var(--q-ease-enter) 200ms backwards; }\n@keyframes l-grow { from { clip-path: inset(0 0 0 100% round 4px); } }  /* opens from the right: the reading start */\n.qm .l-alloc-bar span, .qm .l-alloc-keys i {\n  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) var(--mix, 100%), var(--dsw-alias-bg-base)); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 4px; transition: flex-grow var(--q-d-large) var(--q-ease-standard); }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: var(--q-1) var(--q-2); }\n.qm .l-alloc-key { appearance: none; position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;\n  border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: transparent; font-size: 12px;\n  color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .l-alloc-key:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 10px; border-radius: 999px;\n  background: var(--dsw-alias-bg-module-platform); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n@media (prefers-reduced-motion: reduce) { .qm .l-alloc-bar { animation: none; } .qm .l-alloc-bar span { transition: none; } }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 44px; padding: 0 16px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);\n  animation: q-rise var(--q-d-micro) var(--q-ease-enter) backwards; }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer;\n  transition: background-color 80ms linear; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3); padding: var(--q-4) var(--q-5);\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-detail .l-add { margin-top: 0; padding: var(--q-4); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--q-3) var(--q-4); align-items: end; }\n.qm .l-fields > .l-inline { grid-column: 1 / -1; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* The list: one card, a heading per group that stays while its rows scroll by */\n.qm .l-list { display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-md); overflow: clip; }\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group + .l-group { border-top: 1px solid var(--dsw-alias-border-l2); }\n.qm .l-group > h2 { position: sticky; top: 48px; z-index: 1; margin: 0; display: flex; align-items: center; gap: var(--q-2); height: 36px; padding: 0 var(--q-4);\n  background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n[data-platform='darwin'] .qm .l-group > h2 { top: calc(48px + var(--dsh-frame-top-clearance, 0px)); }\n.qm .l-group-total { margin-inline-start: auto; font-weight: 400; font-size: 12px; }\n.qm .l-row { appearance: none; position: relative; isolation: isolate; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; display: flex; align-items: center; gap: var(--q-3); min-height: 60px; padding: var(--q-2) var(--q-4);\n  cursor: pointer; transition: background-color var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-group > .l-row:last-of-type, .qm .l-group > :last-child > .l-detail { border-bottom: 0; }\n.qm .l-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-row[aria-expanded='true'] { background: var(--dsw-alias-bg-module-platform); border-bottom-color: transparent; }\n/* a one-shot tint when a row arrives or is jumped to (motion.js land) */\n.qm .l-row::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dsw-alias-state-business-tertiary); opacity: 0; pointer-events: none; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 15px; font-weight: 600; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-chev { flex: none; color: var(--dsw-alias-label-tertiary); transform: rotate(90deg); transition: transform var(--q-d-base) var(--q-ease-standard); }\n.qm .l-row[aria-expanded='true'] .l-chev { transform: none; color: var(--dsw-alias-label-secondary); }\n.qm .l-group[aria-label='اتصرفت بالكامل'] .l-row { color: var(--dsw-alias-label-secondary); }\n.qm .l-new { animation: q-rise var(--q-d-base) var(--q-ease-enter) backwards; }\n.qm .l-empty { display: flex; flex-direction: column; gap: var(--q-2); padding: var(--q-5); text-align: center; background: var(--dsw-alias-bg-layer-1);\n  border: 1px dashed var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-empty b { font-size: 16px; }\n.qm .l-panel { display: flex; flex-direction: column; gap: var(--q-4); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-skel-page { display: flex; flex-direction: column; gap: var(--q-5); }\n.qm .q-skel-row { display: flex; align-items: center; gap: var(--q-3); min-height: 60px; }\n@media (prefers-reduced-motion: reduce) { .qm .l-chev { transition: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; padding: var(--q-3) var(--q-4); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-upcoming > h2 { margin: 0 0 var(--q-1); font-size: 15px; font-weight: 600; }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 10px 14px; font-size: 14px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--q-d-micro), border-color var(--q-d-base); }\n.qm .l-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-2) var(--q-4) var(--q-5); padding-inline-start: 60px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 var(--q-1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n/* the detail's parts rise in turn while it opens (motion.js Collapse marks it with data-state) */\n.qm .q-collapse[data-state] .l-detail > * { animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(2) { animation-delay: 30ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(3) { animation-delay: 60ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(n+4) { animation-delay: 90ms; }\n@media (max-width: 560px) { .qm .l-detail { padding-inline-start: var(--q-4); } }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: var(--q-2) 0 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n\n/* «سجّل»: one card, the kind of entry on top, then its form */\n.qm .l-composer { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-4) var(--q-5) var(--q-5); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }\n.qm .l-composer-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-3); }\n.qm .l-composer-head > b { font-size: 16px; }\n.qm .l-composer-x { margin-inline-start: auto; }\n.qm .l-composer .l-add { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }\n.qm .l-composer-pick { max-width: 320px; }\n.qm .l-big-input { height: 48px; font-size: 20px; font-weight: 600; }\n.qm .l-main { grid-column: span 1; }\n.qm .l-more > summary { cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; list-style: none; }\n.qm .l-more > summary::-webkit-details-marker { display: none; }\n.qm .l-more > summary::before { content: '▸ '; }\n.qm .l-more[open] > summary::before { content: '▾ '; }\n.qm .l-more > .l-fields { margin-top: var(--q-2); }\n.qm .l-fields > .l-more { grid-column: 1 / -1; }\n.qm .q-date .q-chips { margin-top: 2px; }\n\n/* The tabs' underline slides from one tab to the other (measured in Tabs; jsdom keeps the border) */\n.qm .l-tabs { position: relative; }\n.qm .l-tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; transform-origin: 0 0; opacity: 0;\n  background: var(--dsw-alias-state-business-primary); transition: transform var(--q-d-base) var(--q-ease-standard); pointer-events: none; }\n.qm .l-tabs.has-ink .l-tab-ink { opacity: 1; }\n.qm .l-tabs.has-ink .l-tab-on { border-bottom-color: transparent; }\n@media (prefers-reduced-motion: reduce) { .qm .l-tab-ink { transition: none; } }\n\n/* The timeline: a rail, an icon per kind, the line's actions dimmed until it is pointed at */\n.qm .l-detail .l-lot[data-kind] { position: relative; padding-inline-start: 36px; }\n.qm .l-detail .l-lot[data-kind]::before { position: absolute; inset-inline-start: 0; top: 6px; width: 24px; height: 24px; display: grid; place-items: center;\n  border-radius: 50%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 1;\n  color: var(--dsw-alias-label-secondary); content: '+'; }\n.qm .l-detail .l-lot[data-kind]:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 11.5px; top: 30px; bottom: -6px; width: 1px;\n  background: var(--dsw-alias-border-l2); }\n.qm .l-lot[data-kind='in']::before { content: '↓'; }\n.qm .l-lot[data-kind='transfer']::before { content: '⇄'; }\n.qm .l-lot[data-kind='expense']::before { content: '↑'; }\n.qm .l-lot[data-kind='repay']::before { content: '✓'; }\n.qm .l-lot[data-kind='place']::before { content: '⇆'; }\n.qm .l-lot[data-kind='paid']::before, .qm .l-lot[data-kind='dividend']::before { content: '٪'; }\n.qm .l-lot[data-kind='bonus']::before { content: '★'; }\n.qm .l-lot[data-kind='split']::before { content: '÷'; }\n.qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }\n.qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }\n.qm .l-actions-bar { gap: var(--q-2); }\n";
+  var ledger_default = "/* «Monos / السجل» (docs/الواجهة.md): one column, the money first. Host tokens only (--dsw-alias-*),\n   so light and dark follow the app; spacing and motion come from shared/styles.css (--q-*). */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: var(--q-6) var(--q-5) var(--q-7); display: flex; flex-direction: column; gap: var(--q-5); }\n@media (max-width: 760px) { .qm .l-col { padding: var(--q-4) var(--q-4) var(--q-5); } }\n/* The column arrives once: its sections rise in turn (on mount only; a refresh does not remount). */\n.qm .l-col > * { animation: q-rise var(--q-d-large) var(--q-ease-enter) backwards; }\n.qm .l-col > :nth-child(2) { animation-delay: 30ms; }\n.qm .l-col > :nth-child(3) { animation-delay: 60ms; }\n.qm .l-col > :nth-child(4) { animation-delay: 90ms; }\n.qm .l-col > :nth-child(5) { animation-delay: 120ms; }\n.qm .l-col > :nth-child(n+6) { animation-delay: 150ms; }\n\n/* The hero: «صافي ثروتك», the number, dollars and gold, the figures, the shares */\n.qm .l-total { display: flex; flex-direction: column; gap: var(--q-1); }\n.qm .l-eyebrow { display: flex; align-items: center; gap: var(--q-3); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-hero { display: inline-flex; align-items: baseline; gap: var(--q-2); flex-wrap: wrap; }\n.qm .l-total .l-big { font-size: 36px; font-weight: 650; line-height: 1.1; letter-spacing: -0.01em; }\n.qm .l-total .l-unit { font-size: 16px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); margin-top: var(--q-3); border-top: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi { display: flex; flex-direction: column; gap: 2px; padding: var(--q-3) var(--q-3) var(--q-2); border-inline-start: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-kpi:first-child { border-inline-start: 0; padding-inline-start: 0; }\n.qm .l-kpi-label { font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-kpi .num { font-size: 20px; font-weight: 600; }\n.qm .l-warn { appearance: none; align-self: flex-start; display: inline-flex; align-items: center; gap: 4px; margin-top: var(--q-2); padding: 6px 10px;\n  border: 1px solid color-mix(in srgb, var(--dsw-alias-state-warn-label) 40%, transparent); border-radius: var(--dsw-radius-sm);\n  background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 8%, transparent); color: var(--dsw-alias-state-warn-label);\n  font-size: 13px; font-weight: 500; cursor: pointer; transition: background-color var(--q-d-micro); }\n.qm .l-warn:hover { background: color-mix(in srgb, var(--dsw-alias-state-warn-label) 14%, transparent); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: var(--q-2); margin-top: var(--q-3); }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 10px; border-radius: var(--dsw-radius-sm); overflow: hidden;\n  animation: l-grow var(--q-d-slow) var(--q-ease-enter) 200ms backwards; }\n@keyframes l-grow { from { clip-path: inset(0 0 0 100% round 4px); } }  /* opens from the right: the reading start */\n.qm .l-alloc-bar span, .qm .l-alloc-keys i {\n  background: color-mix(in srgb, var(--dsw-alias-state-business-primary) var(--mix, 100%), var(--dsw-alias-bg-base)); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 4px; transition: flex-grow var(--q-d-large) var(--q-ease-standard); }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: var(--q-1) var(--q-2); }\n.qm .l-alloc-key { appearance: none; position: relative; display: inline-flex; align-items: center; gap: 6px; height: 28px; padding: 0 10px;\n  border: 1px solid var(--dsw-alias-border-l1); border-radius: 999px; background: transparent; font-size: 12px;\n  color: var(--dsw-alias-label-secondary); cursor: pointer; transition: background-color var(--q-d-micro), color var(--q-d-micro); }\n.qm .l-alloc-key:hover { background: var(--dsw-alias-interactive-bg-hover); color: var(--dsw-alias-label-primary); }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; display: inline-flex; gap: 6px; align-items: baseline; padding: 2px 10px; border-radius: 999px;\n  background: var(--dsw-alias-bg-module-platform); font-size: 13px; color: var(--dsw-alias-label-secondary); }\n@media (prefers-reduced-motion: reduce) { .qm .l-alloc-bar { animation: none; } .qm .l-alloc-bar span { transition: none; } }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 44px; padding: 0 16px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none;\n  transition: border-color var(--q-d-micro) var(--q-ease-standard), box-shadow var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary);\n  box-shadow: 0 0 0 3px color-mix(in srgb, var(--dsw-alias-state-business-primary) 22%, transparent); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 10%, transparent);\n  animation: q-rise var(--q-d-micro) var(--q-ease-enter) backwards; }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer;\n  transition: background-color 80ms linear; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: var(--q-4); margin-top: var(--q-3); padding: var(--q-4) var(--q-5);\n  background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-detail .l-add { margin-top: 0; padding: var(--q-4); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr)); gap: var(--q-3) var(--q-4); align-items: end; }\n.qm .l-fields > .l-inline { grid-column: 1 / -1; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* The list: one card, a heading per group that stays while its rows scroll by */\n.qm .l-list { display: flex; flex-direction: column; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2);\n  border-radius: var(--dsw-radius-md); overflow: clip; }\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group + .l-group { border-top: 1px solid var(--dsw-alias-border-l2); }\n.qm .l-group > h2 { position: sticky; top: 48px; z-index: 1; margin: 0; display: flex; align-items: center; gap: var(--q-2); height: 36px; padding: 0 var(--q-4);\n  background: var(--dsw-alias-bg-layer-1); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n[data-platform='darwin'] .qm .l-group > h2 { top: calc(48px + var(--dsh-frame-top-clearance, 0px)); }\n.qm .l-group-total { margin-inline-start: auto; font-weight: 400; font-size: 12px; }\n.qm .l-row { appearance: none; position: relative; isolation: isolate; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; display: flex; align-items: center; gap: var(--q-3); min-height: 60px; padding: var(--q-2) var(--q-4);\n  cursor: pointer; transition: background-color var(--q-d-micro) var(--q-ease-standard); }\n.qm .l-group > .l-row:last-of-type, .qm .l-group > :last-child > .l-detail { border-bottom: 0; }\n.qm .l-row:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-row[aria-expanded='true'] { background: var(--dsw-alias-bg-module-platform); border-bottom-color: transparent; }\n/* a one-shot tint when a row arrives or is jumped to (motion.js land) */\n.qm .l-row::after { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--dsw-alias-state-business-tertiary); opacity: 0; pointer-events: none; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 15px; font-weight: 600; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-chev { flex: none; color: var(--dsw-alias-label-tertiary); transform: rotate(90deg); transition: transform var(--q-d-base) var(--q-ease-standard); }\n.qm .l-row[aria-expanded='true'] .l-chev { transform: none; color: var(--dsw-alias-label-secondary); }\n.qm .l-group[aria-label='اتصرفت بالكامل'] .l-row { color: var(--dsw-alias-label-secondary); }\n.qm .l-new { animation: q-rise var(--q-d-base) var(--q-ease-enter) backwards; }\n.qm .l-empty { display: flex; flex-direction: column; gap: var(--q-2); padding: var(--q-5); text-align: center; background: var(--dsw-alias-bg-layer-1);\n  border: 1px dashed var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-empty b { font-size: 16px; }\n.qm .l-panel { display: flex; flex-direction: column; gap: var(--q-4); animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-skel-page { display: flex; flex-direction: column; gap: var(--q-5); }\n.qm .q-skel-row { display: flex; align-items: center; gap: var(--q-3); min-height: 60px; }\n@media (prefers-reduced-motion: reduce) { .qm .l-chev { transition: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; padding: var(--q-3) var(--q-4); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-upcoming > h2 { margin: 0 0 var(--q-1); font-size: 15px; font-weight: 600; }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 10px 14px; font-size: 14px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: color var(--q-d-micro), border-color var(--q-d-base); }\n.qm .l-tab:hover { color: var(--dsw-alias-label-primary); }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-2) var(--q-4) var(--q-5); padding-inline-start: 60px;\n  background: var(--dsw-alias-bg-module-platform); border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 var(--q-1); font-size: 13px; font-weight: 600; color: var(--dsw-alias-label-primary); }\n/* the detail's parts rise in turn while it opens (motion.js Collapse marks it with data-state) */\n.qm .q-collapse[data-state] .l-detail > * { animation: q-rise var(--q-d-small) var(--q-ease-enter) backwards; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(2) { animation-delay: 30ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(3) { animation-delay: 60ms; }\n.qm .q-collapse[data-state] .l-detail > :nth-child(n+4) { animation-delay: 90ms; }\n@media (max-width: 560px) { .qm .l-detail { padding-inline-start: var(--q-4); } }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: var(--q-2) 0 0; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n\n/* «سجّل»: one card, the kind of entry on top, then its form */\n.qm .l-composer { display: flex; flex-direction: column; gap: var(--q-4); padding: var(--q-4) var(--q-5) var(--q-5); background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  box-shadow: 0 8px 24px color-mix(in srgb, var(--dsw-alias-label-primary) 6%, transparent); }\n.qm .l-composer-head { display: flex; align-items: center; flex-wrap: wrap; gap: var(--q-3); }\n.qm .l-composer-head > b { font-size: 16px; }\n.qm .l-composer-x { margin-inline-start: auto; }\n.qm .l-composer .l-add { margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }\n.qm .l-composer-pick { max-width: 320px; }\n.qm .l-big-input { height: 48px; font-size: 20px; font-weight: 600; }\n.qm .l-main { grid-column: span 1; }\n.qm .l-more > summary { cursor: pointer; font-size: 13px; color: var(--dsw-alias-label-secondary); width: fit-content; list-style: none; }\n.qm .l-more > summary::-webkit-details-marker { display: none; }\n.qm .l-more > summary::before { content: '▸ '; }\n.qm .l-more[open] > summary::before { content: '▾ '; }\n.qm .l-more > .l-fields { margin-top: var(--q-2); }\n.qm .l-fields > .l-more { grid-column: 1 / -1; }\n.qm .q-date .q-chips { margin-top: 2px; }\n\n/* The tabs' underline slides from one tab to the other (measured in Tabs; jsdom keeps the border) */\n.qm .l-tabs { position: relative; }\n.qm .l-tab-ink { position: absolute; left: 0; bottom: -1px; width: 1px; height: 2px; transform-origin: 0 0; opacity: 0;\n  background: var(--dsw-alias-state-business-primary); transition: transform var(--q-d-base) var(--q-ease-standard); pointer-events: none; }\n.qm .l-tabs.has-ink .l-tab-ink { opacity: 1; }\n.qm .l-tabs.has-ink .l-tab-on { border-bottom-color: transparent; }\n@media (prefers-reduced-motion: reduce) { .qm .l-tab-ink { transition: none; } }\n\n/* The timeline: a rail, an icon per kind, the line's actions dimmed until it is pointed at */\n.qm .l-detail .l-lot[data-kind] { position: relative; padding-inline-start: 36px; }\n.qm .l-detail .l-lot[data-kind]::before { position: absolute; inset-inline-start: 0; top: 6px; width: 24px; height: 24px; display: grid; place-items: center;\n  border-radius: 50%; background: var(--dsw-alias-bg-layer-1); border: 1px solid var(--dsw-alias-border-l2); font-size: 12px; line-height: 1;\n  color: var(--dsw-alias-label-secondary); content: '+'; }\n.qm .l-detail .l-lot[data-kind]:not(:last-child)::after { content: ''; position: absolute; inset-inline-start: 11.5px; top: 30px; bottom: -6px; width: 1px;\n  background: var(--dsw-alias-border-l2); }\n.qm .l-lot[data-kind='in']::before { content: '↓'; }\n.qm .l-lot[data-kind='transfer']::before { content: '⇄'; }\n.qm .l-lot[data-kind='expense']::before { content: '↑'; }\n.qm .l-lot[data-kind='repay']::before { content: '✓'; }\n.qm .l-lot[data-kind='place']::before { content: '⇆'; }\n.qm .l-lot[data-kind='paid']::before, .qm .l-lot[data-kind='dividend']::before { content: '٪'; }\n.qm .l-lot[data-kind='bonus']::before { content: '★'; }\n.qm .l-lot[data-kind='split']::before { content: '÷'; }\n.qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }\n.qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }\n.qm .l-actions-bar { gap: var(--q-2); }\n\n/* «الجاي قريب»: a date tile, the label, the amount, how soon */\n.qm .l-due { appearance: none; display: grid; grid-template-columns: 40px 1fr auto; grid-template-areas: 'tile label amount' 'tile when amount';\n  align-items: center; column-gap: var(--q-3); width: 100%; min-height: 52px; padding: 6px 0; border: 0; border-top: 1px solid var(--dsw-alias-border-l1);\n  background: transparent; text-align: start; cursor: pointer; border-radius: var(--dsw-radius-sm); transition: background-color var(--q-d-micro); }\n.qm .l-due:first-of-type { border-top: 0; }\n.qm .l-due:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-due-tile { grid-area: tile; width: 40px; height: 40px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform);\n  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }\n.qm .l-due-tile .num { font-size: 15px; font-weight: 600; }\n.qm .l-due-tile small { font-size: 10px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-label { grid-area: label; font-size: 14px; }\n.qm .l-due-when { grid-area: when; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-due-amount { grid-area: amount; font-size: 14px; font-weight: 600; }\n/* «الحركات»: a day heading, then that day's lines */\n.qm .l-day { display: flex; flex-direction: column; }\n.qm .l-day-head { margin: var(--q-3) 0 var(--q-1); font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { padding: 6px 0; }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
@@ -2474,7 +2588,12 @@ var __monos = (() => {
       if (lot.currency !== "EGP" && c > 0 && (lot.cost_egp == null || Math.abs(c - lot.cost_egp) > 5e-3)) body.cost_egp = c;
       return run(() => api("PATCH", `/egx/api/holdings/${lot.id}`, body));
     };
-    const remove = () => run(() => api("DELETE", `/egx/api/holdings/${lot.id}`, {}));
+    const gone = usePending(`lot:${lot.id}`);
+    const remove = () => deleteWithUndo(`lot:${lot.id}`, "اتمسحت العملية", async () => {
+      await api("DELETE", `/egx/api/holdings/${lot.id}`, {});
+      onChanged();
+    });
+    if (gone) return null;
     if (mode === "edit") {
       const box = (label, value, set, extra = {}) => h(
         "label",
@@ -2522,13 +2641,8 @@ var __monos = (() => {
       h(
         "span",
         { className: "l-lot-actions" },
-        mode === "confirm" ? [
-          h("button", { key: "d", type: "button", className: "q-btn q-btn-sm q-btn-danger", disabled: busy, onClick: remove }, "احذف العملية"),
-          h("button", { key: "c", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("view") }, "إلغاء")
-        ] : [
-          h("button", { key: "e", type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
-          h("button", { key: "r", type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: () => setMode("confirm") }, "حذف")
-        ]
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMode("edit") }, "تعديل"),
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف")
       ),
       error ? h("span", { className: "q-error", role: "alert" }, error) : null
     );
@@ -2981,7 +3095,7 @@ var __monos = (() => {
         view === "activity" ? h(
           "div",
           { id: "l-panel-activity", role: "tabpanel", "aria-labelledby": "l-tab-activity", className: "l-panel" },
-          h(ActivityView, { onOpen: openAsset })
+          h(ActivityView, { onOpen: openAsset, onCompose: compose })
         ) : null,
         view === "activity" ? null : h(
           "div",

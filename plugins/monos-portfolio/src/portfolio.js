@@ -16,6 +16,7 @@ import { ExportButton } from './export.js'
 import { ImportButton } from './import.js'
 import { Composer } from './composer.js'
 import { Toasts, toasts } from '../../shared/toast.js'
+import { deleteWithUndo, usePending } from '../../shared/undo.js'
 import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
 import { MoveForm, MoveItem } from './moves.js'
 import { ActivityView } from './activity.js'
@@ -310,7 +311,9 @@ function LotItem({ lot, asset, onChanged }) {
     if (lot.currency !== 'EGP' && c > 0 && (lot.cost_egp == null || Math.abs(c - lot.cost_egp) > 0.005)) body.cost_egp = c
     return run(() => api('PATCH', `/egx/api/holdings/${lot.id}`, body))
   }
-  const remove = () => run(() => api('DELETE', `/egx/api/holdings/${lot.id}`, {}))
+  const gone = usePending(`lot:${lot.id}`)
+  const remove = () => deleteWithUndo(`lot:${lot.id}`, 'اتمسحت العملية', async () => { await api('DELETE', `/egx/api/holdings/${lot.id}`, {}); onChanged() })
+  if (gone) return null
   if (mode === 'edit') {
     const box = (label, value, set, extra = {}) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label),
       h('input', { className: 'q-input num', value, onChange: (e) => set(e.target.value), ...extra }))
@@ -337,11 +340,8 @@ function LotItem({ lot, asset, onChanged }) {
     lot.place ? h('span', { className: 'q-sec' }, lot.place) : null,
     lot.note ? h('span', { className: 'q-sec' }, lot.note) : null,
     h('span', { className: 'l-lot-actions' },
-      mode === 'confirm'
-        ? [h('button', { key: 'd', type: 'button', className: 'q-btn q-btn-sm q-btn-danger', disabled: busy, onClick: remove }, 'احذف العملية'),
-          h('button', { key: 'c', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('view') }, 'إلغاء')]
-        : [h('button', { key: 'e', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
-          h('button', { key: 'r', type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: () => setMode('confirm') }, 'حذف')]),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMode('edit') }, 'تعديل'),
+      h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet q-btn-danger', onClick: remove }, 'حذف')),
     error ? h('span', { className: 'q-error', role: 'alert' }, error) : null)
 }
 
@@ -650,7 +650,7 @@ export function PortfolioPage() {
       h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
       h(Tabs, { view, setView }),
       view === 'activity' ? h('div', { id: 'l-panel-activity', role: 'tabpanel', 'aria-labelledby': 'l-tab-activity', className: 'l-panel' },
-        h(ActivityView, { onOpen: openAsset })) : null,
+        h(ActivityView, { onOpen: openAsset, onCompose: compose })) : null,
       view === 'activity' ? null : h('div', { id: 'l-panel-assets', role: 'tabpanel', 'aria-labelledby': 'l-tab-assets', className: 'l-panel' },
       h(Collapse, { open: Boolean(composer) }, composer ? h(Composer, { key: composer.at, ledger, catalog, places: totals.places, initial: composer.type,
         AddLine, SearchBox: Search, onDone: added, onCancel: () => setComposer(null) }) : null),

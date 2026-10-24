@@ -201,3 +201,21 @@
 .qm .l-lot[data-kind] .l-lot-actions { opacity: .4; transition: opacity var(--q-d-micro); }
 .qm .l-lot[data-kind]:hover .l-lot-actions, .qm .l-lot[data-kind]:focus-within .l-lot-actions { opacity: 1; }
 .qm .l-actions-bar { gap: var(--q-2); }
+
+/* «الجاي قريب»: a date tile, the label, the amount, how soon */
+.qm .l-due { appearance: none; display: grid; grid-template-columns: 40px 1fr auto; grid-template-areas: 'tile label amount' 'tile when amount';
+  align-items: center; column-gap: var(--q-3); width: 100%; min-height: 52px; padding: 6px 0; border: 0; border-top: 1px solid var(--dsw-alias-border-l1);
+  background: transparent; text-align: start; cursor: pointer; border-radius: var(--dsw-radius-sm); transition: background-color var(--q-d-micro); }
+.qm .l-due:first-of-type { border-top: 0; }
+.qm .l-due:hover { background: var(--dsw-alias-interactive-bg-hover); }
+.qm .l-due-tile { grid-area: tile; width: 40px; height: 40px; border-radius: var(--dsw-radius-sm); background: var(--dsw-alias-bg-module-platform);
+  display: flex; flex-direction: column; align-items: center; justify-content: center; line-height: 1.1; }
+.qm .l-due-tile .num { font-size: 15px; font-weight: 600; }
+.qm .l-due-tile small { font-size: 10px; color: var(--dsw-alias-label-secondary); }
+.qm .l-due-label { grid-area: label; font-size: 14px; }
+.qm .l-due-when { grid-area: when; font-size: 12px; color: var(--dsw-alias-label-secondary); }
+.qm .l-due-amount { grid-area: amount; font-size: 14px; font-weight: 600; }
+/* «الحركات»: a day heading, then that day's lines */
+.qm .l-day { display: flex; flex-direction: column; }
+.qm .l-day-head { margin: var(--q-3) 0 var(--q-1); font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary); }
+.qm .l-act { padding: 6px 0; }

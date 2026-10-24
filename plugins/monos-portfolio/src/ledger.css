@@ -85,3 +85,13 @@
 .qm .l-inline .q-input { width: 120px; }
 
 .qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }
+
+/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */
+.qm { position: relative; }
+.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }
+.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));
+  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);
+  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }
+.qm .l-import-plan p { margin: 0; }
+.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }

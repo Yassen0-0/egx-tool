@@ -11,6 +11,7 @@ import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
 import { ExportButton } from './export.js'
+import { ImportButton } from './import.js'
 import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
 import { MoveForm, MoveItem } from './moves.js'
 import { ActivityView } from './activity.js'
@@ -563,6 +564,6 @@ export function PortfolioPage() {
   }
   return h('div', { className: 'qm', dir: 'rtl', lang: 'ar' },
     h('style', null, QM_CSS + LEDGER_CSS),
-    h(PanelHeader, { here: 'السجل', actions: frag(today, h(ExportButton), h(PrivacyToggle)) }),
+    h(PanelHeader, { here: 'السجل', actions: frag(today, h(ImportButton, { onDone: () => { reloadCatalog(); refresh() } }), h(ExportButton), h(PrivacyToggle)) }),
     body)
 }

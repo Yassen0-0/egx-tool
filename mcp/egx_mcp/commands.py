@@ -11,10 +11,11 @@ from contextlib import closing
 from . import web
 from .catalog import search as catalog_find
 from .config import db_path
+from .market.calendar import now_cairo
 from .market.eodhd import EodhdClient, resolve_api_key
 from .market.sync import sync_market
-from .store import activity, portfolio, wealth
-from .store.db import connect
+from .store import activity, importer, portfolio, wealth
+from .store.db import connect, daily_backup
 from .store.export import ledger_csv
 
 
@@ -207,6 +208,13 @@ def ledger_activity(month: str | None = None, kind: str | None = None, asset: st
         return activity.ledger_activity(conn, month, kind, asset)
 
 
+def ledger_import(csv: str, apply: bool = False) -> dict:
+    """Read back a file the ledger exported (CSV text): what it would add and leave out, and why;
+    with apply, add it in one go. Rows already in the ledger are left out."""
+    with _db() as conn:
+        return importer.ledger_import(conn, csv, apply)
+
+
 def web_search(query: str, limit: int = 5) -> dict:
     """Search the web (title, address and snippet per result) for something the user asked to
     record: a fund's latest unit price, a certificate's rate, a close the market feed lacks. Then read
@@ -224,7 +232,7 @@ def web_fetch(url: str, max_chars: int = 8000) -> dict:
 def prices_sync() -> dict:
     """Refresh the ledger's prices from EODHD within today's call budget, then record the day's total
     (the desktop app runs it every 5 minutes). The day's total is recorded even without a key or
-    when the refresh fails, so «تطوّر ثروتي» has no gaps from the prices the ledger already has."""
+    when the refresh fails, and the first run of a Cairo day copies the database to data/backups/."""
     key = resolve_api_key()
     with _db() as conn:
         try:
@@ -234,6 +242,7 @@ def prices_sync() -> dict:
             return sync_market(conn, EodhdClient(key))
         finally:
             portfolio.record_snapshot(conn)
+            daily_backup(conn, db_path(), now_cairo().date().isoformat())  # the newest 30 days in data/backups/
 
 
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
@@ -246,6 +255,7 @@ MCP_TOOLS = (
 CLI_COMMANDS = {
     "portfolio-summary": portfolio_summary,
     "ledger-export": ledger_export,
+    "ledger-import": ledger_import,
     "catalog": catalog_list,
     "catalog-search": catalog_search,
     "portfolio-add": portfolio_add,

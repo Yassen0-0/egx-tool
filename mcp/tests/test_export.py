@@ -84,7 +84,8 @@ def test_movements_follow_in_their_own_table(conn):
     rows = list(csv.reader(io.StringIO(ledger_csv(conn, AT)["csv"].lstrip("﻿"))))
     at = rows.index([])
     assert rows[at + 2][:3] == ["movement_id", "date", "kind"]
-    assert rows[at + 3][1:8] == ["2026-10-02", "تحويل", "الجنيه المصري", "1000", "الدولار الأمريكي", "20", "1000"]
-    assert rows[at + 3][9] == "البنك" and rows[at + 4][2] == "خروج"
-    lot = next(r for r in rows[2:at] if r[0] == "EGP")
-    assert lot[14] == "" and lot[15] == ""  # its money moved on: no value per purchase
+    assert rows[at + 3][1:10] == ["2026-10-02", "تحويل", "EGP", "الجنيه المصري", "1000", "USD", "الدولار الأمريكي", "20",
+                                  "1000"]
+    assert rows[at + 3][11] == "البنك" and rows[at + 4][2] == "خروج"
+    lot = dict(zip(rows[1], next(r for r in rows[2:at] if r[0] == "EGP"), strict=True))
+    assert lot["current_value_egp"] == "" and lot["growth"] == ""  # its money moved on: no value per purchase

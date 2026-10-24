@@ -641,3 +641,44 @@ test('a stock: bought, a dividend into the pounds, bonus shares at no cost, and 
   assert.match(seen.row, /\+34\.2%/)
   assert.match(seen.pounds, /توزيعات البنك التجاري الدولي/)
 })
+
+test('«استيراد CSV»: the ledger\'s own export read back adds nothing twice, and a stranger file is refused', { skip }, async () => {
+  const seen = {}
+  const exported = await (await backend('/egx/api/export')).json()
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const choose = async (content) => {
+        const input = host.querySelector('input[type="file"]')
+        const file = new window.File([content], 'ledger.csv', { type: 'text/csv' })
+        if (!file.text) file.text = async () => content  // jsdom's File has no text()
+        Object.defineProperty(input, 'files', { value: [file], configurable: true })
+        await act(async () => { input.dispatchEvent(new window.Event('change', { bubbles: true })) })
+      }
+      await wait(() => host.querySelector('input[type="file"]'), 'the import button')
+      await choose(exported.csv)
+      await wait(() => host.querySelector('.l-import-plan'), 'the plan')
+      seen.plan = text(host.querySelector('.l-import-plan'))
+      seen.buttons = [...host.querySelectorAll('.l-import-plan button')].map((b) => b.textContent)
+      await act(async () => { host.querySelector('.l-import-plan button').dispatchEvent(new window.MouseEvent('click', { bubbles: true })) })
+      await choose('a,b\n1,2\n')
+      await wait(() => host.querySelector('.q-error'), 'the refusal')
+      seen.error = host.querySelector('.q-error').textContent
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.match(seen.plan, /هيتضاف 0 عملية شرا و0 حركة/)
+  assert.match(seen.plan, /هيتساب \d+/)
+  assert.deepEqual(seen.buttons, ['تمام'])
+  assert.match(seen.error, /مش ملف تصدير من Monos/)
+})

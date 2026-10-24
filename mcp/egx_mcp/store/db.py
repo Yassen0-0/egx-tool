@@ -312,6 +312,22 @@ def migrate(conn: sqlite3.Connection, backup_from: Path | None = None) -> list[i
     return [m[0] for m in pending]
 
 
+DAILY_KEEP = 30
+
+
+def daily_backup(conn: sqlite3.Connection, path: Path, today: str, keep: int = DAILY_KEEP) -> Path | None:
+    """One copy a day in data/backups/ (labelled daily-<day>), the newest `keep` kept. None when
+    today's copy exists already."""
+    folder = path.parent / "backups"
+    if folder.exists() and any(folder.glob(f"{path.stem}-*-daily-{today}{path.suffix}")):
+        return None
+    made = backup(conn, path, f"daily-{today}")
+    dailies = sorted(folder.glob(f"{path.stem}-*-daily-*{path.suffix}"), key=lambda p: p.name.rsplit("-daily-", 1)[1])
+    for old in dailies[:-keep]:
+        old.unlink()
+    return made
+
+
 def backup(conn: sqlite3.Connection, path: Path, label: str) -> Path:
     """Consistent copy (SQLite online backup) next to the data: data/backups/<name>-<stamp>-<label>."""
     folder = path.parent / "backups"

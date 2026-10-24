@@ -55,7 +55,10 @@ def main() -> None:
         print(json.dumps({"error": "usage: egx-cli <command> [json]"}))
         sys.exit(2)
     try:
-        result = run(sys.argv[1], sys.argv[2] if len(sys.argv) > 2 else None)
+        raw = sys.argv[2] if len(sys.argv) > 2 else None
+        if raw == "-":  # a large body (an imported file) comes on stdin
+            raw = sys.stdin.read()
+        result = run(sys.argv[1], raw)
     except ValidationError as exc:
         print(json.dumps({"error": _validation_message(exc)}, ensure_ascii=False))
         sys.exit(2)

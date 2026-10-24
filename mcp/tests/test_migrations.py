@@ -118,3 +118,15 @@ def test_step_7_keeps_the_movements_and_lets_a_debt_be_repaid(tmp_path):
     assert {r["name"] for r in conn.execute("PRAGMA table_info(holdings)")} >= {"place"}
     assert len(list((tmp_path / "backups").glob(f"egx-*-before-v{SCHEMA_VERSION}.sqlite"))) == 1
     conn.close()
+
+
+def test_one_backup_a_day_and_the_newest_thirty_kept(tmp_path):
+    from egx_mcp.store.db import daily_backup
+    path = tmp_path / "egx.sqlite"
+    conn = connect(path)
+    for day in range(1, 36):
+        assert daily_backup(conn, path, f"2026-09-{day:02d}" if day <= 30 else f"2026-10-{day - 30:02d}") is not None
+    assert daily_backup(conn, path, "2026-10-05") is None  # today's copy is there already
+    kept = sorted(p.name.rsplit("-daily-", 1)[1] for p in (tmp_path / "backups").glob("egx-*-daily-*.sqlite"))
+    assert len(kept) == 30 and kept[0] == "2026-09-06.sqlite" and kept[-1] == "2026-10-05.sqlite"
+    conn.close()

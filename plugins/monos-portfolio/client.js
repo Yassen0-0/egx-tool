@@ -628,6 +628,89 @@ var __monos = (() => {
     );
   }
 
+  // plugins/monos-portfolio/src/import.js
+  function ImportButton({ onDone }) {
+    const [file, setFile] = useState(null);
+    const [plan, setPlan] = useState(null);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const send = (text4, apply2) => api("POST", "/egx/api/import", { csv: text4, apply: apply2 });
+    const pick = async (e) => {
+      const chosen = e.target.files && e.target.files[0];
+      e.target.value = "";
+      if (!chosen) return;
+      setError("");
+      setPlan(null);
+      setBusy(true);
+      try {
+        const text4 = await chosen.text();
+        setFile(text4);
+        setPlan(await send(text4, false));
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    const apply = async () => {
+      setBusy(true);
+      setError("");
+      try {
+        await send(file, true);
+        setPlan(null);
+        setFile(null);
+        onDone();
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    };
+    const close = () => {
+      setPlan(null);
+      setFile(null);
+      setError("");
+    };
+    const c = plan && plan.counts;
+    return frag(
+      error ? h("span", { className: "q-error", role: "alert" }, error) : null,
+      h(
+        "label",
+        { className: "q-btn q-btn-sm q-btn-quiet l-import", "aria-disabled": busy },
+        "استيراد CSV",
+        h("input", { type: "file", accept: ".csv,text/csv", onChange: pick, disabled: busy, "aria-label": "اختار ملف CSV" })
+      ),
+      plan ? h(
+        "div",
+        { className: "l-import-plan", role: "dialog", "aria-label": "استيراد CSV" },
+        h("b", null, "اللي في الملف"),
+        h(
+          "p",
+          null,
+          "هيتضاف ",
+          N(String(c.lots)),
+          " عملية شرا و",
+          N(String(c.movements)),
+          " حركة",
+          c.new_assets ? frag(" و", N(String(c.new_assets)), " أصل جديد بالاسم") : null,
+          "."
+        ),
+        c.skipped ? h(
+          "details",
+          null,
+          h("summary", null, "هيتساب ", N(String(c.skipped))),
+          h("ul", null, plan.skipped.map((s, i) => h("li", { key: i }, s.what ? `${s.what}: ` : "", s.reason)))
+        ) : null,
+        h(
+          "div",
+          { className: "l-actions" },
+          c.lots || c.movements ? h("button", { type: "button", className: "q-btn q-btn-sm q-btn-p", disabled: busy, onClick: apply }, "ضيفهم") : null,
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: close }, c.lots || c.movements ? "إلغاء" : "تمام")
+        )
+      ) : null
+    );
+  }
+
   // plugins/monos-portfolio/src/deposit.js
   var DEPOSIT_KIND = "deposit";
   var PAYOUT_CHOICES = [["monthly", "شهري"], ["quarterly", "ربع سنوي"], ["annual", "سنوي"], ["maturity", "في الآخر"]];
@@ -1438,7 +1521,7 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/ledger.css
-  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; }\n.qm .l-upcoming > h2 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
+  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; }\n.qm .l-upcoming > h2 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n\n/* «استيراد CSV»: a file input inside a quiet button, and the plan under the header */\n.qm { position: relative; }\n.qm .l-import { position: relative; display: inline-flex; align-items: center; cursor: pointer; }\n.qm .l-import input { position: absolute; inset: 0; opacity: 0; cursor: pointer; }\n.qm .l-import-plan { position: absolute; inset-inline-end: 16px; top: 52px; z-index: 5; width: min(360px, calc(100vw - 32px));\n  display: flex; flex-direction: column; gap: 8px; padding: 14px; font-size: 13px; background: var(--dsw-alias-bg-layer-1);\n  border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md); }\n.qm .l-import-plan p { margin: 0; }\n.qm .l-import-plan ul { margin: 6px 0 0; padding-inline-start: 18px; color: var(--dsw-alias-label-secondary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
@@ -2228,7 +2311,10 @@ var __monos = (() => {
       "div",
       { className: "qm", dir: "rtl", lang: "ar" },
       h("style", null, styles_default + ledger_default),
-      h(PanelHeader, { here: "السجل", actions: frag(today, h(ExportButton), h(PrivacyToggle)) }),
+      h(PanelHeader, { here: "السجل", actions: frag(today, h(ImportButton, { onDone: () => {
+        reloadCatalog();
+        refresh();
+      } }), h(ExportButton), h(PrivacyToggle)) }),
       body
     );
   }

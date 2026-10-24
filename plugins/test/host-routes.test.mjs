@@ -17,7 +17,8 @@ before(async () => {
   const cli = join(bin, 'egx-cli')
   writeFileSync(cli, `#!${process.execPath}
 const [command, raw] = process.argv.slice(2)
-console.log(JSON.stringify({ command, payload: raw ? JSON.parse(raw) : null }))
+const body = raw === '-' ? require('node:fs').readFileSync(0, 'utf8') : raw
+console.log(JSON.stringify({ command, payload: body ? JSON.parse(body) : null, ...(raw === '-' ? { stdin: true } : {}) }))
 `)
   chmodSync(cli, 0o755)
   process.env.EGX_HOME = home
@@ -84,6 +85,18 @@ test('each movements route maps to its egx-cli command', async () => {
   assert.deepEqual((await call('GET', '/egx/api/activity?month=2026-10&kind=transfer')).body,
     { command: 'activity', payload: { month: '2026-10', kind: 'transfer', asset: null } })
   assert.equal((await call('POST', '/egx/api/movements', { body, headers: { 'content-type': 'application/json' } })).status, 403)
+})
+
+test('an imported file goes on stdin, larger than other bodies may be', async () => {
+  const csv = 'x'.repeat(100 * 1024)
+  const res = await call('POST', '/egx/api/import', { body: { csv, apply: true }, headers: SAME_ORIGIN })
+  assert.equal(res.status, 200)
+  assert.equal(res.body.command, 'ledger-import')
+  assert.equal(res.body.stdin, true)
+  assert.equal(res.body.payload.csv.length, csv.length)
+  assert.equal(res.body.payload.apply, true)
+  const big = await call('POST', '/egx/api/holdings', { body: { note: csv }, headers: SAME_ORIGIN })
+  assert.equal(big.status, 400)  // any other route keeps the small limit
 })
 
 test('the history route asks for a whole number of days and falls back to the default', async () => {

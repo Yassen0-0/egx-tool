@@ -16,6 +16,7 @@ export const name = 'monos-core'
 export const inject = ['webServer']
 
 const MAX_BODY_BYTES = 16 * 1024
+const MAX_IMPORT_BYTES = 4 * 1024 * 1024  // «استيراد CSV»: a whole exported ledger
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 
 
@@ -27,14 +28,16 @@ function cliCommand() {
   return { file: process.env.EGX_UV ?? 'uv', prefix: ['run', '--quiet', '--directory', join(home, 'mcp'), 'egx-cli'] }
 }
 
-function runCli(command, payload) {
+// A payload goes as one argument, or on stdin when `stdin` is set (an imported file is too large
+// for the command line).
+function runCli(command, payload, { stdin = false } = {}) {
   const { file, prefix } = cliCommand()
   const args = [...prefix, command]
-  if (payload !== undefined) args.push(JSON.stringify(payload))
+  if (payload !== undefined) args.push(stdin ? '-' : JSON.stringify(payload))
   const env = { ...process.env }
   if (!env.EGX_DATA_DIR && env.EGX_HOME) env.EGX_DATA_DIR = join(env.EGX_HOME, 'data')
   return new Promise((resolve) => {
-    execFile(file, args, { env, timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
+    const child = execFile(file, args, { env, timeout: 30_000, maxBuffer: 8 * 1024 * 1024 }, (error, stdout, stderr) => {
       let body
       try {
         body = JSON.parse(stdout)
@@ -44,6 +47,7 @@ function runCli(command, payload) {
       const status = body && typeof body === 'object' && 'error' in body ? (error?.code === 2 ? 400 : 500) : 200
       resolve({ status, body })
     })
+    if (stdin && payload !== undefined) child.stdin.end(JSON.stringify(payload))
   })
 }
 
@@ -65,12 +69,12 @@ function hostAllowed(req) {
   }
 }
 
-async function readJson(req) {
+async function readJson(req, limit = MAX_BODY_BYTES) {
   let size = 0
   const chunks = []
   for await (const chunk of req) {
     size += chunk.length
-    if (size > MAX_BODY_BYTES) throw new Error('request body too large')
+    if (size > limit) throw new Error('request body too large')
     chunks.push(chunk)
   }
   const body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString('utf8')) : {}
@@ -124,7 +128,7 @@ async function handleApi(req, res, path, query) {
   }
   let payload
   try {
-    payload = await readJson(req)
+    payload = await readJson(req, path === '/egx/api/import' ? MAX_IMPORT_BYTES : MAX_BODY_BYTES)
   } catch (error) {
     return sendJson(res, 400, { error: error instanceof Error ? error.message : 'invalid body' })
   }
@@ -148,6 +152,12 @@ async function handleApi(req, res, path, query) {
     const key = assetKey(asset[1])
     if (!key) return sendJson(res, 400, { error: 'bad asset key' })
     const { status, body } = await runCli('asset-remove', { asset: key })
+    return sendJson(res, status, body)
+  }
+  // «استيراد CSV»: the plan for an exported file, or (apply) the file written.
+  if (path === '/egx/api/import') {
+    if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const { status, body } = await runCli('ledger-import', { csv: String(payload.csv || ''), apply: payload.apply === true }, { stdin: true })
     return sendJson(res, status, body)
   }
   // A stock's cash dividend, and its bonus shares or split.

@@ -55,6 +55,14 @@ def test_market_sync_without_key_says_so(monkeypatch):
     assert cli.run("prices-sync", None)["error"] == "no_key"
 
 
+def test_market_sync_without_key_still_records_the_day(monkeypatch):
+    monkeypatch.setattr(commands, "resolve_api_key", lambda: None)
+    cli.run("portfolio-add", json.dumps({"asset": "EGP", "buy_price": 1, "amount": 5000}))
+    cli.run("prices-sync", None)
+    points = cli.run("history", None)["points"]
+    assert len(points) == 1 and points[0]["value_egp"] == pytest.approx(5000)
+
+
 def test_shared_commands_are_the_mcp_tools():
     from egx_mcp import server
     names = {t.name for t in asyncio.run(server.server.list_tools())}

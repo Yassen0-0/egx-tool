@@ -191,3 +191,39 @@ def test_the_cli_takes_the_deposit_like_the_screen_sends_it(tmp_path, monkeypatc
     assert lot["symbol"].startswith("deposit:") and lot["quantity"] == 5000
     with sqlite3.connect(tmp_path / "egx.sqlite") as db:
         assert db.execute("SELECT payout FROM deposits").fetchone()[0] == "quarterly"
+
+
+def test_editing_the_date_moves_the_start_and_the_accrued_interest(conn):
+    lot = add(conn, 100000, payout="maturity")
+    portfolio.update_holding(conn, lot["id"], buy_date="2026-04-15")
+    row = asset(conn, lot["symbol"])
+    assert row["deposit"]["start_date"] == "2026-04-15"
+    assert row["value_egp"] == pytest.approx(100000 * (1 + 0.27 * 183 / 365))
+    assert portfolio.get_holding(conn, lot["id"])["buy_date"] == "2026-04-15"
+
+
+def test_editing_the_terms_renames_the_certificate(conn):
+    lot = add(conn)
+    portfolio.update_holding(conn, lot["id"], deposit={"rate": 0.235, "bank": "بنك مصر", "payout": "quarterly",
+                                                       "maturity_date": "2029-10-15"})
+    row = asset(conn, lot["symbol"])
+    assert row["name"] == "شهادة بنك مصر 23.5%"
+    assert row["deposit"]["payout"] == "quarterly" and row["maturity_date"] == "2029-10-15"
+    assert row["interest_per_year"] == pytest.approx(23500)
+
+
+def test_a_rejected_term_change_writes_nothing(conn):
+    lot = add(conn)
+    with pytest.raises(LedgerInputError, match="بعد تاريخ البداية"):
+        portfolio.update_holding(conn, lot["id"], quantity=5, deposit={"maturity_date": "2025-01-01"})
+    with pytest.raises(LedgerInputError, match="الكمية"):
+        portfolio.update_holding(conn, lot["id"], quantity=-1, deposit={"rate": 0.3})
+    conn.rollback()
+    assert asset(conn, lot["symbol"])["deposit"]["rate"] == 0.27
+    assert portfolio.get_holding(conn, lot["id"])["quantity"] == 100000
+
+
+def test_terms_are_for_deposits_only(conn):
+    lot = portfolio.add_holding(conn, "USD", buy_price=48, quantity=10)
+    with pytest.raises(LedgerInputError, match="للشهادات"):
+        portfolio.update_holding(conn, lot["id"], deposit={"rate": 0.2})

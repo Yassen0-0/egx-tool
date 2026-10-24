@@ -88,6 +88,24 @@ def add(conn: sqlite3.Connection, principal: float, note: str | None, deposit: d
     return holding_id
 
 
+TERM_KEYS = ("rate", "start_date", "maturity_date", "payout", "bank")
+
+
+def update(conn: sqlite3.Connection, holding_id: int, changes: dict) -> dict:
+    """Change some of a deposit's terms (any of TERM_KEYS); the holding's name and date follow them.
+    Validates the merged terms first, so a rejected change writes nothing. The caller commits."""
+    row = conn.execute("SELECT * FROM deposits WHERE holding_id = ?", (holding_id,)).fetchone()
+    if row is None:
+        raise LedgerInputError("شروط الشهادة مش موجودة")
+    terms = validate({**dict(row), **{k: changes[k] for k in TERM_KEYS if k in changes}})
+    conn.execute(
+        "UPDATE deposits SET rate = ?, start_date = ?, maturity_date = ?, payout = ?, bank = ? WHERE holding_id = ?",
+        (terms["rate"], terms["start_date"], terms["maturity_date"], terms["payout"], terms["bank"], holding_id))
+    conn.execute("UPDATE holdings SET name = ?, buy_date = ? WHERE id = ?",
+                 (_name(terms["bank"], terms["rate"]), terms["start_date"], holding_id))
+    return terms
+
+
 def load(conn: sqlite3.Connection) -> dict[int, dict]:
     """Every deposit's terms, by holding id."""
     return {r["holding_id"]: dict(r) for r in conn.execute("SELECT * FROM deposits")}

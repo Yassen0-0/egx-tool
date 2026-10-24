@@ -537,7 +537,7 @@ var __monos = (() => {
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
   function normalize(text) {
-    return String(text == null ? "" : text).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+    return String(text == null ? "" : text).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
   }
   function rank(entry, query) {
     const q = normalize(query);
@@ -641,6 +641,33 @@ var __monos = (() => {
           deposit: { rate: Number((percent / 100).toFixed(6)), start_date: from, maturity_date: to, payout, bank: bank.trim() || null }
         }
       };
+    }
+    return { fields, build };
+  }
+  function useDepositEdit(terms) {
+    const [bank, setBank] = useState(terms?.bank || "");
+    const [rate, setRate] = useState(terms ? String(Number((terms.rate * 100).toFixed(4))) : "");
+    const [maturity, setMaturity] = useState(terms ? fmtDate(terms.maturity_date) : "");
+    const [payout, setPayout] = useState(terms?.payout || "monthly");
+    const field = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const fields = frag(
+      field("العائد السنوي %", text(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
+      field("تاريخ الاستحقاق", text(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
+      field("صرف العائد", h(
+        "select",
+        { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
+        PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
+      )),
+      field("البنك", text(bank, setBank, { maxLength: 60, style: { width: 120 } }))
+    );
+    function build(start) {
+      const percent = parseNumberInput(rate);
+      const to = parseDayInput(maturity);
+      if (!(percent > 0) || percent > 100) return { error: "اكتب العائد السنوي بالنسبة المئوية، زي 27." };
+      if (!to) return { error: "اكتب تاريخ الاستحقاق بصيغة يوم/شهر/سنة." };
+      if (to <= (start || terms?.start_date || "")) return { error: "تاريخ الاستحقاق لازم يكون بعد تاريخ البداية." };
+      return { deposit: { rate: Number((percent / 100).toFixed(6)), maturity_date: to, payout, bank: bank.trim() || null } };
     }
     return { fields, build };
   }
@@ -977,6 +1004,8 @@ var __monos = (() => {
     const [cost, setCost] = useState(lot.cost_egp == null ? "" : String(Math.round(lot.cost_egp * 100) / 100));
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState("");
+    const isDeposit = asset.kind === DEPOSIT_KIND;
+    const terms = useDepositEdit(asset.deposit);
     const run = async (action) => {
       setBusy(true);
       setError("");
@@ -995,6 +1024,11 @@ var __monos = (() => {
       if (!(q > 0) || !(p > 0)) return setError("الكمية والسعر لازم يكونوا أكبر من صفر");
       if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة");
       const body = { quantity: q, buy_price: p, buy_date: d, note };
+      if (isDeposit && asset.deposit) {
+        const changed = terms.build(d);
+        if (changed.error) return setError(changed.error);
+        body.deposit = changed.deposit;
+      }
       if (lot.currency !== "EGP" && c > 0 && (lot.cost_egp == null || Math.abs(c - lot.cost_egp) > 5e-3)) body.cost_egp = c;
       return run(() => api("PATCH", `/egx/api/holdings/${lot.id}`, body));
     };
@@ -1012,7 +1046,8 @@ var __monos = (() => {
         box(asset.kind === DEPOSIT_KIND ? "المبلغ" : "الكمية", qty, setQty, { inputMode: "decimal", style: { width: 110 } }),
         asset.key === "EGP" || asset.kind === DEPOSIT_KIND ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: "decimal", style: { width: 110 } }),
         lot.currency !== "EGP" ? box("المدفوع بالجنيه", cost, setCost, { inputMode: "decimal", style: { width: 120 } }) : null,
-        box("التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
+        box(isDeposit ? "تاريخ البداية" : "التاريخ", day, setDay, { placeholder: "يوم/شهر/سنة", style: { width: 120 } }),
+        isDeposit && asset.deposit ? terms.fields : null,
         h(
           "label",
           { className: "q-stack" },

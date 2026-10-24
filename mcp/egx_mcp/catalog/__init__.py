@@ -1,6 +1,7 @@
 """«السجل»'s catalog: every asset the search can find, keyed the way holdings.symbol stores it.
 
-- currencies (price = EGP per unit) and gold by gram or ounce, valued as pure gold (docs/تحول.md);
+- currencies (price = EGP per unit) and gold: a gram of each karat (its pure gold share of the world
+  price), the gold pound (8 g of 21 karat) and the ounce of pure gold (market/prices.py);
 - bitcoin, priced in USD;
 - EGX30 stocks from universe/egx30.json, plus any stock the user still holds after it left the index;
 - funds from funds.json (empty at first);
@@ -47,6 +48,10 @@ CURRENCY_CODES = tuple(code for code, *_ in CURRENCIES)
 STOCK_CURRENCY = {"VLMR": "USD"}
 
 GOLD_ALIASES = ("ذهب", "دهب", "gold", "XAU")
+# (key, karat): a gram of gold of that karat. XAU-G is 24 karat, the key it always had. 21 comes
+# first: it is what most gold in Egypt is, so a search for «دهب» puts it on top; 22 and 14 come
+# after the ounce, so «دهب» still shows the ounce among its six results.
+GOLD_GRAMS = (("XAU-G21", 21), ("XAU-G", 24), ("XAU-G18", 18), ("XAU-G22", 22), ("XAU-G14", 14))
 
 
 def _entry(key, kind, name, name_en, symbol=None, aliases=(), currency="EGP", unit=None, mark=None) -> dict:
@@ -65,14 +70,22 @@ def _mark(name: str, symbol: str | None) -> str:
     return words[0][:2]
 
 
+def _gold_gram(key: str, karat: int) -> dict:
+    aliases = tuple(f"{word} {k}" for word in ("ذهب", "دهب", "عيار", "gold") for k in (karat, f"{karat}k"))
+    return _entry(key, "gold", f"الذهب عيار {karat} (جرام)", f"Gold {karat}K (gram)", "XAU",
+                  GOLD_ALIASES + aliases + (f"ذهب عيار {karat}", f"دهب عيار {karat}", "جرام"), "EGP", "جرام", "Au")
+
+
 @cache
 def builtin_catalog() -> tuple[dict, ...]:
     entries = [_entry(code, "currency", name, name_en, code, aliases, "EGP", code, code)
                for code, name, name_en, aliases in CURRENCIES]
-    entries.append(_entry("XAU-G", "gold", "الذهب (جرام)", "Gold (gram)", "XAU", GOLD_ALIASES + ("جرام",),
-                          "EGP", "جرام", "Au"))
+    entries += [_gold_gram(key, karat) for key, karat in GOLD_GRAMS[:3]]
+    entries.append(_entry("XAU-COIN", "gold", "الجنيه الذهب", "Gold pound (8 g, 21K)", "XAU",
+                          GOLD_ALIASES + ("جنيه ذهب", "جنيه دهب", "جنيه الذهب", "gold pound"), "EGP", "جنيه ذهب", "Au"))
     entries.append(_entry("XAU-OZ", "gold", "الذهب (أونصة)", "Gold (ounce)", "XAU",
                           GOLD_ALIASES + ("اونصة", "أوقية", "ounce"), "EGP", "أونصة", "Au"))
+    entries += [_gold_gram(key, karat) for key, karat in GOLD_GRAMS[3:]]
     entries.append(_entry("BTC", "bitcoin", "بيتكوين", "Bitcoin", "BTC", ("بتكوين", "bitcoin", "₿"), "USD",
                           "BTC", "₿"))
     for c in load_universe()["constituents"]:
@@ -145,12 +158,13 @@ def find(conn: sqlite3.Connection, key: str) -> dict | None:
 
 _FOLD = str.maketrans({"أ": "ا", "إ": "ا", "آ": "ا", "ٱ": "ا", "ى": "ي", "ة": "ه", "ؤ": "و", "ئ": "ي"})
 _MARKS = dict.fromkeys([*range(0x064B, 0x0660), 0x0670, 0x0640])
+_DIGITS = str.maketrans("٠١٢٣٤٥٦٧٨٩۰۱۲۳۴۵۶۷۸۹", "01234567890123456789")
 _KIND_ORDER = {"currency": 0, "gold": 1, "bitcoin": 2, "stock": 3, "fund": 4, "deposit": 5}
 
 
 def normalize(text: str | None) -> str:
-    """Lower case; Arabic without diacritics or tatweel, one alef/ya/ha spelling, «ال» dropped."""
-    folded = str(text or "").lower().translate(_MARKS).translate(_FOLD)
+    """Lower case; Arabic without diacritics or tatweel, one alef/ya/ha spelling, Latin digits, «ال» dropped."""
+    folded = str(text or "").lower().translate(_MARKS).translate(_FOLD).translate(_DIGITS)
     return " ".join(w[2:] if w.startswith("ال") and len(w) > 3 else w for w in folded.split())
 
 

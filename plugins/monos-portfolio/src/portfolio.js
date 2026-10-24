@@ -11,7 +11,7 @@ import { MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
 import { search } from './search.mjs'
 import { ExportButton } from './export.js'
-import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositForm } from './deposit.js'
+import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm } from './deposit.js'
 import LEDGER_CSS from './ledger.css'
 
 export const CURRENCY_SIGN = { EGP: 'ج.م', USD: '$', EUR: '€', GBP: '£', SAR: 'ر.س', AED: 'د.إ' }
@@ -238,6 +238,8 @@ function LotItem({ lot, asset, onChanged }) {
   const [cost, setCost] = useState(lot.cost_egp == null ? '' : String(Math.round(lot.cost_egp * 100) / 100))
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
+  const isDeposit = asset.kind === DEPOSIT_KIND
+  const terms = useDepositEdit(asset.deposit)
   const run = async (action) => {
     setBusy(true); setError('')
     try { await action(); setMode('view'); onChanged() } catch (e) { setError(e.message) } finally { setBusy(false) }
@@ -247,6 +249,11 @@ function LotItem({ lot, asset, onChanged }) {
     if (!(q > 0) || !(p > 0)) return setError('الكمية والسعر لازم يكونوا أكبر من صفر')
     if (d === undefined) return setError('اكتب التاريخ بصيغة يوم/شهر/سنة')
     const body = { quantity: q, buy_price: p, buy_date: d, note }
+    if (isDeposit && asset.deposit) {
+      const changed = terms.build(d)
+      if (changed.error) return setError(changed.error)
+      body.deposit = changed.deposit
+    }
     if (lot.currency !== 'EGP' && c > 0 && (lot.cost_egp == null || Math.abs(c - lot.cost_egp) > 0.005)) body.cost_egp = c
     return run(() => api('PATCH', `/egx/api/holdings/${lot.id}`, body))
   }
@@ -258,7 +265,8 @@ function LotItem({ lot, asset, onChanged }) {
       box(asset.kind === DEPOSIT_KIND ? 'المبلغ' : 'الكمية', qty, setQty, { inputMode: 'decimal', style: { width: 110 } }),
       asset.key === 'EGP' || asset.kind === DEPOSIT_KIND ? null : box(`السعر (${sign(lot.currency)})`, price, setPrice, { inputMode: 'decimal', style: { width: 110 } }),
       lot.currency !== 'EGP' ? box('المدفوع بالجنيه', cost, setCost, { inputMode: 'decimal', style: { width: 120 } }) : null,
-      box('التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
+      box(isDeposit ? 'تاريخ البداية' : 'التاريخ', day, setDay, { placeholder: 'يوم/شهر/سنة', style: { width: 120 } }),
+      isDeposit && asset.deposit ? terms.fields : null,
       h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, 'ملاحظة'),
         h('input', { className: 'q-input', value: note, maxLength: 200, onChange: (e) => setNote(e.target.value) })),
       h('span', { className: 'l-lot-actions' },

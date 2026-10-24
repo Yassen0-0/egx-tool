@@ -66,11 +66,13 @@ def portfolio_add(asset: str | None = None, buy_price: float | None = None, quan
 
 
 def portfolio_update(holding_id: int, quantity: float | None = None, buy_price: float | None = None,
-                     buy_date: str | None = None, note: str | None = None, cost_egp: float | None = None) -> dict:
-    """Edit one purchase; the EGP cost keeps the rate saved at purchase unless cost_egp is given.
-    Confirm with the user before calling."""
+                     buy_date: str | None = None, note: str | None = None, cost_egp: float | None = None,
+                     deposit: dict | None = None) -> dict:
+    """Edit one purchase; the EGP cost keeps the rate saved at purchase unless cost_egp is given. A
+    certificate's terms change with `deposit` = any of {rate (a fraction), start_date, maturity_date,
+    payout, bank}; its buy_date is its start date. Confirm with the user before calling."""
     with _db() as conn:
-        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note, cost_egp)
+        return portfolio.update_holding(conn, holding_id, quantity, buy_price, buy_date, note, cost_egp, deposit)
 
 
 def portfolio_remove(holding_id: int) -> dict:
@@ -114,15 +116,17 @@ def fund_components_set(fund: str, components: list[dict]) -> dict:
 
 def prices_sync() -> dict:
     """Refresh the ledger's prices from EODHD within today's call budget, then record the day's total
-    (the desktop app runs it every 5 minutes)."""
+    (the desktop app runs it every 5 minutes). The day's total is recorded even without a key or
+    when the refresh fails, so «تطوّر ثروتي» has no gaps from the prices the ledger already has."""
     key = resolve_api_key()
-    if not key:
-        return {"ok": False, "error": "no_key",
-                "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
     with _db() as conn:
-        result = sync_market(conn, EodhdClient(key))
-        portfolio.record_snapshot(conn)
-        return result
+        try:
+            if not key:
+                return {"ok": False, "error": "no_key",
+                        "message": "EODHD key not found: set EODHD_API_KEY in ~/.dsh/.env or keep the key in egx-api.docx"}
+            return sync_market(conn, EodhdClient(key))
+        finally:
+            portfolio.record_snapshot(conn)
 
 
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.

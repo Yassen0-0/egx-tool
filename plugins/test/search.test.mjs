@@ -15,6 +15,7 @@ test('spelling folds: hamza forms, ta marbuta, alef maqsura, diacritics and «ا
   assert.equal(normalize('أُونصة'), 'اونصه')
   assert.equal(normalize('مصطفى'), 'مصطفي')
   assert.equal(normalize('  COMI '), 'comi')
+  assert.equal(normalize('دهب ٢١'), 'دهب 21')  // Arabic-Indic digits, as the Python search folds them
 })
 
 test('symbol first, then the start of a word, then inside a name', () => {

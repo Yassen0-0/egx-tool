@@ -55,6 +55,35 @@ export function useDepositForm() {
   return { fields, build }
 }
 
+/** The edit line's extra fields for a certificate's terms (its date box is the start date).
+ *  `build(start)` is `{ error }` or `{ deposit }`, the changed terms for PATCH /egx/api/holdings/<id>;
+ *  `start` is the date box parsed (null when left empty). */
+export function useDepositEdit(terms) {
+  const [bank, setBank] = useState(terms?.bank || '')
+  const [rate, setRate] = useState(terms ? String(Number((terms.rate * 100).toFixed(4))) : '')
+  const [maturity, setMaturity] = useState(terms ? fmtDate(terms.maturity_date) : '')
+  const [payout, setPayout] = useState(terms?.payout || 'monthly')
+
+  const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
+  const text = (value, set, extra = {}) => h('input', { className: 'q-input', value, onChange: (e) => set(e.target.value), ...extra })
+  const fields = frag(
+    field('العائد السنوي %', text(rate, setRate, { inputMode: 'decimal', className: 'q-input num', style: { width: 90 } })),
+    field('تاريخ الاستحقاق', text(maturity, setMaturity, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric', style: { width: 120 } })),
+    field('صرف العائد', h('select', { className: 'q-input', value: payout, onChange: (e) => setPayout(e.target.value) },
+      PAYOUT_CHOICES.map(([value, label]) => h('option', { key: value, value }, label)))),
+    field('البنك', text(bank, setBank, { maxLength: 60, style: { width: 120 } })))
+
+  function build(start) {
+    const percent = parseNumberInput(rate)
+    const to = parseDayInput(maturity)
+    if (!(percent > 0) || percent > 100) return { error: 'اكتب العائد السنوي بالنسبة المئوية، زي 27.' }
+    if (!to) return { error: 'اكتب تاريخ الاستحقاق بصيغة يوم/شهر/سنة.' }
+    if (to <= (start || terms?.start_date || '')) return { error: 'تاريخ الاستحقاق لازم يكون بعد تاريخ البداية.' }
+    return { deposit: { rate: Number((percent / 100).toFixed(6)), maturity_date: to, payout, bank: bank.trim() || null } }
+  }
+  return { fields, build }
+}
+
 /** The row's second line: «27% · شهري», or «منتهية». */
 export function depositSub(asset, hidden = false) {
   const d = asset.deposit

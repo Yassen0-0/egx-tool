@@ -119,7 +119,7 @@ test('the ledger search finds Egyptian spellings and offers adding by name', { s
     },
   })
   assert.deepEqual(r.errors.filter((e) => !KNOWN.some((k) => k.test(e))), [])
-  assert.ok(seen.gold[0].includes('الذهب (جرام)') && seen.gold[1].includes('الذهب (أونصة)'))  // the gram first
+  assert.ok(seen.gold[0].includes('الذهب عيار 21 (جرام)') && seen.gold.some((o) => o.includes('الذهب (أونصة)')))  // 21 karat first
   assert.ok(seen.bank[0].includes('البنك التجاري الدولي'))
   assert.match(seen.add, /الدولار الأمريكي/)
   assert.match(seen.add, /سعر USD بالجنيه وقت الشرا/)

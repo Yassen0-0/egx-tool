@@ -82,7 +82,7 @@ def test_unpriced_asset_does_not_fake_the_total(conn):
     portfolio.add_holding(conn, "XAU-G", buy_price=4000, quantity=10)
     totals = portfolio.portfolio_summary(conn, at=AT)["totals"]
     assert totals["value"] == pytest.approx(1000) and totals["growth"] == pytest.approx(0)
-    assert totals["unpriced"] == ["الذهب (جرام)"] and totals["cost"] == pytest.approx(41000)
+    assert totals["unpriced"] == ["الذهب عيار 24 (جرام)"] and totals["cost"] == pytest.approx(41000)
 
 
 def test_custom_asset_is_searchable_and_reused(conn):
@@ -108,7 +108,10 @@ def test_manual_price_loses_to_a_market_close_of_the_same_day(conn):
 def test_the_assistants_search_follows_the_screens_rules(conn):
     from egx_mcp.catalog import normalize, search
     assert normalize("الإسترليني") == "استرليني" and normalize("أُونصة") == "اونصه"
-    assert [e["key"] for e in search(conn, "دهب")] == ["XAU-G", "XAU-OZ"]  # the gram first
+    # 21 karat by the gram first, the ounce still among the six.
+    assert [e["key"] for e in search(conn, "دهب")] == ["XAU-G21", "XAU-G", "XAU-G18", "XAU-COIN", "XAU-OZ", "XAU-G22"]
+    assert search(conn, "دهب ٢١")[0]["key"] == "XAU-G21" and search(conn, "عيار 18")[0]["key"] == "XAU-G18"
+    assert search(conn, "جنيه دهب")[0]["key"] == "XAU-COIN" and search(conn, "جنيه")[0]["key"] == "EGP"
     assert search(conn, "التجاري")[0]["key"] == "COMI"
     assert search(conn, "comi")[0]["key"] == "COMI" and search(conn, "") == []
 

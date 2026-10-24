@@ -290,10 +290,15 @@ def update_holding(
     buy_date: str | None = None,
     note: str | None = None,
     cost_egp: float | None = None,
+    deposit: dict | None = None,
 ) -> dict:
     """Edit a purchase. The cost is recomputed with the rate saved at purchase, not today's; an EGP
-    amount (for a purchase in another currency) sets a new implied rate instead."""
+    amount (for a purchase in another currency) sets a new implied rate instead. A certificate's
+    terms change with `deposit` (some of rate, start_date, maturity_date, payout, bank), and its date
+    is its start date."""
     current = get_holding(conn, holding_id)
+    if deposit is not None and current["kind"] != "deposit":
+        raise LedgerInputError("الشروط للشهادات والودائع بس")
     quantity = current["quantity"] if quantity in (None, "") else _positive(quantity, "الكمية لازم تكون أكبر من صفر")
     buy_price = current["buy_price"] if buy_price in (None, "") else _positive(buy_price, "سعر الشرا لازم يكون أكبر من صفر")
     if current["symbol"] == "EGP" or current["kind"] == "deposit":
@@ -301,6 +306,12 @@ def update_holding(
     fx = current["fx_egp"] or None  # 0: the rate of an old dollar purchase is not known yet
     if cost_egp not in (None, "") and current["currency"] != "EGP":
         fx = _positive(cost_egp, "المبلغ بالجنيه لازم يكون أكبر من صفر") / (quantity * buy_price)
+    if current["kind"] == "deposit":
+        changes = dict(deposit or {})
+        if buy_date not in (None, "") and "start_date" not in changes:
+            changes["start_date"] = _day(buy_date)
+        if changes:
+            buy_date = deposits.update(conn, holding_id, changes)["start_date"]
     conn.execute(
         "UPDATE holdings SET quantity = ?, buy_price = ?, buy_date = ?, note = ?, fx_egp = ?, cost_egp = ?,"
         " updated_at = ? WHERE id = ?",

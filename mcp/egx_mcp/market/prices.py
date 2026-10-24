@@ -24,8 +24,12 @@ FORMULAS: dict[str, tuple[str, tuple[tuple[str, int], ...], float]] = {
     "GBP": ("EGP", (("GBPUSD.FOREX", 1), (USD_EGP, 1)), 1.0),
     "SAR": ("EGP", ((USD_EGP, 1),), 1 / 3.75),
     "AED": ("EGP", ((USD_EGP, 1),), 1 / 3.6725),
-    "XAU-G": ("EGP", (("XAUUSD.FOREX", 1), (USD_EGP, 1)), 1 / TROY_OUNCE_GRAMS),  # pure gold
     "XAU-OZ": ("EGP", (("XAUUSD.FOREX", 1), (USD_EGP, 1)), 1.0),
+    # A gram of each karat is its pure share (karat / 24) of the world price; the gold pound is 8 g
+    # of 21 karat. The jeweller's making charge is not in it: it is part of what the user paid.
+    **{key: ("EGP", (("XAUUSD.FOREX", 1), (USD_EGP, 1)), grams * karat / 24 / TROY_OUNCE_GRAMS)
+       for key, grams, karat in (("XAU-G", 1, 24), ("XAU-G22", 1, 22), ("XAU-G21", 1, 21), ("XAU-G18", 1, 18),
+                                 ("XAU-G14", 1, 14), ("XAU-COIN", 8, 21))},
     "BTC": ("USD", (("BTC-USD.CC", 1),), 1.0),
 }
 FEED_TOLERANCE = timedelta(days=7)  # a past day's rate may come from a bar up to a week earlier

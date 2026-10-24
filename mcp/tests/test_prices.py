@@ -96,6 +96,10 @@ def test_gold_bitcoin_and_currencies_from_feeds(db):
     assert gram["price"] == pytest.approx(4100 * 52 / TROY_OUNCE_GRAMS) and gram["currency"] == "EGP"
     assert gram["change"] == pytest.approx((4100 * 52 - 4000 * 50) / TROY_OUNCE_GRAMS)
     assert formula_price(db, "XAU-OZ", MORNING)["price"] == pytest.approx(4100 * 52)
+    # Each karat is its pure share of the gram; the gold pound is 8 g of 21 karat.
+    for key, factor in (("XAU-G22", 22 / 24), ("XAU-G21", 21 / 24), ("XAU-G18", 18 / 24), ("XAU-G14", 14 / 24),
+                        ("XAU-COIN", 8 * 21 / 24)):
+        assert formula_price(db, key, MORNING)["price"] == pytest.approx(gram["price"] * factor)
     assert formula_price(db, "EUR", MORNING)["price"] == pytest.approx(1.15 * 52)
     assert formula_price(db, "SAR", MORNING)["price"] == pytest.approx(52 / 3.75)
     assert formula_price(db, "AED", MORNING)["price"] == pytest.approx(52 / 3.6725)

@@ -5,14 +5,15 @@ export const MAX_RESULTS = 6
 
 /**
  * Folds what people type to one spelling: Latin lower case; Arabic without diacritics or tatweel;
- * أ/إ/آ/ٱ → ا, ى → ي, ة → ه, ؤ → و, ئ → ي; and «ال» dropped from the start of a word
- * («التجاري» finds «تجاري»).
+ * أ/إ/آ/ٱ → ا, ى → ي, ة → ه, ؤ → و, ئ → ي; Arabic-Indic digits as Latin («٢١» finds «21»); and «ال»
+ * dropped from the start of a word («التجاري» finds «تجاري»).
  */
 export function normalize(text) {
   return String(text == null ? '' : text)
     .toLowerCase()
     .replace(/[ً-ٰٟـ]/g, '')
     .replace(/[أإآٱ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/ؤ/g, 'و').replace(/ئ/g, 'ي')
+    .replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 0x0660)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 0x06F0))
     .split(/\s+/).filter(Boolean)
     .map((word) => (word.startsWith('ال') && word.length > 3 ? word.slice(2) : word))
     .join(' ')
@@ -40,7 +41,7 @@ export function search(entries, query, limit = MAX_RESULTS) {
     const r = rank(entry, query)
     if (r !== null) hits.push([r, index, entry])
   })
-  // Ties keep the catalog's order, which puts the usual choice first (gold by the gram, then the ounce).
+  // Ties keep the catalog's order, which puts the usual choice first (21 karat gold by the gram first).
   hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b[2].kind] ?? 9) || a[1] - b[1])
   return hits.slice(0, limit).map(([, , entry]) => entry)
 }

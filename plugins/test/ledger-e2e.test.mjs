@@ -123,7 +123,7 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       seen.btc = row('بيتكوين').textContent
 
       // 3. Gold with mistakes first: no quantity, then an impossible date.
-      await pick('دهب')
+      await pick('دهب 24')
       seen.goldOptions = null
       await submit()
       seen.noQuantity = host.querySelector('form.l-add [role="alert"]').textContent
@@ -205,7 +205,7 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
   assert.match(seen.goldHint, /سعر الجرام وقت الشرا/)
   assert.match(seen.goldHint, /آخر سعر 6,854\.\d\d ج\.م/)  // 4100 × 52 / 31.1035
   assert.match(seen.unitWarning, /راجع الوحدة/)
-  assert.match(seen.gold, /الذهب \(جرام\)/)
+  assert.match(seen.gold, /الذهب عيار 24 \(جرام\)/)
   assert.match(seen.gold, /68,5\d\d/)  // 10 g × 4100 × 52 / 31.1035 = 68,546
   assert.match(seen.oldRate, /بالجنيه/)
   assert.match(seen.customOption, /إضافة بالاسم ده/)
@@ -280,11 +280,11 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
       seen.fund = row('صندوق مصر الذهبي').textContent
 
       // Deleting the only purchase of the gold removes the asset.
-      await click(row('الذهب (جرام)'))
-      const gold = row('الذهب (جرام)').nextElementSibling
+      await click(row('الذهب عيار 24 (جرام)'))
+      const gold = row('الذهب عيار 24 (جرام)').nextElementSibling
       await click(button('حذف', gold.querySelector('.l-lot')))
       await click(button('احذف العملية', gold))
-      await wait(() => !row('الذهب (جرام)'), 'the gold row to go')
+      await wait(() => !row('الذهب عيار 24 (جرام)'), 'the gold row to go')
       seen.final = text()
     },
   })
@@ -299,7 +299,7 @@ test('the keyboard, cash in pounds, a fund found again by name, its price, and t
   assert.match(seen.fundOption, /صندوق مصر الذهبي/)
   assert.equal(seen.cleared, '')
   assert.match(seen.fund, /\+65\.0%/)  // 16.5 / 10 − 1
-  assert.doesNotMatch(seen.final, /الذهب \(جرام\)/)
+  assert.doesNotMatch(seen.final, /الذهب عيار 24 \(جرام\)/)
   assert.match(seen.final, /32,650 جنيه/)  // 26,000 + 5,000 + 1,650
 })
 
@@ -359,6 +359,19 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
       await click(row('شهادة البنك الأهلي'))
       const detail = row('شهادة البنك الأهلي').nextElementSibling
       seen.detail = detail.textContent.replace(/\s+/g, ' ')
+
+      // Editing the certificate changes its terms, not just the purchase line.
+      await click(button('تعديل', detail))
+      const box = (name) => [...detail.querySelectorAll('label')].find((l) => l.textContent.startsWith(name)).querySelector('input, select')
+      seen.editFields = [...detail.querySelectorAll('.l-lot label .q-label')].map((l) => l.textContent)
+      await setValue(box('العائد السنوي'), '30')
+      await setValue(box('تاريخ الاستحقاق'), '1/1/2025')
+      await click(button('حفظ', detail))
+      seen.editBadOrder = detail.querySelector('[role="alert"]').textContent
+      await setValue(box('تاريخ الاستحقاق'), '1/1/2030')
+      await click(button('حفظ', detail))
+      await wait(() => row('شهادة البنك الأهلي 30%'), 'the certificate at its new rate')
+      seen.edited = row('شهادة البنك الأهلي 30%').nextElementSibling.textContent.replace(/\s+/g, ' ')
     },
   })
   assert.deepEqual(r.errors, [])
@@ -375,4 +388,9 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
   assert.match(seen.detail, /العائد في السنة 27,000 ج\.م/)
   assert.match(seen.detail, /الصرف الجاي \d\d\/\d\d\/\d{4}/)
   assert.doesNotMatch(seen.detail, /تحديث السعر/)
+  assert.deepEqual(seen.editFields, ['المبلغ', 'تاريخ البداية', 'العائد السنوي %', 'تاريخ الاستحقاق', 'صرف العائد', 'البنك', 'ملاحظة'])
+  assert.match(seen.editBadOrder, /بعد تاريخ البداية/)
+  assert.match(seen.edited, /العائد السنوي 30%/)
+  assert.match(seen.edited, /الاستحقاق 01\/01\/2030/)
+  assert.match(seen.edited, /العائد في السنة 30,000 ج\.م/)
 })

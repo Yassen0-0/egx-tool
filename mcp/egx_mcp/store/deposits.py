@@ -9,13 +9,18 @@ paid, the bank). Nothing is priced: the value is worked out from the terms and t
 - Interest paid at maturity: the certificate holds principal + simple interest accrued to today
   (principal × rate × days / 365), the whole term's interest once it has matured.
 - After maturity the certificate shows as matured, never as gone: the user removes it themselves.
+- A certificate that settles into EGP (settle_to_egp, the default for a new one): each payout, and
+  at maturity the principal (with the interest when it is paid at the end), come into the pounds
+  of the ledger on their day (`settlements`), and once matured it is worth nothing more itself. A
+  regular payout is the annual rate over 12 per month of the period, as banks pay it; a shorter
+  last period counts its days.
 
 These are the terms the user typed, described as numbers; no forecast of anything else.
 """
 
 import sqlite3
 from calendar import monthrange
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..errors import LedgerInputError
 from .db import now_iso
@@ -71,7 +76,7 @@ def validate(deposit: dict) -> dict:
             "payout": payout, "bank": bank}
 
 
-def add(conn: sqlite3.Connection, principal: float, note: str | None, deposit: dict) -> int:
+def add(conn: sqlite3.Connection, principal: float, note: str | None, deposit: dict, settle_to_egp: bool = False) -> int:
     """Insert the holding and its terms; returns the holding id. Validate first, so a rejected input
     writes nothing. The caller commits."""
     terms = validate(deposit)
@@ -83,8 +88,10 @@ def add(conn: sqlite3.Connection, principal: float, note: str | None, deposit: d
          _name(terms["bank"], terms["rate"]), principal)).lastrowid
     conn.execute("UPDATE holdings SET symbol = ? WHERE id = ?", (f"deposit:{holding_id}", holding_id))
     conn.execute(
-        "INSERT INTO deposits (holding_id, rate, start_date, maturity_date, payout, bank) VALUES (?, ?, ?, ?, ?, ?)",
-        (holding_id, terms["rate"], terms["start_date"], terms["maturity_date"], terms["payout"], terms["bank"]))
+        "INSERT INTO deposits (holding_id, rate, start_date, maturity_date, payout, bank, settle_to_egp)"
+        " VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (holding_id, terms["rate"], terms["start_date"], terms["maturity_date"], terms["payout"], terms["bank"],
+         1 if settle_to_egp else 0))
     return holding_id
 
 
@@ -126,6 +133,43 @@ def next_payout(terms: dict, today: date) -> date | None:
     return due
 
 
+def payout_amount(terms: dict, principal: float, previous: date, due: date) -> float:
+    """One payout: rate / 12 per month of a full period, the days of a shorter last one."""
+    step = _STEP_MONTHS[terms["payout"]]
+    if due == add_months(previous, step):
+        return principal * terms["rate"] * step / 12
+    return principal * terms["rate"] * (due - previous).days / 365
+
+
+def schedule(terms: dict) -> list[tuple[date, date]]:
+    """(previous, due) of every regular payout up to maturity; empty when paid at the end."""
+    step = _STEP_MONTHS.get(terms["payout"])
+    if step is None:
+        return []
+    start, maturity = date.fromisoformat(terms["start_date"]), date.fromisoformat(terms["maturity_date"])
+    out, k, previous = [], 1, start
+    while True:
+        due = min(add_months(start, k * step), maturity)
+        out.append((previous, due))
+        if due >= maturity:
+            return out
+        previous, k = due, k + 1
+
+
+def settlements(terms: dict, principal: float, until: date) -> list[dict]:
+    """What the certificate paid into EGP up to `until`: each payout, then the principal at maturity
+    (with the whole interest when it is paid at the end). Empty unless it settles into EGP."""
+    if not terms.get("settle_to_egp"):
+        return []
+    start, maturity = date.fromisoformat(terms["start_date"]), date.fromisoformat(terms["maturity_date"])
+    out = [{"date": due.isoformat(), "amount": payout_amount(terms, principal, previous, due), "what": "عائد"}
+           for previous, due in schedule(terms) if due <= until]
+    if maturity <= until:
+        interest = principal * terms["rate"] * (maturity - start).days / 365 if terms["payout"] == "maturity" else 0.0
+        out.append({"date": maturity.isoformat(), "amount": principal + interest, "what": "استحقاق"})
+    return out
+
+
 def valued(terms: dict | None, principal: float, at: datetime) -> dict:
     """What the certificate is worth today and the terms around it. `terms` None (a deposit whose row
     is missing) is valued at its principal."""
@@ -138,7 +182,11 @@ def valued(terms: dict | None, principal: float, at: datetime) -> dict:
     per_year = principal * terms["rate"]
     earned = per_year * days / 365
     value = principal + earned if terms["payout"] == "maturity" else principal
-    upcoming = next_payout(terms, today)
+    if matured and terms.get("settle_to_egp"):
+        value = 0.0  # its money came back into the pounds on the maturity day
+    # One that settles into EGP was already paid today's payout: its next one is after today.
+    upcoming = next_payout(terms, today + timedelta(days=1) if terms.get("settle_to_egp") else today)
+    pending = [(p, d) for p, d in schedule(terms) if d == upcoming]
     return {
         "value": value,
         "deposit": {
@@ -148,5 +196,9 @@ def valued(terms: dict | None, principal: float, at: datetime) -> dict:
             "days_left": None if matured else (maturity - today).days,
             "interest_per_year": per_year, "interest_to_date": earned,
             "next_payout_date": upcoming.isoformat() if upcoming else None,
+            "next_payout_egp": None if upcoming is None else (
+                payout_amount(terms, principal, *pending[0]) if pending
+                else principal * terms["rate"] * (maturity - start).days / 365),
+            "settle_to_egp": bool(terms.get("settle_to_egp")),
         },
     }

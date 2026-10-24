@@ -15,6 +15,7 @@ import { DEPOSIT_KIND, DepositInfo, depositSub, useDepositEdit, useDepositForm }
 import { MoveForm, MoveItem } from './moves.js'
 import { ActivityView } from './activity.js'
 import { DEBT_KIND, DebtRow, PlaceList, useDebtForm } from './debts.js'
+import { ActionItem, PaidItem, StockEventForm, Upcoming } from './events.js'
 import { CURRENCY_SIGN, money, sign } from './units.mjs'
 import LEDGER_CSS from './ledger.css'
 
@@ -375,9 +376,13 @@ function Timeline({ asset, onChanged, onOpen }) {
   const moved = events.some((e) => e.type !== 'lot')
   return h('div', null,
     h('h3', null, moved ? `الحركات (${events.length})` : events.length > 1 ? `العمليات (${events.length})` : 'العملية'),
-    events.map((e) => e.type === 'lot'
-      ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged })
-      : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen })))
+    events.map((e) => e.type === 'lot' && e.id < 0
+      ? h(PaidItem, { key: `p${e.id}`, event: e, onOpen })
+      : e.type === 'lot'
+        ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged })
+        : e.type === 'action'
+          ? h(ActionItem, { key: `a${e.id}`, event: e, asset, onChanged })
+          : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen })))
 }
 
 export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) {
@@ -419,12 +424,20 @@ export function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) 
       h(Timeline, { asset, onChanged, onOpen }),
       asset.realized_egp && Math.abs(asset.realized_egp) >= 1
         ? h('p', { className: 'l-hint' }, 'ربح محقق من اللي اتحوّل ', hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), ' ج.م') : null,
-      movable ? (moving
+      asset.dividends_egp >= 1
+        ? h('p', { className: 'l-hint' }, 'توزيعات استلمتها ', hid(hidden, money(asset.dividends_egp)), ' ج.م') : null,
+      movable ? (['dividend', 'bonus', 'split'].includes(moving)
+        ? h(StockEventForm, { asset, kind: moving, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
+        : moving
         ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : h('div', { className: 'l-inline' },
           h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => setMoving('transfer') }, 'تحويل منه'),
           h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('expense') }, 'خروج (صرفت أو سحبت)'),
-          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('place') }, 'نقل لمكان تاني'))) : null,
+          h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('place') }, 'نقل لمكان تاني'),
+          asset.kind === 'stock' || asset.kind === 'fund' ? frag(
+            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('dividend') }, 'توزيعات'),
+            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('bonus') }, 'أسهم مجانية'),
+            h('button', { type: 'button', className: 'q-btn q-btn-sm q-btn-quiet', onClick: () => setMoving('split') }, 'تقسيم')) : null)) : null,
       asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
       asset.key === 'EGP' || asset.kind === DEPOSIT_KIND || closed ? null : h('div', null,
         h('h3', null, 'السعر'),
@@ -525,6 +538,7 @@ export function PortfolioPage() {
       h(PlaceList, { id: 'l-places', places: totals.places }),
       h(TotalBlock, { totals }),
       h(HistoryChart),
+      h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
       h('div', { className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
         [['assets', 'الأصول'], ['activity', 'الحركات']].map(([id, label]) => h('button', {
           key: id, type: 'button', role: 'tab', 'aria-selected': view === id, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),

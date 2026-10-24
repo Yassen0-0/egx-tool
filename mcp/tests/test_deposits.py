@@ -23,8 +23,9 @@ def conn(tmp_path):
 
 
 def terms(**over):
+    """A certificate as one recorded before it could settle into EGP (the tests below the line set it)."""
     return {"rate": 0.27, "start_date": "2025-10-15", "maturity_date": "2028-10-15", "payout": "monthly",
-            "bank": "البنك الأهلي", **over}
+            "bank": "البنك الأهلي", "settle_to_egp": False, **over}
 
 
 def add(conn, amount=100000, **over):
@@ -48,7 +49,7 @@ def test_old_database_gets_the_deposits_table(tmp_path):
     assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION >= 5
     assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 1
     assert [r["name"] for r in conn.execute("PRAGMA table_info(deposits)")] == [
-        "holding_id", "rate", "start_date", "maturity_date", "payout", "bank"]
+        "holding_id", "rate", "start_date", "maturity_date", "payout", "bank", "settle_to_egp"]
     assert len(list((tmp_path / "backups").glob(f"egx-*-before-v{SCHEMA_VERSION}.sqlite"))) == 1
     lot = add(conn)
     assert lot["symbol"] == f"deposit:{lot['id']}"

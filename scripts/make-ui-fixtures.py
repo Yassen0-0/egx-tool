@@ -61,8 +61,9 @@ def main() -> None:
     portfolio.set_fund_components(conn, fund["symbol"], [{"asset": "COMI", "weight": 0.32}, {"asset": "TMGH", "weight": 0.18}])
 
     # Bank certificates: one paying monthly, one paying at the end.
+    # Recorded the way certificates were before they could settle into EGP (store/deposits.py).
     deposit = {"rate": 0.27, "start_date": "2025-10-15", "maturity_date": "2028-10-15", "payout": "monthly",
-               "bank": "البنك الأهلي"}
+               "bank": "البنك الأهلي", "settle_to_egp": False}
     portfolio.add_holding(conn, amount=100000, deposit=deposit)
     portfolio.add_holding(conn, amount=50000, deposit={**deposit, "rate": 0.25, "bank": "بنك مصر",
                                                        "start_date": "2026-04-15", "payout": "maturity"})

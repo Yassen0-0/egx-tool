@@ -22,6 +22,8 @@ export function useDepositForm() {
   const [maturity, setMaturity] = useState('')
   const [payout, setPayout] = useState('monthly')
   const [note, setNote] = useState('')
+  const [settle, setSettle] = useState(true)
+  const [fromEgp, setFromEgp] = useState(false)
 
   const field = (label, input) => h('label', { className: 'q-stack' }, h('span', { className: 'q-label' }, label), input)
   const text = (value, set, extra = {}) => h('input', { className: 'q-input', value, onChange: (e) => set(e.target.value), ...extra })
@@ -33,7 +35,11 @@ export function useDepositForm() {
     field('تاريخ الاستحقاق', text(maturity, setMaturity, { placeholder: 'يوم/شهر/سنة', inputMode: 'numeric' })),
     field('صرف العائد', h('select', { className: 'q-input', value: payout, onChange: (e) => setPayout(e.target.value) },
       PAYOUT_CHOICES.map(([value, label]) => h('option', { key: value, value }, label)))),
-    field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 })))
+    field('ملاحظة (اختياري)', text(note, setNote, { maxLength: 200 })),
+    h('label', { className: 'l-inline q-sec' }, h('input', { type: 'checkbox', checked: settle, onChange: (e) => setSettle(e.target.checked) }),
+      'العائد والأصل في الاستحقاق يدخلوا الجنيه اللي في السجل'),
+    h('label', { className: 'l-inline q-sec' }, h('input', { type: 'checkbox', checked: fromEgp, onChange: (e) => setFromEgp(e.target.checked) }),
+      'اشتريتها بجنيه من اللي في السجل'))
 
   function build() {
     const principal = parseNumberInput(amount)
@@ -48,7 +54,8 @@ export function useDepositForm() {
     return {
       body: {
         amount: principal, buy_price: 1, currency: 'EGP', note: note.trim() || null,
-        deposit: { rate: Number((percent / 100).toFixed(6)), start_date: from, maturity_date: to, payout, bank: bank.trim() || null },
+        deposit: { rate: Number((percent / 100).toFixed(6)), start_date: from, maturity_date: to, payout, bank: bank.trim() || null,
+          settle_to_egp: settle, from_egp: fromEgp },
       },
     }
   }
@@ -112,5 +119,6 @@ export function DepositInfo({ asset }) {
       d.status === 'matured'
         ? item('state', 'الشهادة انتهت')
         : item('next', d.payout === 'maturity' ? 'العائد يتصرف في ' : 'الصرف الجاي ', N(fmtDate(d.next_payout_date))),
-      d.payout === 'maturity' ? item('earned', 'العائد المتراكم داخل القيمة ', N(hidden ? MASK : fmtNumber(d.interest_to_date, 0)), ' ج.م') : null))
+      d.payout === 'maturity' ? item('earned', 'العائد المتراكم داخل القيمة ', N(hidden ? MASK : fmtNumber(d.interest_to_date, 0)), ' ج.م') : null,
+      d.settle_to_egp ? item('settle', 'العائد بيدخل الجنيه في مواعيده') : null))
 }

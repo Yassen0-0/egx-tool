@@ -337,7 +337,8 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
       await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
       await wait(form, 'the custom add line')
       await setValue(labelled('النوع'), 'deposit')
-      seen.fields = [...form().querySelectorAll('label')].map((l) => l.querySelector('.q-label').textContent)
+      seen.fields = [...form().querySelectorAll('label .q-label')].map((l) => l.textContent)
+      seen.checks = [...form().querySelectorAll('label input[type="checkbox"]')].map((c) => [c.parentElement.textContent, c.checked])
       seen.kinds = [...labelled('النوع').options].map((o) => o.textContent)
 
       await click(button('إضافة', form()))
@@ -377,6 +378,7 @@ test('a certificate: picked by kind, its terms typed, the mistakes named, then i
   assert.deepEqual(r.errors, [])
   assert.deepEqual(seen.fields, ['النوع', 'البنك', 'المبلغ (ج.م)', 'العائد السنوي %', 'تاريخ البداية', 'تاريخ الاستحقاق', 'صرف العائد', 'ملاحظة (اختياري)'])
   assert.ok(seen.kinds.includes('شهادة/وديعة'))
+  assert.deepEqual(seen.checks, [['العائد والأصل في الاستحقاق يدخلوا الجنيه اللي في السجل', true], ['اشتريتها بجنيه من اللي في السجل', false]])
   assert.match(seen.noAmount, /اكتب مبلغ الشهادة/)
   assert.match(seen.badOrder, /بعد تاريخ البداية/)
   assert.match(seen.row, /100,000/)
@@ -572,4 +574,70 @@ test('a debt: added by kind with its pounds received at a place, an installment 
   assert.match(seen.places, /سداد قرض العربية/)
   assert.match(seen.moved, new RegExp(`الأهلي ${(before - 1000).toLocaleString('en-US')}`))
   assert.match(seen.moved, /نقل من الأهلي لـ كاش/)
+})
+
+test('a stock: bought, a dividend into the pounds, bonus shares at no cost, and what is due soon', { skip }, async () => {
+  const seen = {}
+  const r = await harness.renderClient([join(here, '..', 'monos-portfolio', 'client.js')], {
+    fetch: backend,
+    now: Date.now(),
+    async interact(key, host, { act, window }) {
+      if (!host.querySelector('.qm')) return
+      const text = (el = host) => el.textContent.replace(/\s+/g, ' ')
+      const wait = async (cond, what) => {
+        for (let i = 0; i < 300; i++) {
+          if (cond()) return
+          await act(async () => { await new Promise((res) => setTimeout(res, 20)) })
+        }
+        throw new Error(`timed out waiting for ${what}\n${text().slice(-600)}`)
+      }
+      const setValue = async (el, value) => {
+        await act(async () => {
+          Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set.call(el, value)
+          el.dispatchEvent(new window.Event('input', { bubbles: true }))
+        })
+      }
+      const click = async (el) => { await act(async () => { el.dispatchEvent(new window.MouseEvent('click', { bubbles: true })) }) }
+      const button = (label, scope = host) => [...scope.querySelectorAll('button')].find((b) => b.textContent.trim() === label)
+      const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.querySelector('.l-name').textContent === name)
+      const detail = (name) => row(name).nextElementSibling
+      const labelIn = (scope, name) => [...scope.querySelectorAll('label, .q-stack')].find((l) => l.textContent.startsWith(name)).querySelector('input')
+      const bank = 'البنك التجاري الدولي'
+
+      await wait(() => host.querySelector('input[role="combobox"]') && row('الجنيه المصري'), 'the ledger from the earlier tests')
+      seen.upcoming = text(host.querySelector('.l-upcoming'))
+      await setValue(host.querySelector('input[role="combobox"]'), 'COMI')
+      await wait(() => host.querySelector('[role="option"]'), 'COMI in the search')
+      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      const add = host.querySelector('form.l-add')
+      await setValue(add.querySelector('input[aria-label="الكمية أو المبلغ"]'), '100')
+      await setValue(add.querySelector('input[aria-label="سعر الشرا"]'), '100')
+      await click(button('إضافة', add))
+      await wait(() => row(bank), 'the stock row')
+      await click(row(bank))
+
+      await click(button('توزيعات', detail(bank)))
+      await setValue(labelIn(host.querySelector('form[aria-label="توزيعات"]'), 'المبلغ اللي دخلك'), '250')
+      await click(button('سجّل', host.querySelector('form[aria-label="توزيعات"]')))
+      await wait(() => text(detail(bank)).includes('توزيعات استلمتها 250'), 'the dividend under the stock')
+
+      await click(button('أسهم مجانية', detail(bank)))
+      const bonus = host.querySelector('form[aria-label="أسهم مجانية أو تقسيم"]')
+      await setValue(labelIn(bonus, 'عدد الأسهم المجانية'), '10')
+      await click(button('سجّل', bonus))
+      await wait(() => text(row(bank)).includes('110 سهم'), 'the bonus shares')
+      seen.stock = text(detail(bank))
+      seen.row = text(row(bank))
+      await click(row('الجنيه المصري'))
+      await wait(() => detail('الجنيه المصري'), 'the pounds open')
+      seen.pounds = text(detail('الجنيه المصري'))
+    },
+  })
+  assert.deepEqual(r.errors, [])
+  assert.match(seen.upcoming, /الجاي قريب.*عائد شهادة البنك الأهلي 30% ?2,500 ج\.م.*قسط قرض العربية ?2,500 ج\.م/)
+  assert.match(seen.stock, /\+10 سهم أسهم مجانية/)
+  assert.match(seen.row, /110 سهم/)
+  assert.match(seen.row, /13,420/)  // 110 × 122, at the same 10,000 cost
+  assert.match(seen.row, /\+34\.2%/)
+  assert.match(seen.pounds, /توزيعات البنك التجاري الدولي/)
 })

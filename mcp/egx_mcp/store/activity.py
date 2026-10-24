@@ -22,11 +22,20 @@ def _items(summary: dict) -> list[dict]:
     for asset in assets.values():
         for lot in asset["lots"]:
             day = lot["buy_date"] or lot["created_at"][:10]
-            items.append({"id": f"lot:{lot['id']}", "kind": "income", "kind_label": KINDS["income"], "date": day,
-                          "from": None, "from_quantity": None, "to": _side(asset), "to_quantity": lot["quantity"],
+            source = assets.get((lot.get("origin") or "").removeprefix("dividend:"))
+            items.append({"id": f"lot:{lot['id']}", "kind": "income",
+                          "kind_label": "توزيعات" if source else KINDS["income"], "date": day,
+                          "from": _side(source) if source else None, "from_quantity": None, "to": _side(asset),
+                          "to_quantity": lot["quantity"],
                           "value_egp": lot["cost_egp"], "realized_egp": None, "note": lot["note"],
                           "from_place": None, "to_place": lot.get("place")})
         for e in asset["events"]:
+            if e["type"] == "lot" and e["id"] < 0:  # what a certificate paid into the pounds
+                source = assets.get(e["origin"])
+                items.append({"id": f"paid:{-e['id']}", "kind": "income", "kind_label": "عائد", "date": e["date"],
+                              "from": _side(source) if source else None, "from_quantity": None, "to": _side(asset),
+                              "to_quantity": e["quantity"], "value_egp": e["cost_egp"], "realized_egp": None,
+                              "note": e["note"], "from_place": None, "to_place": None})
             if e["type"] != "out":
                 continue
             other = assets.get(e["to_asset"]) if e["to_asset"] else None

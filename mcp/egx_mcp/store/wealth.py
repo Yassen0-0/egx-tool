@@ -6,7 +6,8 @@ and how a period moved in EGP, in dollars and in gold, with the money that came 
   certificate from its terms. The last point is the ledger's own total, so the line ends where the
   screen's big number is.
 - Debts (store/debts.py): what is left of each one that day is taken off the total.
-- Money in: a purchase (its EGP cost) is money coming in, an expense money going out, and so is a
+- Money in: a purchase (its EGP cost) is money coming in, unless it is a return of another asset
+  (a dividend, what a certificate paid) or a certificate bought with the ledger's own pounds; an expense money going out, and so is a
   debt when it starts (the borrowed pounds, if recorded, come in as a purchase); a transfer or a
   repayment moves money inside the ledger and is neither.
 - A period's move: market = end − start − money in. Its percent is market over the start plus each
@@ -25,7 +26,7 @@ from datetime import date, datetime, time, timedelta
 from functools import lru_cache
 from pathlib import Path
 
-from ..catalog import catalog
+from ..catalog import DEPOSIT_PREFIX, catalog
 from ..config import data_dir
 from ..market.calendar import CAIRO, now_cairo
 from . import debts, deposits, portfolio
@@ -106,9 +107,12 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
     at = at or now_cairo()
     today = at.date()
     entries = {e["key"]: e for e in catalog(conn)}
-    book = portfolio._book(conn, lambda key, quantity, day: portfolio.value_on(conn, entries.get(key), quantity, day))
+    book = portfolio._book(conn, lambda key, quantity, day: portfolio.value_on(conn, entries.get(key), quantity, day),
+                           today)
     tracks = {}
     for key, held in book["assets"].items():
+        if key.startswith(DEPOSIT_PREFIX):
+            continue  # a certificate is valued from its terms below
         events = held["events"]
         tracks[key] = (events, [e["date"] for e in events])
     certificates = [dict(r) for r in conn.execute("SELECT * FROM holdings WHERE kind = 'deposit' ORDER BY id")]
@@ -118,11 +122,14 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
     flows: dict[str, float] = {}
     for events, _ in tracks.values():
         for e in events:
-            if e["type"] == "lot" and e["cost_egp"] is not None:
+            if e["type"] == "lot" and e["cost_egp"] is not None and not e.get("origin"):  # a return is not new money
                 flows[e["date"]] = flows.get(e["date"], 0.0) + e["cost_egp"]
             elif e["type"] == "out" and e["kind"] == "expense" and e["value_egp"] is not None:
                 flows[e["date"]] = flows.get(e["date"], 0.0) - e["value_egp"]
+    bought = {key for key, held in book["assets"].items() if key.startswith(DEPOSIT_PREFIX)}
     for c in certificates:
+        if c["symbol"] in bought:
+            continue  # bought with the ledger's pounds: no new money
         day = c["buy_date"] or c["created_at"][:10]
         flows[day] = flows.get(day, 0.0) + c["cost_egp"]
     for d, _ in owed:

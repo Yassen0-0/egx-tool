@@ -109,11 +109,12 @@ def test_step_7_keeps_the_movements_and_lets_a_debt_be_repaid(tmp_path):
         PRAGMA user_version = 6;""")
     old.close()
     conn = connect(path)
-    assert conn.execute("PRAGMA user_version").fetchone()[0] == 7
+    from egx_mcp.store.db import SCHEMA_VERSION
+    assert conn.execute("PRAGMA user_version").fetchone()[0] == SCHEMA_VERSION
     row = dict(conn.execute("SELECT * FROM movements").fetchone())
     assert (row["id"], row["to_asset"], row["note"], row["from_place"]) == (1, "USD", "x", None)
     conn.execute("INSERT INTO movements (date, kind, from_asset, from_quantity, to_asset, to_quantity, created_at, updated_at)"
                  " VALUES ('2026-10-03', 'repay', 'USD', 1, 'debt:1', 50, 'x', 'x')")
     assert {r["name"] for r in conn.execute("PRAGMA table_info(holdings)")} >= {"place"}
-    assert len(list((tmp_path / "backups").glob("egx-*-before-v7.sqlite"))) == 1
+    assert len(list((tmp_path / "backups").glob(f"egx-*-before-v{SCHEMA_VERSION}.sqlite"))) == 1
     conn.close()

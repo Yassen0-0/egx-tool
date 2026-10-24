@@ -58,7 +58,7 @@ var __monos = (() => {
   var { useState, useEffect, useCallback } = import_react.default;
   var h = import_react.default.createElement;
   var PANEL_ID = "egx-portfolio";
-  var N = (text3, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text3);
+  var N = (text4, cls) => h("span", { className: cls ? `num ${cls}` : "num" }, text4);
   var frag = (...children) => h(import_react.default.Fragment, null, ...children);
   async function api(method, path, body) {
     const init = { method, headers: {} };
@@ -152,16 +152,16 @@ var __monos = (() => {
     const r = Math.round(v * 1e4);
     return r > 0 ? "q-up" : r < 0 ? "q-down" : "";
   }
-  function parseNumberInput(text3) {
-    if (text3 == null) return null;
-    const latin = String(text3).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
+  function parseNumberInput(text4) {
+    if (text4 == null) return null;
+    const latin = String(text4).trim().replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/٫/g, ".").replace(/[٬\s]/g, "");
     if (!latin) return null;
     const normalized = /^\d{1,3}(,\d{3})+(\.\d+)?$/.test(latin) ? latin.replace(/,/g, "") : latin.replace(",", ".");
     const value = Number(normalized);
     return Number.isFinite(value) ? value : NaN;
   }
-  function parseDayInput(text3) {
-    const raw = String(text3 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
+  function parseDayInput(text4) {
+    const raw = String(text4 || "").trim().replace(/[٠-٩]/g, (d2) => String(d2.charCodeAt(0) - 1632));
     if (!raw) return null;
     let y, m, d;
     let match = /^(\d{1,2})[/.-](\d{1,2})[/.-](\d{4})$/.exec(raw);
@@ -485,8 +485,8 @@ var __monos = (() => {
     if (svg) {
       return h("img", { className: "l-logo", alt: "", style, src: `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}` });
     }
-    const text3 = String(mark || "?");
-    return h("span", { className: `l-logo l-mark${text3.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text3);
+    const text4 = String(mark || "?");
+    return h("span", { className: `l-logo l-mark${text4.length > 2 ? " l-mark-3" : ""}`, "aria-hidden": true, style }, text4);
   }
 
   // plugins/monos-portfolio/src/history.css
@@ -571,8 +571,8 @@ var __monos = (() => {
 
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
-  function normalize(text3) {
-    return String(text3 == null ? "" : text3).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+  function normalize(text4) {
+    return String(text4 == null ? "" : text4).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
   }
   function rank(entry, query) {
     const q = normalize(query);
@@ -596,8 +596,8 @@ var __monos = (() => {
   }
 
   // plugins/monos-portfolio/src/export.js
-  function download(filename, text3) {
-    const url = URL.createObjectURL(new Blob([text3], { type: "text/csv;charset=utf-8" }));
+  function download(filename, text4) {
+    const url = URL.createObjectURL(new Blob([text4], { type: "text/csv;charset=utf-8" }));
     const link = document.createElement("a");
     link.href = url;
     link.download = filename;
@@ -640,22 +640,36 @@ var __monos = (() => {
     const [maturity, setMaturity] = useState("");
     const [payout, setPayout] = useState("monthly");
     const [note, setNote] = useState("");
-    const field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const [settle, setSettle] = useState(true);
+    const [fromEgp, setFromEgp] = useState(false);
+    const field4 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text4 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const fields = h(
       "div",
       { className: "l-fields" },
-      field3("البنك", text3(bank, setBank, { maxLength: 60 })),
-      field3("المبلغ (ج.م)", text3(amount2, setAmount, { inputMode: "decimal", className: "q-input num" })),
-      field3("العائد السنوي %", text3(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
-      field3("تاريخ البداية", text3(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field3("تاريخ الاستحقاق", text3(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-      field3("صرف العائد", h(
+      field4("البنك", text4(bank, setBank, { maxLength: 60 })),
+      field4("المبلغ (ج.م)", text4(amount2, setAmount, { inputMode: "decimal", className: "q-input num" })),
+      field4("العائد السنوي %", text4(rate, setRate, { inputMode: "decimal", className: "q-input num" })),
+      field4("تاريخ البداية", text4(start, setStart, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field4("تاريخ الاستحقاق", text4(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+      field4("صرف العائد", h(
         "select",
         { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
         PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
       )),
-      field3("ملاحظة (اختياري)", text3(note, setNote, { maxLength: 200 }))
+      field4("ملاحظة (اختياري)", text4(note, setNote, { maxLength: 200 })),
+      h(
+        "label",
+        { className: "l-inline q-sec" },
+        h("input", { type: "checkbox", checked: settle, onChange: (e) => setSettle(e.target.checked) }),
+        "العائد والأصل في الاستحقاق يدخلوا الجنيه اللي في السجل"
+      ),
+      h(
+        "label",
+        { className: "l-inline q-sec" },
+        h("input", { type: "checkbox", checked: fromEgp, onChange: (e) => setFromEgp(e.target.checked) }),
+        "اشتريتها بجنيه من اللي في السجل"
+      )
     );
     function build() {
       const principal = parseNumberInput(amount2);
@@ -673,7 +687,15 @@ var __monos = (() => {
           buy_price: 1,
           currency: "EGP",
           note: note.trim() || null,
-          deposit: { rate: Number((percent / 100).toFixed(6)), start_date: from, maturity_date: to, payout, bank: bank.trim() || null }
+          deposit: {
+            rate: Number((percent / 100).toFixed(6)),
+            start_date: from,
+            maturity_date: to,
+            payout,
+            bank: bank.trim() || null,
+            settle_to_egp: settle,
+            from_egp: fromEgp
+          }
         }
       };
     }
@@ -684,17 +706,17 @@ var __monos = (() => {
     const [rate, setRate] = useState(terms ? String(Number((terms.rate * 100).toFixed(4))) : "");
     const [maturity, setMaturity] = useState(terms ? fmtDate(terms.maturity_date) : "");
     const [payout, setPayout] = useState(terms?.payout || "monthly");
-    const field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
-    const text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+    const field4 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+    const text4 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const fields = frag(
-      field3("العائد السنوي %", text3(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
-      field3("تاريخ الاستحقاق", text3(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
-      field3("صرف العائد", h(
+      field4("العائد السنوي %", text4(rate, setRate, { inputMode: "decimal", className: "q-input num", style: { width: 90 } })),
+      field4("تاريخ الاستحقاق", text4(maturity, setMaturity, { placeholder: "يوم/شهر/سنة", inputMode: "numeric", style: { width: 120 } })),
+      field4("صرف العائد", h(
         "select",
         { className: "q-input", value: payout, onChange: (e) => setPayout(e.target.value) },
         PAYOUT_CHOICES.map(([value, label]) => h("option", { key: value, value }, label))
       )),
-      field3("البنك", text3(bank, setBank, { maxLength: 60, style: { width: 120 } }))
+      field4("البنك", text4(bank, setBank, { maxLength: 60, style: { width: 120 } }))
     );
     function build(start) {
       const percent = parseNumberInput(rate);
@@ -737,7 +759,8 @@ var __monos = (() => {
         { className: "l-lot" },
         item("year", "العائد في السنة ", N(hidden ? MASK : fmtNumber(d.interest_per_year, 0)), " ج.م"),
         d.status === "matured" ? item("state", "الشهادة انتهت") : item("next", d.payout === "maturity" ? "العائد يتصرف في " : "الصرف الجاي ", N(fmtDate(d.next_payout_date))),
-        d.payout === "maturity" ? item("earned", "العائد المتراكم داخل القيمة ", N(hidden ? MASK : fmtNumber(d.interest_to_date, 0)), " ج.م") : null
+        d.payout === "maturity" ? item("earned", "العائد المتراكم داخل القيمة ", N(hidden ? MASK : fmtNumber(d.interest_to_date, 0)), " ج.م") : null,
+        d.settle_to_egp ? item("settle", "العائد بيدخل الجنيه في مواعيده") : null
       )
     );
   }
@@ -1299,14 +1322,129 @@ var __monos = (() => {
     );
   }
 
+  // plugins/monos-portfolio/src/events.js
+  var field3 = (label, input) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input);
+  var text3 = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
+  function PaidItem({ event, onOpen }) {
+    const hidden = usePrivacy();
+    return h(
+      "div",
+      { className: "l-lot l-move-item" },
+      h(
+        "span",
+        null,
+        "+",
+        hidden ? N(MASK) : N(money(event.quantity)),
+        " ج.م ",
+        h("button", { type: "button", className: "q-link", onClick: () => onOpen(event.origin) }, event.note)
+      ),
+      h("span", { className: "q-sec" }, N(fmtDate(event.date))),
+      h("span", { className: "q-sec" }, "الرصيد بعدها ", hidden ? N(MASK) : N(money(event.balance)), " ج.م")
+    );
+  }
+  function ActionItem({ event, asset, onChanged }) {
+    const hidden = usePrivacy();
+    const [error, setError] = useState("");
+    const remove = async () => {
+      try {
+        await api("DELETE", `/egx/api/actions/${event.id}`, {});
+        onChanged();
+      } catch (e) {
+        setError(e.message);
+      }
+    };
+    return h(
+      "div",
+      { className: "l-lot l-move-item" },
+      h(
+        "span",
+        null,
+        "+",
+        hidden ? N(MASK) : N(fmtQty(event.quantity)),
+        " ",
+        asset.unit,
+        event.kind === "bonus" ? " أسهم مجانية" : frag(" تقسيم (كل سهم بقى ", N(fmtQty(event.ratio)), ")")
+      ),
+      h("span", { className: "q-sec" }, N(fmtDate(event.date))),
+      h("span", { className: "q-sec" }, "الرصيد بعدها ", hidden ? N(MASK) : N(fmtQty(event.balance))),
+      event.note ? h("span", { className: "q-sec" }, event.note) : null,
+      h(
+        "span",
+        { className: "l-lot-actions" },
+        h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet q-btn-danger", onClick: remove }, "حذف")
+      ),
+      error ? h("span", { className: "q-error", role: "alert" }, error) : null
+    );
+  }
+  function StockEventForm({ asset, kind, onDone, onCancel }) {
+    const [value, setValue] = useState("");
+    const [day, setDay] = useState("");
+    const [note, setNote] = useState("");
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    const label = { dividend: "المبلغ اللي دخلك (ج.م)", bonus: `عدد الأسهم المجانية (${asset.unit})`, split: "كل سهم بقى كام سهم" }[kind];
+    async function submit(e) {
+      e.preventDefault();
+      setError("");
+      const v = parseNumberInput(value), d = parseDayInput(day);
+      if (!(v > 0)) return setError("اكتب الرقم.");
+      if (d === void 0) return setError("اكتب التاريخ بصيغة يوم/شهر/سنة، أو سيبه فاضي.");
+      setBusy(true);
+      try {
+        if (kind === "dividend") await api("POST", "/egx/api/dividends", { asset: asset.key, amount_egp: v, date: d, note: note.trim() || null });
+        else await api("POST", "/egx/api/actions", { asset: asset.key, kind, date: d, note: note.trim() || null, [kind === "bonus" ? "quantity" : "ratio"]: v });
+        onDone();
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setBusy(false);
+      }
+    }
+    return h(
+      "form",
+      { className: "l-add l-move", onSubmit: submit, noValidate: true, "aria-label": kind === "dividend" ? "توزيعات" : "أسهم مجانية أو تقسيم" },
+      h("b", null, kind === "dividend" ? `توزيعات ${asset.name}` : kind === "bonus" ? `أسهم مجانية من ${asset.name}` : `تقسيم ${asset.name}`),
+      h(
+        "div",
+        { className: "l-fields" },
+        field3(label, text3(value, setValue, { inputMode: "decimal", className: "q-input num", "aria-label": label })),
+        field3("التاريخ (اختياري)", text3(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+        field3("ملاحظة (اختياري)", text3(note, setNote, { maxLength: 200 }))
+      ),
+      h(
+        "div",
+        { className: "l-actions" },
+        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy }, busy ? "جارٍ التسجيل…" : "سجّل"),
+        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      )
+    );
+  }
+  function Upcoming({ items, onOpen }) {
+    const hidden = usePrivacy();
+    if (!items || !items.length) return null;
+    return h(
+      "section",
+      { className: "l-upcoming", "aria-label": "الجاي قريب" },
+      h("h2", null, "الجاي قريب"),
+      items.map((u) => h(
+        "div",
+        { key: `${u.kind}:${u.key}:${u.date}`, className: "l-lot" },
+        h("span", { className: "q-sec" }, N(fmtDate(u.date))),
+        h("button", { type: "button", className: "q-link", onClick: () => onOpen(u.key) }, u.label),
+        u.amount_egp != null ? h("span", null, hidden ? N(MASK) : N(money(u.amount_egp)), " ج.م") : null
+      ))
+    );
+  }
+
   // plugins/monos-portfolio/src/ledger.css
-  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
+  var ledger_default = "/* «Monos / السجل»: one calm column. Host tokens only (--dsw-alias-*), so light and dark follow the\n   sidebar. The logo column and the big total are the only things allowed to stand out. */\n\n.qm .l-col { width: 100%; max-width: 720px; margin: 0 auto; padding: 24px 24px 32px; display: flex; flex-direction: column; gap: 20px; }\n@media (max-width: 760px) { .qm .l-col { padding: 16px 16px 24px; } }\n\n/* Total */\n.qm .l-total { display: flex; flex-direction: column; gap: 4px; }\n.qm .l-total .l-big { font-size: 30px; font-weight: 600; line-height: 1.15; }\n.qm .l-total .l-unit { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-usd { font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-total .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; }\n.qm .l-alloc-bar { display: flex; gap: 2px; height: 8px; border-radius: 4px; overflow: hidden; }\n.qm .l-alloc-bar span, .qm .l-alloc-keys i { background: var(--dsw-alias-state-business-primary); }\n.qm .l-alloc-bar span { flex-basis: 0; min-width: 3px; }\n.qm .l-alloc-keys { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--dsw-alias-label-secondary); }\n.qm .l-alloc-keys span { display: inline-flex; align-items: center; gap: 6px; }\n.qm .l-alloc-keys i { display: inline-block; width: 8px; height: 8px; border-radius: 2px; }\n.qm .l-today { margin-inline-start: auto; font-size: 13px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 6px; align-items: baseline; }\n\n/* Search */\n.qm .l-search { position: relative; }\n.qm .l-search input { width: 100%; height: 40px; padding: 0 14px; font-size: 14px; border: 1px solid var(--dsw-alias-border-l3);\n  border-radius: var(--dsw-radius-md); background: var(--dsw-specific-input-major, var(--dsw-alias-bg-layer-1)); outline: none; }\n.qm .l-search input:focus { border-color: var(--dsw-alias-state-business-primary); }\n.qm .l-results { list-style: none; margin: 6px 0 0; padding: 4px; border: 1px solid var(--dsw-alias-border-l2); border-radius: var(--dsw-radius-md);\n  background: var(--dsw-alias-bg-layer-1); }\n.qm .l-option { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 6px 10px; border-radius: var(--dsw-radius-sm); cursor: pointer; }\n.qm .l-option[aria-selected='true'], .qm .l-option:hover { background: var(--dsw-alias-interactive-bg-hover); }\n.qm .l-option .l-kind { margin-inline-start: auto; font-size: 12px; color: var(--dsw-alias-label-secondary); display: inline-flex; gap: 8px; }\n.qm .l-hint { margin: 0; font-size: 13px; color: var(--dsw-alias-label-secondary); }\n\n/* Logo circle (32px in search and rows) */\n.qm .l-logo { border-radius: 50%; flex: none; object-fit: cover; background: var(--dsw-alias-bg-module-platform); display: block; }\n.qm .l-mark { display: inline-grid; place-items: center; font-size: 12px; font-weight: 600; color: var(--dsw-alias-label-secondary);\n  font-family: var(--ds-font-family-code); direction: ltr; unicode-bidi: isolate; }\n.qm .l-mark-3 { font-size: 10px; }\n\n/* Add line (under the search) */\n.qm .l-add { display: flex; flex-direction: column; gap: 12px; padding: 14px 0 16px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-add-head { display: flex; align-items: center; gap: 10px; }\n.qm .l-fields { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }\n.qm .l-fields .q-stack { flex: 1 1 140px; }\n.qm .l-fields .q-input, .qm .l-fields select.q-input { width: 100%; }\n.qm .l-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }\n\n/* Groups and rows */\n.qm .l-group { display: flex; flex-direction: column; }\n.qm .l-group > h2 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-row { appearance: none; width: 100%; border: 0; border-bottom: 1px solid var(--dsw-alias-border-l1); background: transparent; text-align: start;\n  display: flex; align-items: center; gap: 12px; min-height: 56px; padding: 8px 0; cursor: pointer; }\n.qm .l-row:hover .l-name { text-decoration: underline; text-underline-offset: 3px; }\n.qm .l-name { font-size: 14px; font-weight: 500; }\n.qm .l-sub { font-size: 12px; color: var(--dsw-alias-label-secondary); display: flex; flex-wrap: wrap; gap: 4px 10px; }\n.qm .l-value { margin-inline-start: auto; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; text-align: end; }\n.qm .l-value .num:first-child { font-size: 14px; }\n.qm .l-growth { font-size: 12px; }\n.qm .l-new { animation: l-in 180ms ease-out; }\n@keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }\n@media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }\n\n/* «الجاي قريب» */\n.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; }\n.qm .l-upcoming > h2 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-upcoming .l-lot { min-height: 30px; }\n\n/* «الأصول» / «الحركات» */\n.qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }\n.qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;\n  color: var(--dsw-alias-label-secondary); border-bottom: 2px solid transparent; margin-bottom: -1px; }\n.qm .l-tab-on { color: var(--dsw-alias-label-primary); border-bottom-color: var(--dsw-alias-state-business-primary); font-weight: 500; }\n.qm .l-activity { display: flex; flex-direction: column; gap: 8px; font-size: 13px; }\n.qm .l-activity .l-line { display: flex; flex-wrap: wrap; gap: 4px 20px; color: var(--dsw-alias-label-secondary); }\n.qm .l-act { border-bottom: 1px solid var(--dsw-alias-border-l1); }\n\n/* Row details: purchases, price, components */\n.qm .l-detail { display: flex; flex-direction: column; gap: 14px; padding: 12px 0 16px 0; padding-inline-start: 44px; border-bottom: 1px solid var(--dsw-alias-border-l1); font-size: 13px; }\n.qm .l-detail h3 { margin: 0 0 4px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }\n.qm .l-lot { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 14px; min-height: 36px; }\n.qm .l-lot .l-lot-actions { margin-inline-start: auto; display: inline-flex; gap: 4px; }\n.qm .l-part { display: flex; align-items: center; gap: 10px; min-height: 36px; }\n.qm .l-part .l-logo { width: 24px; height: 24px; }\n.qm .l-inline { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }\n.qm .l-inline .q-input { width: 120px; }\n\n.qm .l-foot { margin: 8px 0 0; font-size: 12px; color: var(--dsw-alias-label-tertiary); }\n";
 
   // plugins/monos-portfolio/src/portfolio.js
   var KIND_CHOICES2 = [["currency", "عملة"], ["gold", "ذهب"], ["bitcoin", "بتكوين"], ["stock", "سهم"], ["fund", "صندوق"], [DEPOSIT_KIND, "شهادة/وديعة"], [DEBT_KIND, "دين أو قسط"]];
   var QTY_LABEL = { stock: "عدد الأسهم", fund: "عدد الوثائق" };
   var priceWithSign = (v, currency) => frag(N(fmtPrice(v)), " ", sign(currency));
-  var hid = (hidden, text3, cls) => hidden ? N(MASK) : N(text3, cls);
+  var hid = (hidden, text4, cls) => hidden ? N(MASK) : N(text4, cls);
   function priceLabel(kind, unit, key) {
     if (kind === "currency") return `سعر ${key} بالجنيه وقت الشرا`;
     if (kind === "gold") return `سعر ال${unit} وقت الشرا`;
@@ -1331,13 +1469,13 @@ var __monos = (() => {
   function Search({ catalog, onPick, onCustom }) {
     const [query, setQuery] = useState("");
     const [active, setActive] = useState(0);
-    const text3 = query.trim();
+    const text4 = query.trim();
     const loading = catalog === null;
-    const results = text3 && !loading ? search(catalog, text3) : [];
-    const options = text3 && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
+    const results = text4 && !loading ? search(catalog, text4) : [];
+    const options = text4 && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
     const pick = (option) => {
       if (!option) return;
-      if (option.addByName) onCustom(text3);
+      if (option.addByName) onCustom(text4);
       else onPick(option);
       setQuery("");
       setActive(0);
@@ -1393,13 +1531,13 @@ var __monos = (() => {
             pick(o);
           },
           onMouseEnter: () => setActive(i)
-        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text3))] : [
+        }, o.addByName ? [h(Logo, { key: "l", mark: "+" }), h("span", { key: "t" }, "إضافة بالاسم ده: ", h("b", null, text4))] : [
           h(Logo, { key: "l", symbol: o.kind === "stock" ? o.symbol : null, mark: o.mark }),
           h("span", { key: "t", className: "l-name" }, o.name),
           h("span", { key: "k", className: "l-kind" }, o.kind_label, o.symbol ? h("span", { className: "q-sym" }, o.symbol) : null)
         ]))
       ) : null,
-      text3 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
+      text4 && loading ? h("p", { className: "l-hint", role: "status", style: { marginTop: 6 } }, "جارٍ تحميل القائمة…") : null
     );
   }
   function AddLine({ entry, customName, onDone, onCancel }) {
@@ -1507,7 +1645,7 @@ var __monos = (() => {
         setBusy(false);
       }
     }
-    const field3 = (label, input2) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input2);
+    const field4 = (label, input2) => h("label", { className: "q-stack" }, h("span", { className: "q-label" }, label), input2);
     const input = (value, set, extra = {}) => h("input", { className: "q-input", value, onChange: (e) => set(e.target.value), ...extra });
     const currencySelect = h(
       "select",
@@ -1530,12 +1668,12 @@ var __monos = (() => {
       custom ? h(
         "div",
         { className: "l-fields" },
-        field3("النوع", h(
+        field4("النوع", h(
           "select",
           { className: "q-input", value: kind, onChange: (e) => setKind(e.target.value) },
           KIND_CHOICES2.map(([k, l]) => h("option", { key: k, value: k }, l))
         )),
-        isDeposit || isDebt ? null : field3("الاسم", input(name, setName, { maxLength: 80 })),
+        isDeposit || isDebt ? null : field4("الاسم", input(name, setName, { maxLength: 80 })),
         isDeposit || isDebt ? null : h(
           "label",
           { className: "q-stack" },
@@ -1543,7 +1681,7 @@ var __monos = (() => {
           input(symbol, setSymbol, { maxLength: 16, dir: "ltr" }),
           kind === "stock" ? h("small", { className: "q-meta" }, "لو كتبت رمز البورصة المصرية، السعر هيتحدّث لوحده بعد الجلسة") : null
         ),
-        isDeposit || isDebt ? null : field3("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
+        isDeposit || isDebt ? null : field4("السعر الحالي للوحدة (اختياري)", input(current, setCurrent, { inputMode: "decimal", className: "q-input num" }))
       ) : null,
       isDebt ? debt.fields : isDeposit ? dep.fields : h(
         "div",
@@ -1572,16 +1710,16 @@ var __monos = (() => {
           entry && entry.price != null ? h("small", { className: "q-meta" }, "آخر سعر ", priceWithSign(entry.price, entry.price_currency)) : null,
           farOff ? h("small", { className: "q-amber", role: "status" }, "السعر ده بعيد جدًا عن آخر سعر: راجع الوحدة والعملة") : null
         ),
-        cur !== "EGP" ? field3(
+        cur !== "EGP" ? field4(
           "المبلغ اللي دفعته بالجنيه",
           h("input", { className: "q-input num", inputMode: "decimal", value: costShown, placeholder: "ج.م", onChange: (e) => {
             setCost(e.target.value);
             setCostTouched(true);
           } })
         ) : null,
-        field3("التاريخ (اختياري)", input(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
-        field3("المكان (اختياري)", input(place, setPlace, { maxLength: 40, list: "l-places", placeholder: "البنك الأهلي، Thndr، كاش" })),
-        field3("ملاحظة (اختياري)", input(note, setNote, { maxLength: 200 }))
+        field4("التاريخ (اختياري)", input(day, setDay, { placeholder: "يوم/شهر/سنة", inputMode: "numeric" })),
+        field4("المكان (اختياري)", input(place, setPlace, { maxLength: 40, list: "l-places", placeholder: "البنك الأهلي، Thndr، كاش" })),
+        field4("ملاحظة (اختياري)", input(note, setNote, { maxLength: 200 }))
       ),
       h(
         "div",
@@ -1794,7 +1932,7 @@ var __monos = (() => {
       "div",
       null,
       h("h3", null, moved ? `الحركات (${events.length})` : events.length > 1 ? `العمليات (${events.length})` : "العملية"),
-      events.map((e) => e.type === "lot" ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged }) : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen }))
+      events.map((e) => e.type === "lot" && e.id < 0 ? h(PaidItem, { key: `p${e.id}`, event: e, onOpen }) : e.type === "lot" ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged }) : e.type === "action" ? h(ActionItem, { key: `a${e.id}`, event: e, asset, onChanged }) : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen }))
     );
   }
   function AssetRow({ asset, catalog, fresh, focused, onChanged, onOpen }) {
@@ -1855,7 +1993,11 @@ var __monos = (() => {
         asset.places && asset.places.length ? h("p", { className: "l-hint" }, "فين: ", asset.places.map((p, i) => h(import_react.default.Fragment, { key: p.place || "" }, i ? " · " : "", p.place || "من غير مكان", " ", hid(hidden, asset.key === "EGP" ? money(p.quantity) : fmtQty(p.quantity))))) : null,
         h(Timeline, { asset, onChanged, onOpen }),
         asset.realized_egp && Math.abs(asset.realized_egp) >= 1 ? h("p", { className: "l-hint" }, "ربح محقق من اللي اتحوّل ", hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), " ج.م") : null,
-        movable ? moving ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => {
+        asset.dividends_egp >= 1 ? h("p", { className: "l-hint" }, "توزيعات استلمتها ", hid(hidden, money(asset.dividends_egp)), " ج.م") : null,
+        movable ? ["dividend", "bonus", "split"].includes(moving) ? h(StockEventForm, { asset, kind: moving, onDone: () => {
+          setMoving(null);
+          onChanged();
+        }, onCancel: () => setMoving(null) }) : moving ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => {
           setMoving(null);
           onChanged();
         }, onCancel: () => setMoving(null) }) : h(
@@ -1863,7 +2005,12 @@ var __monos = (() => {
           { className: "l-inline" },
           h("button", { type: "button", className: "q-btn q-btn-sm", onClick: () => setMoving("transfer") }, "تحويل منه"),
           h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("expense") }, "خروج (صرفت أو سحبت)"),
-          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("place") }, "نقل لمكان تاني")
+          h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("place") }, "نقل لمكان تاني"),
+          asset.kind === "stock" || asset.kind === "fund" ? frag(
+            h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("dividend") }, "توزيعات"),
+            h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("bonus") }, "أسهم مجانية"),
+            h("button", { type: "button", className: "q-btn q-btn-sm q-btn-quiet", onClick: () => setMoving("split") }, "تقسيم")
+          ) : null
         ) : null,
         asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
         asset.key === "EGP" || asset.kind === DEPOSIT_KIND || closed ? null : h(
@@ -2016,6 +2163,7 @@ var __monos = (() => {
         h(PlaceList, { id: "l-places", places: totals.places }),
         h(TotalBlock, { totals }),
         h(HistoryChart),
+        h(Upcoming, { items: ledger.upcoming, onOpen: openAsset }),
         h(
           "div",
           { className: "l-tabs", role: "tablist", "aria-label": "العرض" },

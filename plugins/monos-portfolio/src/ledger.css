@@ -60,6 +60,11 @@
 @keyframes l-in { from { opacity: 0; transform: translateY(-4px); } to { opacity: 1; transform: none; } }
 @media (prefers-reduced-motion: reduce) { .qm .l-new { animation: none; } }
 
+/* «الجاي قريب» */
+.qm .l-upcoming { display: flex; flex-direction: column; font-size: 13px; }
+.qm .l-upcoming > h2 { margin: 0 0 2px; font-size: 12px; font-weight: 500; color: var(--dsw-alias-label-secondary); }
+.qm .l-upcoming .l-lot { min-height: 30px; }
+
 /* «الأصول» / «الحركات» */
 .qm .l-tabs { display: flex; gap: 4px; border-bottom: 1px solid var(--dsw-alias-border-l1); }
 .qm .l-tab { appearance: none; border: 0; background: transparent; padding: 8px 12px; font-size: 13px; cursor: pointer;

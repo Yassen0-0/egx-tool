@@ -14,6 +14,10 @@ and keeps, per asset, the quantity and the EGP cost of what is left:
 - an expense takes its cost out of the ledger; spending is not a gain, so it realises nothing;
 - a repayment takes money towards a debt (debt:<id>): it realises like a sale, and the debt goes
   down by what the user says it went down by (store/debts.py);
+- a stock's bonus shares add to what it holds at no cost and a split multiplies it (corporate
+  actions, after that day's purchases and movements), in every place in proportion;
+- a purchase may carry its origin (dividend:<stock>, deposit:<id> for what a certificate paid):
+  money that is a return of another asset, not new money;
 - places («البنك الأهلي», «Thndr») are where an asset is: what leaves comes from the named place
   first, else from every place in proportion. The same asset from one place to another is a move
   within it: nothing is sold, its cost moves with it.
@@ -69,12 +73,13 @@ def _places(s: dict) -> list[dict]:
     return [{"place": p, "quantity": v} for p, v in sorted(s["places"].items(), key=lambda kv: -kv[1])]
 
 
-def replay(lots: list[dict], moves: list[dict], value_on: ValueOn) -> dict:
+def replay(lots: list[dict], moves: list[dict], value_on: ValueOn, actions: list[dict] = ()) -> dict:
     """{"assets": {key: {quantity, cost (None when unknown), realized, places, events}},
     "debts": {debt key: [payments]}, "short": [...]}. `value_on(asset, quantity, day)` is the market
     value in EGP on a day, or None."""
     timeline = [(lot_day(r), 0, r["id"], "lot", r) for r in lots]
     timeline += [(m["date"], 1, m["id"], "move", m) for m in moves]
+    timeline += [(a["date"], 2, a["id"], "action", a) for a in actions]
     timeline.sort(key=lambda e: e[:3])
     state: dict[str, dict] = {}
     debts: dict[str, list] = {}
@@ -90,13 +95,31 @@ def replay(lots: list[dict], moves: list[dict], value_on: ValueOn) -> dict:
             else:
                 s["cost"] += row["cost_egp"]
             s["events"].append({"type": "lot", "id": row["id"], "date": day, "quantity": row["quantity"],
-                                "cost_egp": row["cost_egp"], "place": place, "balance": s["quantity"],
-                                "cost_balance": _cost(s)})
+                                "cost_egp": row["cost_egp"], "place": place, "origin": row.get("origin"),
+                                "note": row.get("note"), "balance": s["quantity"], "cost_balance": _cost(s)})
+            continue
+        if kind == "action":
+            _action(state.setdefault(row["asset"], _blank()), row)
             continue
         _move(state, debts, short, row, value_on)
     assets = {key: {"quantity": s["quantity"], "cost": s["cost"] if s["cost_known"] else None,
                     "realized": s["realized"], "places": _places(s), "events": s["events"]} for key, s in state.items()}
     return {"assets": assets, "debts": debts, "short": short}
+
+
+def _action(s: dict, a: dict) -> None:
+    """Bonus shares or a split: more shares, the same cost."""
+    held = s["quantity"]
+    added = a["quantity"] if a["kind"] == "bonus" else held * (a["ratio"] - 1)
+    if held > EPS:
+        factor = (held + added) / held
+        s["places"] = {p: v * factor for p, v in s["places"].items()}
+    else:
+        s["places"][None] = s["places"].get(None, 0.0) + added
+    s["quantity"] = held + added
+    s["events"].append({"type": "action", "id": a["id"], "kind": a["kind"], "date": a["date"], "quantity": added,
+                        "ratio": a.get("ratio"), "note": a.get("note"), "balance": s["quantity"],
+                        "cost_balance": _cost(s)})
 
 
 def _move(state: dict, debts: dict, short: list, m: dict, value_on: ValueOn) -> None:

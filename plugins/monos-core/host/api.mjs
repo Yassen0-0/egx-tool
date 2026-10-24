@@ -150,6 +150,21 @@ async function handleApi(req, res, path, query) {
     const { status, body } = await runCli('asset-remove', { asset: key })
     return sendJson(res, status, body)
   }
+  // A stock's cash dividend, and its bonus shares or split.
+  if (path === '/egx/api/dividends') {
+    if (method !== 'POST') return sendJson(res, 405, { error: 'method not allowed' })
+    const { status, body } = await runCli('dividend-add', payload)
+    return sendJson(res, status, body)
+  }
+  const action = /^\/egx\/api\/actions(?:\/(\d+))?$/.exec(path)
+  if (action) {
+    const actionId = action[1] === undefined ? undefined : Number(action[1])
+    let done
+    if (method === 'POST' && actionId === undefined) done = await runCli('action-add', payload)
+    else if (method === 'DELETE' && actionId !== undefined) done = await runCli('action-remove', { action_id: actionId })
+    else return sendJson(res, 405, { error: 'method not allowed' })
+    return sendJson(res, done.status, done.body)
+  }
   // «ديون وأقساط»: what the user owes; payments are movements of kind repay.
   const debt = /^\/egx\/api\/debts(?:\/(\d+))?$/.exec(path)
   if (debt) {

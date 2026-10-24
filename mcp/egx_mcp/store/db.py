@@ -100,7 +100,8 @@ CREATE TABLE IF NOT EXISTS holdings (
     currency TEXT NOT NULL DEFAULT 'EGP',
     fx_egp REAL NOT NULL DEFAULT 1,
     cost_egp REAL,
-    place TEXT
+    place TEXT,
+    origin TEXT
 );
 
 -- Assets the user adds by name («إضافة بالاسم ده»); key custom:<id>. They stay searchable.
@@ -149,7 +150,22 @@ CREATE TABLE IF NOT EXISTS deposits (
     start_date TEXT NOT NULL,
     maturity_date TEXT NOT NULL,
     payout TEXT NOT NULL CHECK (payout IN ('monthly', 'quarterly', 'annual', 'maturity')),
-    bank TEXT
+    bank TEXT,
+    settle_to_egp INTEGER NOT NULL DEFAULT 0
+);
+
+-- A stock's bonus shares (quantity: the shares that came, at no cost) or split (ratio: 2 is two
+-- for one), from `date` on. store/movements.py applies them in order with the purchases.
+CREATE TABLE IF NOT EXISTS corporate_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    asset TEXT NOT NULL,
+    date TEXT NOT NULL,
+    kind TEXT NOT NULL CHECK (kind IN ('bonus', 'split')),
+    quantity REAL CHECK (quantity IS NULL OR quantity > 0),
+    ratio REAL CHECK (ratio IS NULL OR ratio > 0),
+    note TEXT,
+    created_at TEXT NOT NULL,
+    CHECK ((kind = 'bonus') = (quantity IS NOT NULL) AND (kind = 'split') = (ratio IS NOT NULL))
 );
 
 -- «الحركات»: money moving out of an asset, into another (transfer), out of the ledger (expense) or
@@ -259,6 +275,9 @@ MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (5, "deposits (created by SCHEMA)", lambda conn: None),
     (6, "movements (created by SCHEMA)", lambda conn: None),
     (7, "places on purchases and movements, the repay kind, debts", _places_and_repay),
+    (8, "holdings.origin (a dividend), deposits.settle_to_egp, corporate_actions",
+     lambda conn: (_add_column("holdings", "origin", "TEXT")(conn),
+                   _add_column("deposits", "settle_to_egp", "INTEGER NOT NULL DEFAULT 0")(conn))),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

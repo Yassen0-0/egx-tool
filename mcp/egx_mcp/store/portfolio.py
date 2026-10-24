@@ -20,7 +20,7 @@ an asset's price, its fund components and its manual prices belong to the asset 
 """
 
 import sqlite3
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 
 from ..catalog import CURRENCY_CODES, DEPOSIT_PREFIX, GROUPS, catalog, custom_key, deposit_entry, egx_ticker, find
 from ..errors import LedgerInputError
@@ -261,12 +261,22 @@ def _add_deposit(conn, asset, quantity, amount, currency, note, custom, deposit)
     if (quantity in (None, "")) == (amount in (None, "")):
         raise LedgerInputError("اكتب مبلغ الشهادة، مرة واحدة")
     principal = _positive(amount if quantity in (None, "") else quantity, "مبلغ الشهادة لازم يكون أكبر من صفر")
+    before = _shortfalls(conn)
     try:
-        holding_id = deposits.add(conn, principal, note, deposit)
-        conn.commit()
+        holding_id = deposits.add(conn, principal, note, deposit, settle_to_egp=deposit.get("settle_to_egp", True))
+        if deposit.get("from_egp"):
+            # Bought with the ledger's pounds: they move into the certificate on its start day.
+            row = get_holding(conn, holding_id)
+            stamp = now_iso()
+            conn.execute(
+                "INSERT INTO movements (date, kind, from_asset, from_quantity, to_asset, to_quantity, note, created_at,"
+                " updated_at, from_place) VALUES (?, 'transfer', 'EGP', ?, ?, ?, ?, ?, ?, ?)",
+                (row["buy_date"], principal, row["symbol"], principal, f"شرا {row['name']}", stamp, stamp,
+                 _place(deposit.get("from_place"))))
     except Exception:
         conn.rollback()
         raise
+    _commit_unless_short(conn, before, "سجّل الجنيه اللي اشتريت بيه الشهادة الأول، أو شيل «من الجنيه اللي في السجل».")
     return get_holding(conn, holding_id)
 
 
@@ -371,6 +381,9 @@ def update_holding(
 
 def remove_holding(conn: sqlite3.Connection, holding_id: int) -> dict:
     holding = get_holding(conn, holding_id)
+    if holding["kind"] == "deposit" and conn.execute(
+            "SELECT 1 FROM movements WHERE to_asset = ? LIMIT 1", (holding["symbol"],)).fetchone():
+        raise LedgerInputError("الشهادة دي اتشرت بجنيه من السجل: احذف تحويل الشرا من حركات الجنيه الأول")
     before = _shortfalls(conn)
     conn.execute("DELETE FROM holdings WHERE id = ?", (holding_id,))
     _commit_unless_short(conn, before)
@@ -397,11 +410,28 @@ def _num(value: float) -> str:
     return f"{value:,.4f}".rstrip("0").rstrip(".")
 
 
-def _book(conn: sqlite3.Connection, value_of=None) -> dict:
-    """movements.replay over the ledger's purchases (certificates aside) and movements."""
+def settlement_lots(conn: sqlite3.Connection, today: date) -> list[dict]:
+    """What the certificates that settle into EGP paid into the pounds up to today, as purchases of
+    EGP (negative ids, never stored) whose origin is the certificate."""
+    terms = deposits.load(conn)
+    out = []
+    for row in conn.execute("SELECT * FROM holdings WHERE kind = 'deposit' ORDER BY id"):
+        for i, paid in enumerate(deposits.settlements(terms.get(row["id"]) or {}, row["quantity"], today)):
+            out.append({"id": -(row["id"] * 10000 + i + 1), "symbol": "EGP", "quantity": paid["amount"],
+                        "buy_price": 1.0, "currency": "EGP", "fx_egp": 1.0, "cost_egp": paid["amount"],
+                        "buy_date": paid["date"], "created_at": paid["date"], "updated_at": paid["date"],
+                        "note": f"{paid['what']} {row['name']}", "place": None, "origin": row["symbol"]})
+    return out
+
+
+def _book(conn: sqlite3.Connection, value_of=None, today: date | None = None) -> dict:
+    """movements.replay over the ledger's purchases (certificates aside, what they paid into EGP
+    included), movements and corporate actions."""
     lots = [dict(r) for r in conn.execute("SELECT * FROM holdings WHERE kind != 'deposit' ORDER BY id")]
+    lots += settlement_lots(conn, today or now_cairo().date())
     moves = [dict(r) for r in conn.execute("SELECT * FROM movements ORDER BY id")]
-    return movements.replay(lots, moves, value_of or (lambda *_: None))
+    actions = [dict(r) for r in conn.execute("SELECT * FROM corporate_actions ORDER BY id")]
+    return movements.replay(lots, moves, value_of or (lambda *_: None), actions)
 
 
 def _shortfalls(conn: sqlite3.Connection) -> dict:
@@ -515,6 +545,97 @@ def add_movement(
         raise
     _commit_unless_short(conn, before, TOP_UP_HINT)
     return get_movement(conn, movement_id)
+
+
+# ── dividends, bonus shares, splits ──────────────────────────────────────────
+
+def _security(conn: sqlite3.Connection, asset: str | None) -> dict:
+    entry = _entry(conn, str(asset or ""))
+    if entry["kind"] not in ("stock", "fund"):
+        raise LedgerInputError("التوزيعات والأسهم المجانية للأسهم والصناديق بس")
+    return entry
+
+
+def add_dividend(conn: sqlite3.Connection, asset: str | None = None, amount_egp: float | None = None,
+                 date: str | None = None, note: str | None = None, place: str | None = None) -> dict:
+    """A cash dividend: pounds coming into EGP from a stock or fund (its origin), a return of it,
+    not new money."""
+    entry = _security(conn, asset)
+    amount = _positive(amount_egp, "اكتب مبلغ التوزيعات بالجنيه")
+    stamp = now_iso()
+    holding_id = conn.execute(
+        "INSERT INTO holdings (symbol, quantity, buy_price, buy_date, note, created_at, updated_at, kind, name,"
+        " currency, fx_egp, cost_egp, place, origin) VALUES ('EGP', ?, 1, ?, ?, ?, ?, 'currency', 'الجنيه المصري',"
+        " 'EGP', 1, ?, ?, ?)",
+        (amount, _day(date) or now_cairo().date().isoformat(), (note or "").strip() or f"توزيعات {entry['name']}",
+         stamp, stamp, amount, _place(place), f"dividend:{entry['key']}")).lastrowid
+    conn.commit()
+    return get_holding(conn, holding_id)
+
+
+def add_corporate_action(conn: sqlite3.Connection, asset: str | None = None, kind: str = "bonus",
+                         date: str | None = None, quantity: float | None = None, ratio: float | None = None,
+                         note: str | None = None) -> dict:
+    """Bonus shares (`quantity`: the shares that came) or a split (`ratio`: 2 is two for one) from
+    `date` on: more shares at the same cost."""
+    entry = _security(conn, asset)
+    if kind == "bonus":
+        quantity, ratio = _positive(quantity, "اكتب عدد الأسهم المجانية اللي جاتلك"), None
+    elif kind == "split":
+        ratio, quantity = _positive(ratio, "اكتب نسبة التقسيم: 2 يعني كل سهم بقى سهمين"), None
+        if ratio == 1:
+            raise LedgerInputError("نسبة التقسيم 1 مش بتغيّر حاجة")
+    else:
+        raise LedgerInputError("النوع لازم يكون أسهم مجانية أو تقسيم")
+    day = _day(date) or now_cairo().date().isoformat()
+    before = _shortfalls(conn)
+    action_id = conn.execute(
+        "INSERT INTO corporate_actions (asset, date, kind, quantity, ratio, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (entry["key"], day, kind, quantity, ratio, (note or "").strip() or None, now_iso())).lastrowid
+    held = _book(conn)["assets"].get(entry["key"])
+    event = next((e for e in (held or {}).get("events", []) if e["type"] == "action" and e["id"] == action_id), None)
+    if event is None or event["balance"] - event["quantity"] <= movements.EPS:
+        conn.rollback()
+        raise LedgerInputError(f"مكانش عندك {entry['name']} يوم {day}")
+    _commit_unless_short(conn, before)
+    return dict(conn.execute("SELECT * FROM corporate_actions WHERE id = ?", (action_id,)).fetchone())
+
+
+def remove_corporate_action(conn: sqlite3.Connection, action_id: int) -> dict:
+    row = conn.execute("SELECT * FROM corporate_actions WHERE id = ?", (action_id,)).fetchone()
+    if row is None:
+        raise LedgerInputError(f"الإجراء {action_id} مش موجود")
+    before = _shortfalls(conn)
+    conn.execute("DELETE FROM corporate_actions WHERE id = ?", (action_id,))
+    _commit_unless_short(conn, before)
+    return {"removed": dict(row)}
+
+
+# ── what is due soon ─────────────────────────────────────────────────────────
+
+UPCOMING_DAYS = 45
+
+
+def upcoming(assets: list[dict], owed: list[dict], today: date) -> list[dict]:
+    """Certificate payouts and maturities and debt installments in the next UPCOMING_DAYS days."""
+    until = (today + timedelta(days=UPCOMING_DAYS)).isoformat()
+    out = []
+    for a in assets:
+        d = a.get("deposit")
+        if not d or d["status"] == "matured":
+            continue
+        if d["next_payout_date"] and d["next_payout_date"] <= until and d["next_payout_date"] != d["maturity_date"]:
+            out.append({"date": d["next_payout_date"], "kind": "payout", "label": f"عائد {a['name']}",
+                        "amount_egp": d["next_payout_egp"], "key": a["key"]})
+        if d["maturity_date"] <= until:
+            interest = d["next_payout_egp"] if d["payout"] == "maturity" else 0.0
+            out.append({"date": d["maturity_date"], "kind": "maturity", "label": f"استحقاق {a['name']}",
+                        "amount_egp": a["quantity"] + (interest or 0.0), "key": a["key"]})
+    for debt in owed:
+        if debt["next_due_date"] and debt["next_due_date"] <= until:
+            out.append({"date": debt["next_due_date"], "kind": "installment", "label": f"قسط {debt['name']}",
+                        "amount_egp": debt["installment_egp"], "key": debt["key"]})
+    return sorted(out, key=lambda u: (u["date"], u["label"]))
 
 
 def _debt(conn: sqlite3.Connection, key: str) -> dict:
@@ -672,8 +793,8 @@ def fund_components(conn: sqlite3.Connection, fund: str) -> list[dict]:
 # ── the ledger ───────────────────────────────────────────────────────────────
 
 def _lot(row: dict) -> dict:
-    keys = ("id", "quantity", "buy_price", "currency", "fx_egp", "cost_egp", "buy_date", "note", "place", "created_at",
-            "updated_at")
+    keys = ("id", "quantity", "buy_price", "currency", "fx_egp", "cost_egp", "buy_date", "note", "place", "origin",
+            "created_at", "updated_at")
     return {k: row[k] for k in keys}
 
 
@@ -755,11 +876,18 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
     lots: dict[str, list[dict]] = {}
     for row in conn.execute("SELECT * FROM holdings ORDER BY id"):
         lots.setdefault(row["symbol"], []).append(dict(row))
-    book = _book(conn, lambda key, quantity, day: value_on(conn, entries.get(key), quantity, day))
+    book = _book(conn, lambda key, quantity, day: value_on(conn, entries.get(key), quantity, day), at.date())
     owed = debts.rows(debts.load(conn), book["debts"], at.date())
-    # A repayment's other side is a debt: named in the asset's events like any asset.
+    # A repayment's other side is a debt and a certificate's is itself: named in the events like any asset.
     named = {**entries, **{d["key"]: {"key": d["key"], "name": d["name"], "unit": "ج.م", "kind": "debt", "symbol": None,
-                                      "mark": "دين"} for d in owed}}
+                                      "mark": "دين"} for d in owed},
+             **{key: deposit_entry(key, rows[0]["name"] or "شهادة") for key, rows in lots.items()
+                if key.startswith(DEPOSIT_PREFIX)}}
+    dividends: dict[str, float] = {}
+    for row in lots.get("EGP", []):
+        if (row.get("origin") or "").startswith("dividend:"):
+            source = row["origin"][len("dividend:"):]
+            dividends[source] = dividends.get(source, 0.0) + row["quantity"]
 
     terms = deposits.load(conn)
     assets = []
@@ -767,6 +895,8 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         if key.startswith(DEPOSIT_PREFIX):
             assets.append(_deposit_asset(deposit_entry(key, rows[0]["name"] or "شهادة"), rows, terms, at))
     for key, held in book["assets"].items():
+        if key.startswith(DEPOSIT_PREFIX):
+            continue  # a certificate bought with the ledger's pounds: valued from its terms above
         rows = lots.get(key, [])
         entry = entries.get(key) or _fallback_entry(key, rows)
         quantity = held["quantity"]
@@ -786,6 +916,7 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             "group": CLOSED_GROUP[0] if closed else entry["group"],
             "name": entry["name"], "symbol": entry.get("symbol"), "mark": entry["mark"], "unit": entry["unit"],
             "quantity": quantity, "cost_egp": cost, "value_egp": value, "realized_egp": held["realized"],
+            "dividends_egp": dividends.get(key, 0.0),
             "growth": value / cost - 1 if value is not None and cost and not closed else None,  # None cost: unknown
             "price": price["price"] if price else None, "price_currency": price["currency"] if price else entry["currency"],
             "price_egp": unit_egp, "price_as_of": price["as_of"] if price else None,
@@ -837,6 +968,7 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
         },
         "groups": groups,
         "debts": owed,
+        "upcoming": upcoming(assets, owed, at.date()),
         "disclaimer": DISCLAIMER,
     }
 

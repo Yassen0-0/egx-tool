@@ -136,6 +136,28 @@ def debt_update(debt_id: int, name: str | None = None, principal: float | None =
         return portfolio.update_debt(conn, debt_id, name, principal, start_date, installment_egp, due_day, note)
 
 
+def dividend_add(asset: str | None = None, amount_egp: float | None = None, date: str | None = None,
+                 note: str | None = None, place: str | None = None) -> dict:
+    """A cash dividend from a stock or fund the user holds: amount_egp comes into EGP (at place), shown
+    under the stock as what it paid. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.add_dividend(conn, asset, amount_egp, date, note, place)
+
+
+def corporate_action_add(asset: str | None = None, kind: str = "bonus", date: str | None = None,
+                         quantity: float | None = None, ratio: float | None = None, note: str | None = None) -> dict:
+    """Bonus shares (kind bonus, quantity: the shares that came) or a split (kind split, ratio: 2 is two
+    for one) of a stock from date on: more shares at the same cost. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.add_corporate_action(conn, asset, kind, date, quantity, ratio, note)
+
+
+def corporate_action_remove(action_id: int) -> dict:
+    """Remove bonus shares or a split. Confirm with the user before calling."""
+    with _db() as conn:
+        return portfolio.remove_corporate_action(conn, action_id)
+
+
 def debt_remove(debt_id: int) -> dict:
     """Remove a debt without payments. Confirm with the user before calling."""
     with _db() as conn:
@@ -217,7 +239,8 @@ def prices_sync() -> dict:
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
 MCP_TOOLS = (
     portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
-    movement_add, movement_update, movement_remove, debt_add, debt_update, debt_remove, price_set, fx_rate, fund_components_set, wealth_history,
+    movement_add, movement_update, movement_remove, debt_add, debt_update, debt_remove, dividend_add,
+    corporate_action_add, corporate_action_remove, price_set, fx_rate, fund_components_set, wealth_history,
     ledger_activity, web_search, web_fetch,
 )
 CLI_COMMANDS = {
@@ -235,6 +258,9 @@ CLI_COMMANDS = {
     "debt-add": debt_add,
     "debt-update": debt_update,
     "debt-remove": debt_remove,
+    "dividend-add": dividend_add,
+    "action-add": corporate_action_add,
+    "action-remove": corporate_action_remove,
     "price-set": price_set,
     "fx-rate": fx_rate,
     "history": wealth_history,

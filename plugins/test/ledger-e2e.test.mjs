@@ -154,9 +154,12 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       await click(button('إلغاء', host.querySelector('form.l-add')))
 
       // 5. A fund the catalog does not know, added by name with its current price.
+      // «مصر الذهبي» looks like a typo of a gold fund: the guess comes first, «add by name» last.
       await setValue(input, 'صندوق مصر الذهبي')
-      seen.customOption = host.querySelector('[role="option"]').textContent
-      await act(async () => { host.querySelector('[role="option"]').dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
+      const addByName = [...host.querySelectorAll('[role="option"]')].at(-1)
+      seen.customOption = addByName.textContent
+      seen.guess = host.querySelector('[role="option"]').textContent
+      await act(async () => { addByName.dispatchEvent(new window.MouseEvent('mousedown', { bubbles: true })) })
       await wait(() => host.querySelector('form.l-add'), 'the custom add line')
       await setValue(labelled('النوع'), 'fund')
       await setValue(labelled('السعر الحالي'), '15')
@@ -209,6 +212,7 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
   assert.match(seen.gold, /68,5\d\d/)  // 10 g × 4100 × 52 / 31.1035 = 68,546
   assert.match(seen.oldRate, /بالجنيه/)
   assert.match(seen.customOption, /إضافة بالاسم ده/)
+  assert.match(seen.guess, /صندوق ذهب/)
   assert.match(seen.fund, /1,500/)  // 100 × 15
   assert.match(seen.component, /البنك التجاري الدولي/)
   assert.match(seen.component, /30\.0% من الصندوق/)

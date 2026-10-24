@@ -266,6 +266,17 @@ def _places_and_repay(conn: sqlite3.Connection) -> None:
     conn.execute("ALTER TABLE movements_v7 RENAME TO movements")
 
 
+def _relink_known_assets(conn: sqlite3.Connection) -> None:
+    """Assets added by name that the catalog has (a fund added as a stock with the code «SPY» is
+    SPY.US) move to the catalog's key, kind and group."""
+    from ..catalog import match
+    from .portfolio import relink_custom
+    for row in conn.execute("SELECT id, name, symbol FROM custom_assets ORDER BY id").fetchall():
+        entry = match(row["name"], row["symbol"])
+        if entry is not None:
+            relink_custom(conn, f"custom:{row['id']}", entry)
+
+
 # Note: SCHEMA runs before the steps, so it must not index a column a step adds.
 MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (1, "valuations.report (full Markdown report)", _add_column("valuations", "report", "TEXT")),
@@ -278,6 +289,7 @@ MIGRATIONS: tuple[tuple[int, str, object], ...] = (
     (8, "holdings.origin (a dividend), deposits.settle_to_egp, corporate_actions",
      lambda conn: (_add_column("holdings", "origin", "TEXT")(conn),
                    _add_column("deposits", "settle_to_egp", "INTEGER NOT NULL DEFAULT 0")(conn))),
+    (9, "assets added by name that the catalog has take its key, kind and group", _relink_known_assets),
 )
 SCHEMA_VERSION = MIGRATIONS[-1][0]
 

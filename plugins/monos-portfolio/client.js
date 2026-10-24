@@ -888,27 +888,68 @@ var __monos = (() => {
   // plugins/monos-portfolio/src/search.mjs
   var MAX_RESULTS = 6;
   function normalize(text4) {
-    return String(text4 == null ? "" : text4).toLowerCase().replace(/[ً-ٰٟـ]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+    return String(text4 == null ? "" : text4).toLowerCase().replace(/[\u064B-\u065F\u0670\u0640]/g, "").replace(/[أإآٱ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").replace(/ؤ/g, "و").replace(/ئ/g, "ي").replace(/[٠-٩]/g, (d) => String(d.charCodeAt(0) - 1632)).replace(/[۰-۹]/g, (d) => String(d.charCodeAt(0) - 1776)).replace(/[-_./\\()[\],،:؛;]+/g, " ").split(/\s+/).filter(Boolean).map((word) => word.startsWith("ال") && word.length > 3 ? word.slice(2) : word).join(" ");
+  }
+  var FILLER = /* @__PURE__ */ new Set(["صندوق", "fund", "سهم", "شركه", "وثيقه", "وثايق"]);
+  var AR_KEYS = "ضصثقفغعهخحجدشسيبلاتنمكطئءؤرىةوزظ";
+  var EN_KEYS = "qwertyuiop[]asdfghjkl;'zxcvnm,./";
+  var LAYOUT = new Map([...[...AR_KEYS].map((c, i) => [c, EN_KEYS[i]]), ...[...EN_KEYS].map((c, i) => [c, AR_KEYS[i]]), ["b", "لا"]]);
+  function osa(a, b) {
+    let prev2 = null;
+    let prev = Array.from({ length: b.length + 1 }, (_, j) => j);
+    for (let i = 1; i <= a.length; i++) {
+      const cur = [i];
+      for (let j = 1; j <= b.length; j++) {
+        cur[j] = Math.min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] !== b[j - 1] ? 1 : 0));
+        if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) cur[j] = Math.min(cur[j], prev2[j - 2] + 1);
+      }
+      prev2 = prev;
+      prev = cur;
+    }
+    return prev[b.length];
+  }
+  function typo(part, word) {
+    if (word.startsWith(part)) return 0;
+    if (part.length < 3) return null;
+    const d = Math.min(osa(part, word), osa(part, word.slice(0, part.length)));
+    return d <= (part.length <= 5 ? 1 : 2) ? d : null;
   }
   function rank(entry, query) {
     const q = normalize(query);
     if (!q) return null;
     const exact = [entry.symbol, entry.key, ...entry.aliases || []].filter(Boolean).map(normalize);
     if (exact.includes(q)) return 0;
-    const texts = [entry.name, entry.name_en, ...entry.aliases || []].filter(Boolean).map(normalize);
-    if (texts.some((t) => t.startsWith(q) || t.split(" ").some((w) => w.startsWith(q)))) return 1;
+    const texts = [entry.name, entry.name_en, ...entry.aliases || [], ...entry.tags || []].filter(Boolean).map(normalize);
+    if (texts.some((t) => ` ${t}`.includes(` ${q}`))) return 1;
     if (texts.some((t) => t.includes(q))) return 2;
-    const words = texts.flatMap((t) => t.split(" "));
-    if (q.includes(" ") && q.split(" ").every((part) => words.some((w) => w.startsWith(part)))) return 3;
-    return null;
+    const words = [...new Set([...texts, ...exact].flatMap((t) => t.split(" ")))];
+    const all = q.split(" ");
+    const parts2 = all.filter((p) => !FILLER.has(p));
+    const asked = parts2.length ? parts2 : all;
+    if (asked.every((p) => words.some((w) => w.startsWith(p)))) return 3;
+    const edits = asked.map((p) => {
+      const ds = words.map((w) => typo(p, w)).filter((d) => d !== null);
+      return ds.length ? Math.min(...ds) : null;
+    });
+    if (!edits.includes(null)) return 4 + edits.reduce((s, d) => s + d, 0) / 10;
+    const joined = q.replace(/ /g, "");
+    const spaced = joined.length >= 4 ? texts.map((t) => typo(joined, t.replace(/ /g, ""))).filter((d) => d !== null) : [];
+    return spaced.length ? 4 + Math.min(...spaced) / 10 : null;
   }
   var KIND_ORDER = { currency: 0, gold: 1, bitcoin: 2, stock: 3, fund: 4 };
-  function search(entries, query, limit = MAX_RESULTS) {
+  function ranked(entries, query) {
     const hits = [];
     (entries || []).forEach((entry, index) => {
       const r = rank(entry, query);
       if (r !== null) hits.push([r, index, entry]);
     });
+    return hits;
+  }
+  function search(entries, query, limit = MAX_RESULTS) {
+    if (!normalize(query)) return [];
+    let hits = ranked(entries, query);
+    if (!hits.length) hits = ranked(entries, [...String(query).toLowerCase()].map((c) => LAYOUT.get(c) ?? c).join(""));
+    if (hits.some(([r]) => r <= 2)) hits = hits.filter(([r]) => r < 4);
     hits.sort((a, b) => a[0] - b[0] || (KIND_ORDER[a[2].kind] ?? 9) - (KIND_ORDER[b[2].kind] ?? 9) || a[1] - b[1]);
     return hits.slice(0, limit).map(([, , entry]) => entry);
   }
@@ -2199,7 +2240,8 @@ var __monos = (() => {
     const text4 = query.trim();
     const loading = catalog === null;
     const results = text4 && !loading ? search(catalog, text4) : [];
-    const options = text4 && !loading ? results.length ? results : [{ addByName: true, key: "+add" }] : [];
+    const sure = results.some((e) => rank(e, text4) < 4);
+    const options = text4 && !loading ? sure ? results : [...results, { addByName: true, key: "+add" }] : [];
     const pick = (option) => {
       if (!option) return;
       if (option.addByName) onCustom(text4);
@@ -2747,6 +2789,50 @@ var __monos = (() => {
       events.map((e) => e.type === "lot" && e.id < 0 ? h(PaidItem, { key: `p${e.id}`, event: e, onOpen }) : e.type === "lot" ? h(LotItem, { key: `l${e.id}:${lots[e.id].updated_at}`, lot: lots[e.id], asset, onChanged }) : e.type === "action" ? h(ActionItem, { key: `a${e.id}`, event: e, asset, onChanged }) : h(MoveItem, { key: `m${e.movement}:${e.type}:${e.from_quantity}:${e.to_quantity}:${e.date}:${e.note}`, event: e, asset, onChanged, onOpen }))
     );
   }
+  var ASSET_KINDS = KIND_CHOICES2.slice(0, 5);
+  function KindForm({ asset, onDone, onCancel }) {
+    const [kind, setKind] = useState(asset.kind);
+    const [busy, setBusy] = useState(false);
+    const [error, setError] = useState("");
+    async function submit(e) {
+      e.preventDefault();
+      setBusy(true);
+      try {
+        await api("PATCH", `/egx/api/assets/${encodeURIComponent(asset.key)}`, { kind });
+        onDone();
+      } catch (err) {
+        setError(err.message);
+        setBusy(false);
+      }
+    }
+    return h(
+      "form",
+      {
+        className: "l-add l-move",
+        onSubmit: submit,
+        "aria-label": "نوع الأصل",
+        onKeyDown: (e) => {
+          if (e.key === "Escape") {
+            e.stopPropagation();
+            onCancel();
+          }
+        }
+      },
+      h("b", null, `${asset.name} يبقى إيه؟`),
+      h(
+        "div",
+        { className: "q-seg", role: "radiogroup", "aria-label": "النوع" },
+        ASSET_KINDS.map(([k, label]) => h("button", { key: k, type: "button", role: "radio", "aria-checked": kind === k, onClick: () => setKind(k) }, label))
+      ),
+      h(
+        "div",
+        { className: "l-actions" },
+        h("button", { type: "submit", className: "q-btn q-btn-p", disabled: busy || kind === asset.kind }, busy ? "جارٍ الحفظ…" : "احفظ"),
+        h("button", { type: "button", className: "q-btn q-btn-quiet", onClick: onCancel }, "إلغاء"),
+        error ? h("span", { className: "q-error", role: "alert" }, error) : null
+      )
+    );
+  }
   function Actions({ asset, entry, onPick }) {
     const stockLike = asset.kind === "stock" || asset.kind === "fund";
     const all = [
@@ -2756,7 +2842,8 @@ var __monos = (() => {
       ["place", "نقل لمكان تاني"],
       stockLike ? ["dividend", "توزيعات"] : null,
       stockLike ? ["bonus", "أسهم مجانية"] : null,
-      stockLike ? ["split", "تقسيم"] : null
+      stockLike ? ["split", "تقسيم"] : null,
+      entry && entry.custom ? ["kind", "غيّر النوع", "سهم ولا صندوق ولا عملة…: تحت أنهي عنوان يظهر"] : null
     ].filter(Boolean);
     const shown = all.slice(0, 2);
     const more = all.slice(2);
@@ -2860,6 +2947,9 @@ var __monos = (() => {
         asset.realized_egp && Math.abs(asset.realized_egp) >= 1 ? h("p", { className: "l-hint" }, "ربح محقق من اللي اتحوّل ", hid(hidden, fmtSigned(asset.realized_egp, 0), toneOf(asset.realized_egp)), " ج.م") : null,
         asset.dividends_egp >= 1 ? h("p", { className: "l-hint" }, "توزيعات استلمتها ", hid(hidden, money(asset.dividends_egp)), " ج.م") : null,
         movable ? ["dividend", "bonus", "split"].includes(moving) ? h(StockEventForm, { asset, kind: moving, onDone: () => {
+          setMoving(null);
+          onChanged();
+        }, onCancel: () => setMoving(null) }) : moving === "kind" ? h(KindForm, { asset, onDone: () => {
           setMoving(null);
           onChanged();
         }, onCancel: () => setMoving(null) }) : moving === "buy" && entry ? h(AddLine, { entry, places, onDone: () => {

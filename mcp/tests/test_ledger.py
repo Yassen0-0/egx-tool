@@ -138,9 +138,57 @@ def test_egyptian_funds_are_found_by_manager_type_and_name(conn):
     sabayek = search(conn, "سبائك")[0]
     assert sabayek["key"] == "fund:beltone-sabayek" and sabayek["name"] == "Beltone Sabayek" and sabayek["symbol"] == "BSB"
     assert sabayek["kind_label"] == "صندوق ذهب · بلتون" and sabayek["unit"] == "وثيقة"
-    assert {e["key"] for e in search(conn, "بلتون ذهب")} == {"fund:beltone-sabayek"}
+    assert search(conn, "بلتون ذهب")[0]["key"] == "fund:beltone-sabayek"
     assert search(conn, "azg")[0]["key"] == "fund:az-gold" and search(conn, "az gold")[0]["key"] == "fund:az-gold"
     assert search(conn, "azimut", 20) and all(e["kind_label"].endswith("أزيموت") for e in search(conn, "ازيموت", 20))
     assert search(conn, "يوم بيوم دولار")[0]["currency"] == "USD"
     # A fund never pushes gold itself off «دهب».
     assert all(e["kind"] == "gold" for e in search(conn, "دهب"))
+
+
+def test_search_finds_through_typos_spacing_and_the_wrong_keyboard(conn):
+    from egx_mcp.catalog import search
+    first = lambda q: search(conn, q)[0]["key"]  # noqa: E731
+    assert first("سبايك") == first("سبائق") == "fund:beltone-sabayek"
+    assert first("azimot") == first("ازموت") == "fund:az-gold"
+    assert first("ميامية") == first("مية ميه") == "fund:beltone-meya-meya"
+    assert first("b-secure") == first("بي سكيور") == "fund:b-secure"
+    assert first("ؤخةه") == "COMI"  # «comi» on the Arabic keyboard
+    assert first("بيتكوين") == "BTC" and first("استرلينى") == "GBP"
+    assert first("تجاري دولي") == "COMI"  # the stock before the bank's funds
+    assert [e["key"] for e in search(conn, "comi")] == ["COMI"]  # a close match hides the typo guesses
+
+
+def test_an_asset_added_by_name_that_the_catalog_has_goes_where_it_belongs(conn):
+    from egx_mcp.store.db import _relink_known_assets
+    # Added as a stock with the code SPY, as an older version let it be: the migration moves it.
+    conn.execute("INSERT INTO custom_assets (kind, name, symbol, currency, created_at) VALUES"
+                 " ('stock', 'S&P 500 ETF', 'SPY', 'EGP', '2026-10-20T10:00:00+00:00')")
+    conn.execute("INSERT INTO holdings (symbol, quantity, buy_price, created_at, updated_at, kind, name, currency, fx_egp,"
+                 " cost_egp) VALUES ('custom:1', 0.1425, 32000, 'x', 'x', 'stock', 'S&P 500 ETF', 'EGP', 1, 4560)")
+    conn.execute("INSERT INTO manual_prices VALUES ('custom:1', '2026-10-23', 32050, 'EGP', 'x')")
+    _relink_known_assets(conn)
+    row = conn.execute("SELECT symbol, kind FROM holdings").fetchone()
+    assert (row["symbol"], row["kind"]) == ("SPY.US", "fund")
+    assert conn.execute("SELECT COUNT(*) FROM custom_assets").fetchone()[0] == 0
+    assert conn.execute("SELECT COUNT(*) FROM manual_prices").fetchone()[0] == 0  # SPY.US has its own price
+    # Adding it by name again lands on the fund too, with the price in the currency given.
+    portfolio.add_holding(conn, None, buy_price=32000, quantity=0.1, custom={"kind": "stock", "name": "x", "symbol": "spy", "currency": "EGP"})
+    lots = conn.execute("SELECT symbol, currency FROM holdings ORDER BY id").fetchall()
+    assert [tuple(r) for r in lots] == [("SPY.US", "EGP"), ("SPY.US", "EGP")]
+
+
+def test_the_kind_of_an_asset_added_by_name_can_change(conn):
+    portfolio.add_holding(conn, None, buy_price=10, quantity=2, custom={"kind": "stock", "name": "صندوق جديد"})
+    assert portfolio.set_asset_kind(conn, "custom:1", "fund")["group"] == "funds"
+    assert conn.execute("SELECT kind FROM holdings").fetchone()[0] == "fund"
+    with pytest.raises(LedgerInputError):
+        portfolio.set_asset_kind(conn, "COMI", "fund")
+    with pytest.raises(LedgerInputError):
+        portfolio.set_asset_kind(conn, "custom:1", "house")
+
+
+def test_a_purchase_typed_after_midnight_in_cairo_counts_from_that_day():
+    from egx_mcp.store.movements import lot_day
+    assert lot_day({"buy_date": None, "created_at": "2026-10-24T21:30:00+00:00"}) == "2026-10-25"
+    assert lot_day({"buy_date": "2026-10-01", "created_at": "2026-10-24T21:30:00+00:00"}) == "2026-10-01"

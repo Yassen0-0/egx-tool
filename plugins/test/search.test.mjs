@@ -34,3 +34,14 @@ test('each word of a longer query can start a different word: «بلتون ذه�
   assert.equal(rank(fund, 'ذهب بلت'), 3)
   assert.equal(rank(fund, 'بلتون فضة'), null)
 })
+
+test('typos, spacing and the wrong keyboard still find it', () => {
+  const sabayek = { key: 'fund:beltone-sabayek', kind: 'fund', name: 'Beltone Sabayek', symbol: 'BSB', aliases: ['سبائك'], tags: ['بلتون'] }
+  const comi = { key: 'COMI', kind: 'stock', name: 'البنك التجاري الدولي', symbol: 'COMI', aliases: [] }
+  assert.ok(rank(sabayek, 'سبائق') >= 4)
+  assert.ok(rank(sabayek, 'بلتوون') >= 4)
+  assert.equal(rank(sabayek, 'بلتون'), 1)  // a tag finds it, never exactly
+  assert.deepEqual(search([comi, sabayek], 'ؤخةه').map((e) => e.key), ['COMI'])
+  assert.deepEqual(search([comi, sabayek], 'comi').map((e) => e.key), ['COMI'])
+  assert.equal(normalize('B-Secure'), 'b secure')
+})

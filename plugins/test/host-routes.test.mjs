@@ -121,6 +121,8 @@ test('ledger routes: catalog, rate, manual price, fund components and removing a
   const gone = await call('DELETE', '/egx/api/assets/XAU-G', { body: {}, headers: SAME_ORIGIN })
   assert.deepEqual(gone.body, { command: 'asset-remove', payload: { asset: 'XAU-G' } })
   assert.equal((await call('DELETE', '/egx/api/assets/%2Fetc', { body: {}, headers: SAME_ORIGIN })).status, 400)
+  const kind = await call('PATCH', `/egx/api/assets/${encodeURIComponent('custom:2')}`, { body: { kind: 'fund' }, headers: SAME_ORIGIN })
+  assert.deepEqual(kind.body, { command: 'asset-kind-set', payload: { asset: 'custom:2', kind: 'fund' } })
   assert.equal((await call('GET', '/egx/api/prices')).status, 405)
   assert.equal((await call('PUT', '/egx/api/funds/x/components', { body: {}, headers: { 'content-type': 'application/json' } })).status, 403)
 })

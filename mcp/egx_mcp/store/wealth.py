@@ -30,6 +30,7 @@ from ..catalog import DEPOSIT_PREFIX, catalog
 from ..config import data_dir
 from ..market.calendar import CAIRO, now_cairo
 from . import debts, deposits, portfolio
+from .movements import lot_day
 
 DEFAULT_DAYS = 365
 MAX_DAYS = 3650
@@ -130,7 +131,7 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
     for c in certificates:
         if c["symbol"] in bought:
             continue  # bought with the ledger's pounds: no new money
-        day = c["buy_date"] or c["created_at"][:10]
+        day = lot_day(c)
         flows[day] = flows.get(day, 0.0) + c["cost_egp"]
     for d, _ in owed:
         flows[d["start_date"]] = flows.get(d["start_date"], 0.0) - d["principal"]
@@ -163,7 +164,7 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
             cost += known_cost or 0.0
         noon = datetime.combine(d, time(12), CAIRO)
         for c in certificates:
-            if (c["buy_date"] or c["created_at"][:10]) <= day:
+            if (lot_day(c)) <= day:
                 value += deposits.valued(terms.get(c["id"]), c["quantity"], noon)["value"]
                 cost += c["cost_egp"]
         value -= sum(debts.remaining_on(d, paid, day) for d, paid in owed)

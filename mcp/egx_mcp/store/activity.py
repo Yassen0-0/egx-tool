@@ -6,6 +6,7 @@ import sqlite3
 from datetime import datetime
 
 from ..errors import LedgerInputError
+from .movements import lot_day
 from .portfolio import portfolio_summary
 
 KINDS = {"income": "دخل", "transfer": "تحويل", "expense": "خروج", "repay": "سداد"}
@@ -21,7 +22,7 @@ def _items(summary: dict) -> list[dict]:
     items = []
     for asset in assets.values():
         for lot in asset["lots"]:
-            day = lot["buy_date"] or lot["created_at"][:10]
+            day = lot_day(lot)
             source = assets.get((lot.get("origin") or "").removeprefix("dividend:"))
             items.append({"id": f"lot:{lot['id']}", "kind": "income",
                           "kind_label": "توزيعات" if source else KINDS["income"], "date": day,

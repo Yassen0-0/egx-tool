@@ -27,6 +27,9 @@ reported, and the quantity stops at zero. The mutations in portfolio.py refuse a
 """
 
 from collections.abc import Callable
+from datetime import datetime
+
+from ..market.calendar import CAIRO
 
 EPS = 1e-9
 KIND_LABEL = {"transfer": "تحويل", "expense": "خروج", "repay": "سداد"}
@@ -35,8 +38,14 @@ ValueOn = Callable[[str, float, str], float | None]
 
 
 def lot_day(lot: dict) -> str:
-    """A purchase without a date counts from the day it was typed in."""
-    return lot["buy_date"] or lot["created_at"][:10]
+    """A purchase without a date counts from the day it was typed in, in Cairo (created_at is UTC:
+    one typed at 1 a.m. in Cairo is still yesterday there)."""
+    if lot["buy_date"]:
+        return lot["buy_date"]
+    try:
+        return datetime.fromisoformat(lot["created_at"]).astimezone(CAIRO).date().isoformat()
+    except (TypeError, ValueError):
+        return str(lot["created_at"])[:10]
 
 
 def _cost(s: dict) -> float | None:

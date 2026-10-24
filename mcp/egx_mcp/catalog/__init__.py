@@ -119,13 +119,15 @@ def builtin_catalog() -> tuple[dict, ...]:
 
 
 def _fund(f: dict, managers: dict) -> dict:
-    """A fund from funds.json: «صندوق ذهب · بلتون» as its label; its manager, type and «إسلامي» find it."""
+    """A fund from funds.json: «صندوق ذهب · بلتون» as its label; its code, names, manager, type and
+    «إسلامي» find it."""
     manager = managers.get(f.get("manager") or "", {})
     label, type_words = FUND_TYPES.get(f.get("type") or "", (None, ()))
-    aliases = (*f.get("aliases", ()), *([manager["name"]] if manager else ()), *manager.get("aliases", ()), *type_words,
-               *(ISLAMIC_ALIASES if f.get("islamic") else ()))
-    entry = _entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], f.get("symbol"), aliases,
-                   f.get("currency", "EGP"))
+    entry = _entry(f"fund:{f['slug']}", "fund", f["name"], f.get("name_en") or f["name"], f.get("symbol"),
+                   f.get("aliases", ()), f.get("currency", "EGP"))
+    # Words that find it among others but never name it alone: «بلتون» starts it, it is not «بلتون».
+    entry["tags"] = [*([manager["name"]] if manager else ()), *manager.get("aliases", ()), *type_words,
+                     *(ISLAMIC_ALIASES if f.get("islamic") else ())]
     entry["kind_label"] = " · ".join(filter(None, (f"صندوق {label}" if label else "صندوق", manager.get("name"))))
     entry["mark"] = manager.get("mark") or _mark(f["name"], f.get("symbol"))
     return entry
@@ -177,6 +179,23 @@ def catalog(conn: sqlite3.Connection) -> list[dict]:
     return entries
 
 
+def match(name: str | None, symbol: str | None = None) -> dict | None:
+    """The built-in asset something added by name really is: its code («SPY» is SPY.US) or its exact
+    name or alias («S&P 500 ETF» alone is not enough). None unless exactly one fits."""
+    def one(found: list[dict]) -> dict | None:
+        return found[0] if len({e["key"] for e in found}) == 1 else None
+    code = normalize(symbol)
+    if code:
+        hit = one([e for e in builtin_catalog() if code in (normalize(e["symbol"]), normalize(e["key"]))])
+        if hit:
+            return hit
+    text = normalize(name)
+    if not text:
+        return None
+    return one([e for e in builtin_catalog()
+                if text in {normalize(t) for t in (e["name"], e["name_en"], e["symbol"], *e["aliases"]) if t}])
+
+
 def find(conn: sqlite3.Connection, key: str) -> dict | None:
     key = key.strip()
     # Built-in keys are upper case (usd → USD, xau-g → XAU-G); fund: and custom: keep theirs.
@@ -196,32 +215,81 @@ _KIND_ORDER = {"currency": 0, "gold": 1, "bitcoin": 2, "stock": 3, "fund": 4, "d
 
 
 def normalize(text: str | None) -> str:
-    """Lower case; Arabic without diacritics or tatweel, one alef/ya/ha spelling, Latin digits, «ال» dropped."""
+    """Lower case; Arabic without diacritics or tatweel, one alef/ya/ha spelling, Latin digits, «ال»
+    dropped, and dashes, dots, slashes and brackets as spaces («b-secure» finds «B Secure»)."""
     folded = str(text or "").lower().translate(_MARKS).translate(_FOLD).translate(_DIGITS)
+    folded = _SEPARATORS.sub(" ", folded)
     return " ".join(w[2:] if w.startswith("ال") and len(w) > 3 else w for w in folded.split())
 
 
-def _rank(entry: dict, query: str) -> int | None:
+_SEPARATORS = re.compile(r"[-_./\\()\[\],،:؛;]+")
+# Words that say what kind of thing it is, not which: dropped from a longer query («صندوق بلتون»).
+_FILLER = {"صندوق", "fund", "سهم", "شركه", "وثيقه", "وثايق"}
+# The same key on the Arabic and the English keyboard: «ؤخةه» is «comi» typed in the wrong language.
+_AR_KEYS, _EN_KEYS = "ضصثقفغعهخحجدشسيبلاتنمكطئءؤرىةوزظ", "qwertyuiop[]asdfghjkl;'zxcvnm,./"
+_LAYOUT = {**dict(zip(_AR_KEYS, _EN_KEYS, strict=True)), **dict(zip(_EN_KEYS, _AR_KEYS, strict=True)), "b": "لا"}
+
+
+def _osa(a: str, b: str) -> int:
+    """Edit distance counting a swap of two neighbours as one edit («بلتنو» → «بلتون»)."""
+    prev2, prev = None, list(range(len(b) + 1))
+    for i in range(1, len(a) + 1):
+        cur = [i] + [0] * len(b)
+        for j in range(1, len(b) + 1):
+            cur[j] = min(prev[j] + 1, cur[j - 1] + 1, prev[j - 1] + (a[i - 1] != b[j - 1]))
+            if i > 1 and j > 1 and a[i - 1] == b[j - 2] and a[i - 2] == b[j - 1]:
+                cur[j] = min(cur[j], prev2[j - 2] + 1)
+        prev2, prev = prev, cur
+    return prev[-1]
+
+
+def _typo(part: str, word: str) -> int | None:
+    """How many edits a typo is from the word or its start; None when it is too far to be one (one
+    edit in a short word, two in a long one, nothing under three letters)."""
+    if word.startswith(part):
+        return 0
+    if len(part) < 3:
+        return None
+    d = min(_osa(part, word), _osa(part, word[:len(part)]))
+    return d if d <= (1 if len(part) <= 5 else 2) else None
+
+
+def _rank(entry: dict, query: str) -> float | None:
     exact = [normalize(t) for t in (entry.get("symbol"), entry["key"], *entry["aliases"]) if t]
     if query in exact:
         return 0
-    texts = [normalize(t) for t in (entry["name"], entry["name_en"], *entry["aliases"]) if t]
-    if any(t.startswith(query) or any(w.startswith(query) for w in t.split()) for t in texts):
+    texts = [normalize(t) for t in (entry["name"], entry["name_en"], *entry["aliases"], *entry.get("tags", ())) if t]
+    if any(f" {t}".find(f" {query}") >= 0 for t in texts):  # from the start of a word on
         return 1
     if any(query in t for t in texts):
         return 2
+    words = {w for t in texts + exact for w in t.split()}
+    parts = [q for q in query.split() if q not in _FILLER] or query.split()
     # «بلتون ذهب»: every word starts a word somewhere in the names and aliases.
-    words = {w for t in texts for w in t.split()}
-    if " " in query and all(any(w.startswith(q) for w in words) for q in query.split()):
+    if all(any(w.startswith(q) for w in words) for q in parts):
         return 3
-    return None
+    # Typos: «بلتوون», «سبايك», «azimot»; and the spaces left out or added («ميامية»). 4 and up, the
+    # fewer edits the better.
+    edits = [min((d for w in words if (d := _typo(q, w)) is not None), default=None) for q in parts]
+    if None not in edits:
+        return 4 + sum(edits) / 10
+    joined = query.replace(" ", "")
+    spaced = [d for t in texts if len(joined) >= 4 and (d := _typo(joined, t.replace(" ", ""))) is not None]
+    return 4 + min(spaced) / 10 if spaced else None
 
 
 def search(conn: sqlite3.Connection, query: str, limit: int = 6) -> list[dict]:
     q = normalize(query)
     if not q:
         return []
-    hits = [(r, i, e) for i, e in enumerate(catalog(conn)) if (r := _rank(e, q)) is not None]
+    entries = catalog(conn)
+    hits = [(r, i, e) for i, e in enumerate(entries) if (r := _rank(e, q)) is not None]
+    if not hits:
+        # Nothing at all: maybe it was typed with the keyboard in the other language.
+        swapped = normalize("".join(_LAYOUT.get(c, c) for c in str(query).lower()))
+        hits = [(r, i, e) for i, e in enumerate(entries) if swapped and (r := _rank(e, swapped)) is not None]
+    if any(r <= 2 for r, _, _ in hits):
+        hits = [h for h in hits if h[0] < 4]  # a close match makes the typo guesses noise
     # Ties keep the catalog's order, which puts the usual choice first (gold by the gram).
     hits.sort(key=lambda h: (h[0], _KIND_ORDER.get(h[2]["kind"], 9), h[1]))
     return [e for _, _, e in hits[:limit]]

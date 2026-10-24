@@ -92,6 +92,13 @@ def asset_remove(asset: str) -> dict:
         return portfolio.remove_asset(conn, asset)
 
 
+def asset_kind_set(asset: str, kind: str) -> dict:
+    """Change what an asset the user added by name is (currency, gold, bitcoin, stock or fund), so it
+    shows under the right heading. Built-in assets keep the catalog's kind. Confirm with the user first."""
+    with _db() as conn:
+        return portfolio.set_asset_kind(conn, asset, kind)
+
+
 def movement_add(kind: str = "transfer", from_asset: str | None = None, from_quantity: float | None = None,
                  to_asset: str | None = None, to_quantity: float | None = None, date: str | None = None,
                  value_egp: float | None = None, note: str | None = None, top_up: bool = False,
@@ -247,7 +254,7 @@ def prices_sync() -> dict:
 
 # What the assistant sees as MCP tools (server.py) and what the screen calls through egx-cli.
 MCP_TOOLS = (
-    portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove,
+    portfolio_summary, catalog_search, portfolio_add, portfolio_update, portfolio_remove, asset_remove, asset_kind_set,
     movement_add, movement_update, movement_remove, debt_add, debt_update, debt_remove, dividend_add,
     corporate_action_add, corporate_action_remove, price_set, fx_rate, fund_components_set, wealth_history,
     ledger_activity, web_search, web_fetch,
@@ -262,6 +269,7 @@ CLI_COMMANDS = {
     "portfolio-update": portfolio_update,
     "portfolio-remove": portfolio_remove,
     "asset-remove": asset_remove,
+    "asset-kind-set": asset_kind_set,
     "movement-add": movement_add,
     "movement-update": movement_update,
     "movement-remove": movement_remove,

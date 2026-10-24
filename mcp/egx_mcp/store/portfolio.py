@@ -22,7 +22,17 @@ an asset's price, its fund components and its manual prices belong to the asset 
 import sqlite3
 from datetime import date, datetime, timedelta
 
-from ..catalog import CURRENCY_CODES, DEPOSIT_PREFIX, GROUPS, catalog, custom_key, deposit_entry, egx_ticker, find
+from ..catalog import (
+    CURRENCY_CODES,
+    DEPOSIT_PREFIX,
+    GROUPS,
+    catalog,
+    custom_key,
+    deposit_entry,
+    egx_ticker,
+    find,
+    match,
+)
 from ..errors import LedgerInputError
 from ..market import store
 from ..market.calendar import now_cairo
@@ -203,6 +213,10 @@ def priced_catalog(conn: sqlite3.Connection, at: datetime | None = None) -> list
 # ── holdings ─────────────────────────────────────────────────────────────────
 
 def _custom_asset(conn: sqlite3.Connection, custom: dict) -> dict:
+    # Something the catalog already has, whatever kind it was given («SPY» as a stock is the fund).
+    known = match(custom.get("name"), custom.get("symbol"))
+    if known is not None:
+        return dict(known)
     kind = custom.get("kind")
     if kind not in ("currency", "gold", "bitcoin", "stock", "fund"):
         raise LedgerInputError("اختار نوع الأصل")
@@ -291,6 +305,8 @@ def _place(value: str | None) -> str | None:
 def _add_holding(conn, asset, buy_price, quantity, amount, currency, cost_egp, buy_date, note, custom,
                  commit=True, place=None) -> dict:
     entry = _custom_asset(conn, custom) if custom is not None else _entry(conn, asset)
+    if custom is not None and not entry["key"].startswith("custom:"):
+        currency = currency or custom.get("currency")  # the price was typed in the currency given
     if entry["key"] == "EGP":
         buy_price, currency = 1.0, "EGP"
     currency = (currency or entry["currency"]).strip().upper()
@@ -402,6 +418,43 @@ def remove_asset(conn: sqlite3.Connection, asset: str) -> dict:
     conn.execute("DELETE FROM fund_components WHERE fund = ?", (asset,))
     conn.commit()
     return {"removed": rows}
+
+
+ASSET_KINDS = ("currency", "gold", "bitcoin", "stock", "fund")
+
+
+def set_asset_kind(conn: sqlite3.Connection, asset: str, kind: str) -> dict:
+    """What an asset added by name is (a stock, a fund…): where it shows. A built-in asset's kind is
+    the catalog's."""
+    if not asset.startswith("custom:"):
+        raise LedgerInputError("نوع الأصل ده ثابت من القايمة؛ اللي بيتغيّر نوعه هو اللي اتضاف بالاسم بس")
+    if kind not in ASSET_KINDS:
+        raise LedgerInputError("اختار نوع الأصل")
+    row_id = int(asset.split(":", 1)[1]) if asset.split(":", 1)[1].isdigit() else -1
+    if conn.execute("UPDATE custom_assets SET kind = ? WHERE id = ?", (kind, row_id)).rowcount == 0:
+        raise LedgerInputError(f"مفيش أصل {asset}")
+    conn.execute("UPDATE holdings SET kind = ? WHERE symbol = ?", (kind, asset))
+    conn.commit()
+    return find(conn, asset)
+
+
+def relink_custom(conn: sqlite3.Connection, old: str, entry: dict) -> None:
+    """An asset added by name that the catalog has (custom:<id> → entry): its purchases, movements,
+    dividends, actions and components follow the catalog's key, and the name it was added by goes.
+    Its typed prices follow too unless the catalog's asset has a market price of its own. No commit."""
+    new = entry["key"]
+    conn.execute("UPDATE holdings SET symbol = ?, kind = ?, name = ? WHERE symbol = ?", (new, entry["kind"], entry["name"], old))
+    conn.execute("UPDATE holdings SET origin = ? WHERE origin = ?", (f"dividend:{new}", f"dividend:{old}"))
+    conn.execute("UPDATE movements SET from_asset = ? WHERE from_asset = ?", (new, old))
+    conn.execute("UPDATE movements SET to_asset = ? WHERE to_asset = ?", (new, old))
+    conn.execute("UPDATE corporate_actions SET asset = ? WHERE asset = ?", (new, old))
+    if new.startswith("fund:"):  # no market price: the typed ones are its price
+        conn.execute("UPDATE OR IGNORE manual_prices SET asset = ? WHERE asset = ?", (new, old))
+    conn.execute("DELETE FROM manual_prices WHERE asset = ?", (old,))
+    for column in ("fund", "asset"):
+        conn.execute(f"UPDATE OR IGNORE fund_components SET {column} = ? WHERE {column} = ?", (new, old))
+        conn.execute(f"DELETE FROM fund_components WHERE {column} = ?", (old,))
+    conn.execute("DELETE FROM custom_assets WHERE id = ?", (int(old.split(":", 1)[1]),))
 
 
 # ── movements ────────────────────────────────────────────────────────────────

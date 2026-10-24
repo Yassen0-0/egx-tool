@@ -11,7 +11,7 @@ import { Collapse, FlipList, canMove, land } from '../../shared/motion.js'
 import { Logo } from '../../shared/logo.js'
 import { CountNum, MASK, PrivacyToggle, usePrivacy } from '../../shared/privacy.js'
 import { HistoryChart } from './history.js'
-import { search } from './search.mjs'
+import { rank, search } from './search.mjs'
 import { ExportButton } from './export.js'
 import { ImportButton } from './import.js'
 import { Composer } from './composer.js'
@@ -71,8 +71,10 @@ export function Search({ catalog, onPick, onCustom, autoFocus = false }) {
   // of the pound.
   const loading = catalog === null
   const results = text && !loading ? search(catalog, text) : []
-  // The «add by name» line has its own marker: catalog entries the user added carry `custom` too.
-  const options = text && !loading ? (results.length ? results : [{ addByName: true, key: '+add' }]) : []
+  // The «add by name» line has its own marker: catalog entries the user added carry `custom` too. It
+  // shows when nothing matched, and under guesses at a typo: a new asset can look like a known one.
+  const sure = results.some((e) => rank(e, text) < 4)
+  const options = text && !loading ? (sure ? results : [...results, { addByName: true, key: '+add' }]) : []
   const pick = (option) => {
     if (!option) return
     if (option.addByName) onCustom(text)
@@ -418,6 +420,32 @@ function Timeline({ asset, onChanged, onOpen }) {
 }
 
 /** Two actions in sight, the rest in «كمان» (a native disclosure: its buttons stay in the page). */
+const ASSET_KINDS = KIND_CHOICES.slice(0, 5)  // an asset added by name: not a certificate or a debt
+
+/** What an asset added by name is: it decides the heading it shows under. Python checks and saves it. */
+function KindForm({ asset, onDone, onCancel }) {
+  const [kind, setKind] = useState(asset.kind)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function submit(e) {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await api('PATCH', `/egx/api/assets/${encodeURIComponent(asset.key)}`, { kind })
+      onDone()
+    } catch (err) { setError(err.message); setBusy(false) }
+  }
+  return h('form', { className: 'l-add l-move', onSubmit: submit, 'aria-label': 'نوع الأصل',
+      onKeyDown: (e) => { if (e.key === 'Escape') { e.stopPropagation(); onCancel() } } },
+    h('b', null, `${asset.name} يبقى إيه؟`),
+    h('div', { className: 'q-seg', role: 'radiogroup', 'aria-label': 'النوع' },
+      ASSET_KINDS.map(([k, label]) => h('button', { key: k, type: 'button', role: 'radio', 'aria-checked': kind === k, onClick: () => setKind(k) }, label))),
+    h('div', { className: 'l-actions' },
+      h('button', { type: 'submit', className: 'q-btn q-btn-p', disabled: busy || kind === asset.kind }, busy ? 'جارٍ الحفظ…' : 'احفظ'),
+      h('button', { type: 'button', className: 'q-btn q-btn-quiet', onClick: onCancel }, 'إلغاء'),
+      error ? h('span', { className: 'q-error', role: 'alert' }, error) : null))
+}
+
 function Actions({ asset, entry, onPick }) {
   const stockLike = asset.kind === 'stock' || asset.kind === 'fund'
   const all = [
@@ -428,6 +456,7 @@ function Actions({ asset, entry, onPick }) {
     stockLike ? ['dividend', 'توزيعات'] : null,
     stockLike ? ['bonus', 'أسهم مجانية'] : null,
     stockLike ? ['split', 'تقسيم'] : null,
+    entry && entry.custom ? ['kind', 'غيّر النوع', 'سهم ولا صندوق ولا عملة…: تحت أنهي عنوان يظهر'] : null,
   ].filter(Boolean)
   const shown = all.slice(0, 2)
   const more = all.slice(2)
@@ -494,6 +523,8 @@ export function AssetRow({ asset, catalog, places, fresh, focused, onChanged, on
         ? h('p', { className: 'l-hint' }, 'توزيعات استلمتها ', hid(hidden, money(asset.dividends_egp)), ' ج.م') : null,
       movable ? (['dividend', 'bonus', 'split'].includes(moving)
         ? h(StockEventForm, { asset, kind: moving, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
+        : moving === 'kind'
+        ? h(KindForm, { asset, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : moving === 'buy' && entry
         ? h(AddLine, { entry, places, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : moving

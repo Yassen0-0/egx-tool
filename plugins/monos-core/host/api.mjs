@@ -148,9 +148,13 @@ async function handleApi(req, res, path, query) {
   }
   const asset = /^\/egx\/api\/assets\/([^/]{1,96})$/.exec(path)
   if (asset) {
-    if (method !== 'DELETE') return sendJson(res, 405, { error: 'method not allowed' })
     const key = assetKey(asset[1])
     if (!key) return sendJson(res, 400, { error: 'bad asset key' })
+    if (method === 'PATCH') {  // what an asset added by name is: where it shows
+      const { status, body } = await runCli('asset-kind-set', { asset: key, kind: String(payload.kind || '') })
+      return sendJson(res, status, body)
+    }
+    if (method !== 'DELETE') return sendJson(res, 405, { error: 'method not allowed' })
     const { status, body } = await runCli('asset-remove', { asset: key })
     return sendJson(res, status, body)
   }

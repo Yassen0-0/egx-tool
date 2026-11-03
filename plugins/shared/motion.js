@@ -65,7 +65,7 @@ export function Collapse({ open, className = '', children, ...rest }) {
 /** A one-shot tint on a row that just arrived or was jumped to (its ::after). */
 export function land(el) {
   return animate(el, [{ opacity: canMove() ? 0.55 : 0.35 }, { opacity: 0 }],
-    { duration: canMove() ? 1200 : 600, easing: 'ease-out', pseudoElement: '::after' })
+    { duration: canMove() ? DUR.base : DUR.micro, easing: 'ease-out', pseudoElement: '::after' })
 }
 
 /** Counts the one text node of `ref` from the value last shown to `value` (easeOutQuart). React keeps

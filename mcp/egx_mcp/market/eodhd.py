@@ -89,7 +89,7 @@ class EodhdClient:
         try:
             return json.loads(body)
         except json.JSONDecodeError:
-            raise MarketDataError(f"EODHD {path} returned non-JSON: {body[:120]}") from None
+            raise MarketDataError(f"EODHD {path} returned non-JSON: {body[:120].replace(self._key, '***')}") from None
 
     def account(self) -> dict:
         """`used_today` is EODHD's count for `counted_on` (apiRequestsDate, a GMT day). EODHD zeroes

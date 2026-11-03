@@ -32,7 +32,7 @@ function moveSummary(d, within) {
 
 /** The card under an open asset that records money leaving it: 'expense' (صرفت), 'transfer'
  * (حوّلت) or 'place' (the same asset to another place). */
-export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) {
+export function MoveForm({ asset, kind, catalog, catalogFailed = false, onCatalogRetry, SearchBox, onDone, onCancel }) {
   const [to, setTo] = useState(null)
   const [taken, setTaken] = useState('')
   const [arrived, setArrived] = useState('')
@@ -106,7 +106,7 @@ export function MoveForm({ asset, kind, catalog, SearchBox, onDone, onCancel }) 
     to
       ? h('div', { className: 'l-entry-chosen' }, h('b', null, to.name), h('span', { className: 'q-meta' }, to.kind_label),
         h('button', { type: 'button', className: 'q-link', onClick: () => { setTo(null); setArrived('') } }, 'تغيير'))
-      : h(SearchBox, { catalog: others, placeholder: 'دولار، دهب، COMI، صندوق…', onPick: (entry) => { setTo(entry); fail('') },
+      : h(SearchBox, { catalog: others, failed: catalogFailed, onRetry: onCatalogRetry, placeholder: 'دولار، دهب، COMI، صندوق…', onPick: (entry) => { setTo(entry); fail('') },
         onCustom: () => fail('مش لاقيه في القايمة؟ سجّله الأول من «+ سجّل» ← «اشتريت»، وبعدين حوّل له.') })) : null,
   h('div', { className: 'l-entry-grid' },
     kind === 'transfer' && to ? h(Question, { name: 'arrived', value: arrived, onChange: setArrived, label: 'وصلك كام؟', unit: unitOf(to),

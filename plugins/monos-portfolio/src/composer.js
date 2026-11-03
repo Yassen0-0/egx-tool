@@ -28,7 +28,7 @@ function offered(assets, debts) {
 /** «من فين؟»: the assets to pick from as a row of choices, each with what it holds. */
 const pickField = (label, value, onChange, options) => h(Choice, { label, value, onChange, options })
 
-export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, SearchBox, onDone, onCancel }) {
+export function Composer({ ledger, catalog, catalogFailed = false, onCatalogRetry, places, initial = 'buy', AddLine, SearchBox, onDone, onCancel }) {
   const assets = ledger.groups.flatMap((g) => g.assets)
   const types = offered(assets, ledger.debts)
   const [type, setType] = useState(types.some(([t]) => t === initial) ? initial : 'buy')
@@ -49,7 +49,7 @@ export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, Se
         places, onDone: (key) => done(key, 'اتسجّلت عملية الشرا'), onCancel: () => setPicked(null) })
       : h('div', { className: 'q-stack' },
         h('span', { className: 'l-q-label' }, 'اشتريت إيه؟'),
-        h(SearchBox, { catalog, autoFocus: true, placeholder: 'دولار، دهب 21، COMI، SPY، أو اسم صندوق (سبائك، AZG)', onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }))
+        h(SearchBox, { catalog, failed: catalogFailed, onRetry: onCatalogRetry, autoFocus: true, placeholder: 'دولار، دهب، COMI، أو صندوق', onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }))
   } else if (type === 'debt' || type === 'deposit') {
     body = h(AddLine, { key: type, entry: null, customName: '', initialKind: type === 'debt' ? DEBT_KIND : DEPOSIT_KIND, lockKind: true, places,
       onDone: (key) => done(key, type === 'debt' ? 'اتسجّل الدين' : 'اتسجّلت الشهادة'), onCancel })
@@ -57,7 +57,7 @@ export function Composer({ ledger, catalog, places, initial = 'buy', AddLine, Se
     const asset = movable.find((a) => a.key === source) || movable[0]
     body = h('div', { className: 'q-stack' },
       pickField('من فين؟', asset ? asset.key : '', setSource, movable.map((a) => [a.key, frag(a.name, ' ', h('small', null, amount(a.quantity, a.key, a.unit)))])),
-      asset ? h(MoveForm, { key: `${type}:${asset.key}`, asset, kind: type, catalog, SearchBox,
+      asset ? h(MoveForm, { key: `${type}:${asset.key}`, asset, kind: type, catalog, catalogFailed, onCatalogRetry, SearchBox,
         onDone: () => done(asset.key, type === 'transfer' ? 'اتسجّل التحويل' : 'اتسجّل المصروف'), onCancel }) : null)
   } else if (type === 'dividend') {
     const asset = stocks.find((a) => a.key === stock) || stocks[0]

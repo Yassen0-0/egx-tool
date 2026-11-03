@@ -944,10 +944,13 @@ def _deposit_asset(entry: dict, rows: list[dict], terms: dict, at: datetime) -> 
     cost = sum(r["cost_egp"] for r in rows)
     result = deposits.valued(terms.get(rows[0]["id"]), principal, at)
     detail = result["deposit"]
+    settled = deposits.returned_to_egp(detail, result["value"])
     return {
-        "key": entry["key"], "kind": "deposit", "kind_label": entry["kind_label"], "group": entry["group"],
+        "key": entry["key"], "kind": "deposit", "kind_label": entry["kind_label"],
+        "group": CLOSED_GROUP[0] if settled else entry["group"],
         "name": entry["name"], "symbol": None, "mark": entry["mark"], "unit": entry["unit"],
-        "quantity": principal, "cost_egp": cost, "value_egp": result["value"], "growth": result["value"] / cost - 1,
+        "quantity": principal, "cost_egp": cost, "value_egp": result["value"],
+        "growth": None if settled or not cost else result["value"] / cost - 1,
         "price": None, "price_currency": "EGP", "price_egp": None, "price_as_of": None, "price_source": "terms",
         "stale": False, "today_change": None, "today_as_of": None,
         "interest_per_year": detail and detail["interest_per_year"],
@@ -1041,7 +1044,8 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             "components": fund_components(conn, key) if entry["kind"] == "fund" else [],
         })
 
-    priced = [a for a in assets if a["value_egp"] is not None]
+    priced = [a for a in assets if a["value_egp"] is not None
+              and not deposits.returned_to_egp(a.get("deposit"), a["value_egp"])]
     value = sum(a["value_egp"] for a in priced)
     costed = [a for a in priced if a["cost_egp"] is not None]  # growth needs both ends
     priced_cost = sum(a["cost_egp"] for a in costed)
@@ -1072,7 +1076,8 @@ def portfolio_summary(conn: sqlite3.Connection, at: datetime | None = None) -> d
             "assets": sum(1 for a in assets if a["group"] != CLOSED_GROUP[0]),
             "realized": sum(a["realized_egp"] for a in assets),
             "value": value if priced else None,
-            "cost": sum(a["cost_egp"] for a in assets if a["cost_egp"] is not None),
+            "cost": sum(a["cost_egp"] for a in assets
+                        if a["cost_egp"] is not None and not deposits.returned_to_egp(a.get("deposit"), a.get("value_egp") or 0)),
             "priced_cost": priced_cost,
             "growth": costed_value / priced_cost - 1 if costed and priced_cost else None,
             "unpriced": unpriced,

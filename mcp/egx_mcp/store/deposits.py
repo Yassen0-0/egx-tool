@@ -174,6 +174,13 @@ def settlements(terms: dict, principal: float, until: date) -> list[dict]:
     return out
 
 
+def returned_to_egp(detail: dict | None, value: float) -> bool:
+    """A matured certificate whose principal and interest already sit in the pounds. Its cost must not
+    be added again on top of those pounds."""
+    detail = detail or {}
+    return value == 0 and detail.get("status") == "matured" and bool(detail.get("settle_to_egp"))
+
+
 def valued(terms: dict | None, principal: float, at: datetime) -> dict:
     """What the certificate is worth today and the terms around it. `terms` None (a deposit whose row
     is missing) is valued at its principal."""

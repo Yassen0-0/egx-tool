@@ -60,9 +60,11 @@ var __monos = (() => {
       init.body = JSON.stringify(body);
     }
     const res = await fetch(path, init);
-    const data = await res.json().catch(() => ({ error: `HTTP ${res.status}` }));
+    const data = await res.json().catch(() => ({ error: "تعذّر الاتصال. حاول تاني." }));
     if (!res.ok || data && data.error) {
-      const err = new Error(data.error || `HTTP ${res.status}`);
+      const raw = data && data.error || "";
+      const message = !raw || /^HTTP \d+/.test(raw) ? "تعذّر الاتصال. حاول تاني." : raw;
+      const err = new Error(message);
       if (data && data.field) err.field = data.field;
       throw err;
     }

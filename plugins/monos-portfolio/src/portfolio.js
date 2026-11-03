@@ -40,24 +40,34 @@ function quantityText(asset) {
 // ── catalog (loaded once; search filters it on every keystroke) ──────────────
 function useCatalog() {
   const [items, setItems] = useState(null)
-  const load = () => api('GET', '/egx/api/catalog').then((d) => setItems(d.assets)).catch(() => setItems((prev) => prev || []))
+  const [failed, setFailed] = useState(false)
+  const load = () => {
+    setFailed(false)
+    api('GET', '/egx/api/catalog').then((d) => {
+      setItems(Array.isArray(d.assets) ? d.assets : [])
+      setFailed(false)
+    }).catch(() => {
+      setFailed(true)
+      setItems((prev) => (prev && prev.length ? prev : null))
+    })
+  }
   useEffect(() => { load() }, [])
-  return [items, load]
+  return [items, load, failed]
 }
 
 // ── search ───────────────────────────────────────────────────────────────────
-export function Search({ catalog, onPick, onCustom, autoFocus = false, placeholder = 'سجّل حاجة… اكتب أصل: دولار، دهب 21، بتكوين، COMI، أو اسم صندوق' }) {
+export function Search({ catalog, failed = false, onRetry, onPick, onCustom, autoFocus = false, placeholder = 'سجّل حاجة…' }) {
   const [query, setQuery] = useState('')
   const [active, setActive] = useState(0)
   const text = query.trim()
   // Until the catalog arrives nothing is offered: «إضافة بالاسم ده» for «جنيه» would make a copy
-  // of the pound.
-  const loading = catalog === null
-  const results = text && !loading ? search(catalog, text) : []
+  // of the pound. A failed load stays null, so it is not an empty catalog that offers a new name.
+  const loading = catalog == null && !failed
+  const results = text && catalog ? search(catalog, text) : []
   // The «add by name» line has its own marker: catalog entries the user added carry `custom` too. It
   // shows when nothing matched, and under guesses at a typo: a new asset can look like a known one.
   const sure = results.some((e) => rank(e, text) < 4)
-  const options = text && !loading ? (sure ? results : [...results, { addByName: true, key: '+add' }]) : []
+  const options = text && catalog ? (sure ? results : [...results, { addByName: true, key: '+add' }]) : []
   const pick = (option) => {
     if (!option) return
     if (option.addByName) onCustom(text)
@@ -89,7 +99,9 @@ export function Search({ catalog, onPick, onCustom, autoFocus = false, placehold
         : [h(Logo, { key: 'l', symbol: o.kind === 'stock' ? o.symbol : null, mark: o.mark }),
           h('span', { key: 't', className: 'l-name' }, o.name),
           h('span', { key: 'k', className: 'l-kind' }, o.kind_label, o.symbol ? h('span', { className: 'q-sym' }, o.symbol) : null)]))) : null,
-    text && loading ? h('p', { className: 'l-hint', role: 'status', style: { marginTop: 6 } }, 'جارٍ تحميل القائمة…') : null)
+    text && loading ? h('p', { className: 'l-hint', role: 'status', style: { marginTop: 6 } }, 'جارٍ تحميل القائمة…') : null,
+    text && failed && catalog == null ? h('p', { className: 'l-hint', role: 'alert', style: { marginTop: 6 } },
+      'القائمة ما وصلتش. ', onRetry ? h('button', { type: 'button', className: 'q-link', onClick: onRetry }, 'حاول تاني') : null) : null)
 }
 
 // ── the add line ─────────────────────────────────────────────────────────────
@@ -435,7 +447,7 @@ function Actions({ asset, entry, onPick }) {
       h('div', { className: 'q-menu-list' }, more.map(([id, label, title]) => h('button', { key: id, type: 'button', className: 'q-btn q-btn-sm', title, onClick: () => pick(id) }, label)))) : null)
 }
 
-export function AssetRow({ asset, catalog, places, fresh, focused, onChanged, onOpen }) {
+export function AssetRow({ asset, catalog, catalogFailed = false, onCatalogRetry, places, fresh, focused, onChanged, onOpen }) {
   const entry = (catalog || []).find((e) => e.key === asset.key) || null
   const hidden = usePrivacy()
   const [open, setOpen] = useState(false)
@@ -489,7 +501,7 @@ export function AssetRow({ asset, catalog, places, fresh, focused, onChanged, on
         : moving === 'buy' && entry
         ? h(AddLine, { entry, places, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : moving
-        ? h(MoveForm, { asset, kind: moving, catalog, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
+        ? h(MoveForm, { asset, kind: moving, catalog, catalogFailed, onCatalogRetry, SearchBox: Search, onDone: () => { setMoving(null); onChanged() }, onCancel: () => setMoving(null) })
         : h(Actions, { asset, entry, onPick: setMoving })) : null,
       asset.kind === DEPOSIT_KIND ? h(DepositInfo, { asset }) : null,
       asset.key === 'EGP' || asset.kind === DEPOSIT_KIND || closed ? null : h('div', null,
@@ -561,7 +573,7 @@ export function TotalBlock({ totals, onFixPrice }) {
     totals.assets ? h('div', { className: 'l-kpis' },
       owes ? kpi('أصول', hid(hidden, money(totals.value || 0))) : null,
       owes ? kpi('ديون', hid(hidden, money(totals.debts))) : null,
-      kpi('التكلفة', hid(hidden, money(totals.cost))),
+      kpi('التكلفة', hid(hidden, money(totals.priced_cost))),
       totals.growth != null ? kpi('النمو', hid(hidden, fmtPct(totals.growth, { signed: true }), toneOf(totals.growth))) : null,
       totals.realized && Math.abs(totals.realized) >= 1 ? kpi('ربح محقق', hid(hidden, fmtSigned(totals.realized, 0), toneOf(totals.realized))) : null) : null,
     h(Allocation, { allocation: totals.allocation, hidden }),
@@ -585,7 +597,13 @@ function Tabs({ view, setView }) {
   const tab = (id, label) => h('button', {
     key: id, id: `l-tab-${id}`, type: 'button', role: 'tab', 'aria-selected': view === id, 'aria-controls': `l-panel-${id}`,
     tabIndex: view === id ? 0 : -1, className: `l-tab${view === id ? ' l-tab-on' : ''}`, onClick: () => setView(id),
-    onKeyDown: (e) => { if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') { e.preventDefault(); setView(view === 'assets' ? 'activity' : 'assets') } },
+    onKeyDown: (e) => {
+      if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return
+      e.preventDefault()
+      const next = view === 'assets' ? 'activity' : 'assets'
+      setView(next)
+      requestAnimationFrame(() => document.getElementById(`l-tab-${next}`)?.focus())
+    },
   }, label)
   return h('div', { ref: bar, className: 'l-tabs', role: 'tablist', 'aria-label': 'العرض' },
     tab('assets', 'الأصول'), tab('activity', 'الحركات'), h('span', { ref: ink, className: 'l-tab-ink', 'aria-hidden': true }))
@@ -594,7 +612,7 @@ function Tabs({ view, setView }) {
 export function PortfolioPage() {
   const ledger = useMonos()
   const hidden = usePrivacy()
-  const [catalog, reloadCatalog] = useCatalog()
+  const [catalog, reloadCatalog, catalogFailed] = useCatalog()
   const [picked, setPicked] = useState(null)
   const [fresh, setFresh] = useState(null)
   const [focus, setFocus] = useState(null)
@@ -644,10 +662,10 @@ export function PortfolioPage() {
       view === 'activity' ? h('div', { id: 'l-panel-activity', role: 'tabpanel', 'aria-labelledby': 'l-tab-activity', className: 'l-panel' },
         h(ActivityView, { onOpen: openAsset, onCompose: compose })) : null,
       view === 'activity' ? null : h('div', { id: 'l-panel-assets', role: 'tabpanel', 'aria-labelledby': 'l-tab-assets', className: 'l-panel' },
-      h(Collapse, { open: Boolean(composer) }, composer ? h(Composer, { key: composer.at, ledger, catalog, places: totals.places, initial: composer.type,
+      h(Collapse, { open: Boolean(composer) }, composer ? h(Composer, { key: composer.at, ledger, catalog, catalogFailed, onCatalogRetry: reloadCatalog, places: totals.places, initial: composer.type,
         AddLine, SearchBox: Search, onDone: added, onCancel: () => setComposer(null) }) : null),
       h('div', null,
-        h(Search, { catalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
+        h(Search, { catalog, failed: catalogFailed, onRetry: reloadCatalog, onPick: (entry) => setPicked({ entry }), onCustom: (name) => setPicked({ name }) }),
         h(Collapse, { open: Boolean(picked) }, picked ? h(AddLine, { key: picked.entry ? picked.entry.key : `custom:${picked.name}`, entry: picked.entry || null, customName: picked.name,
           places: totals.places, onDone: (key) => added(key), onCancel: () => setPicked(null) }) : null)),
       ledger.groups.length || (ledger.debts && ledger.debts.length)
@@ -655,13 +673,13 @@ export function PortfolioPage() {
           ledger.groups.map((g) => h('section', { key: g.group, id: `l-g-${g.group}`, className: 'l-group', 'aria-label': g.label, 'data-flip': `g:${g.group}` },
             h('h2', null, h('span', null, g.label), shares[g.group]
               ? h('span', { className: 'l-group-total' }, hid(hidden, money(shares[g.group].value_egp)), ' · ', hid(hidden, fmtPct(shares[g.group].share, { digits: 0 }))) : null),
-            g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, places: totals.places, fresh: a.key === fresh, onChanged: refresh,
+            g.assets.map((a) => h(AssetRow, { key: a.key, asset: a, catalog, catalogFailed, onCatalogRetry: reloadCatalog, places: totals.places, fresh: a.key === fresh, onChanged: refresh,
               focused: focus && focus.key === a.key ? focus.at : null, onOpen: openAsset })))),
           !ledger.debts || !ledger.debts.length ? null : h('section', { id: 'l-g-debts', className: 'l-group', 'aria-label': 'ديون وأقساط' },
             h('h2', null, h('span', null, 'ديون وأقساط')),
             ledger.debts.map((d) => h(DebtRow, { key: d.key, debt: d, assets, onChanged: refresh, onOpen: openAsset,
               focused: focus && focus.key === d.key ? focus.at : null }))))
-        : h('div', { className: 'l-empty' }, h('b', null, 'سجلك لسه فاضي'), h('p', { className: 'l-hint' }, 'ابحث عن أصل وأضفه.'),
+        : h('div', { className: 'l-empty' }, h('b', null, 'سجلك لسه فاضي'), h('p', { className: 'l-hint' }, 'من الخانات تحت، أو من سجّل.'),
           h('span', { className: 'q-chips', style: { justifyContent: 'center' } },
             h('button', { type: 'button', className: 'q-chip', onClick: () => compose('buy') }, 'فلوس أو دهب أو سهم'),
             h('button', { type: 'button', className: 'q-chip', onClick: () => compose('deposit') }, 'شهادة بنك'),

@@ -59,7 +59,7 @@ test('the ledger shows the total, a logo per row, a stale price date and the unp
   const html = r.html['main:egx-portfolio']
   const t = ledgerText(html)
   assert.match(t, /620,104 جنيه/)
-  assert.match(t, /التكلفة 505,393/)
+  assert.match(t, /التكلفة 501,393/)  // priced assets only: the unpriced stock stays out, beside the growth
   assert.match(t, /النمو \+23\.7%/)
   assert.match(t, /1 أصل من غير سعر، خارج الإجمالي/)
   assert.match(t, /اليوم \+0\.20%/)
@@ -180,7 +180,7 @@ test('the empty ledger is a zero, the search and one line', { skip: !harness && 
   const r = await harness.renderClient([clientPath('monos-portfolio')], { fixtures: { '/egx/api/portfolio': empty } })
   const t = ledgerText(r.html['main:egx-portfolio'])
   assert.match(t, /0 جنيه/)
-  assert.match(t, /ابحث عن أصل وأضفه\./)
+  assert.match(t, /من الخانات تحت، أو من سجّل\./)
   assert.doesNotMatch(t, /التكلفة \d|اليوم/)
 })
 

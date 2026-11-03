@@ -38,7 +38,7 @@ const pct = (hidden, v) => (v == null ? N(DASH, 'q-ter') : hidden ? N(MASK) : N(
  *  inflation, with that money beside it. Every figure comes from Python (store/wealth.py). */
 export function Periods({ periods, hidden }) {
   if (!periods || !periods.length) return null
-  return h('details', { className: 'h-more' }, h('summary', null, 'الفترات بالتفصيل: بالدولار، وبالدهب، وبعد التضخم'), h('table', { className: 'h-periods' },
+  return h('details', { className: 'h-more' }, h('summary', null, 'الفترات بالتفصيل: بالدولار، وبالدهب، وبعد التضخم'), h('div', { className: 'h-scroll' }, h('table', { className: 'h-periods' },
     h('thead', null, h('tr', null, ['الفترة', 'بالجنيه', 'بالدولار', 'بالدهب', 'بعد التضخم', 'فلوس جديدة'].map((t) => h('th', { key: t, scope: 'col' }, t)))),
     h('tbody', null, periods.map((p) => h('tr', { key: p.period },
       h('th', { scope: 'row' }, p.label),
@@ -46,7 +46,7 @@ export function Periods({ periods, hidden }) {
       h('td', null, pct(hidden, p.usd && p.usd.pct)),
       h('td', null, pct(hidden, p.gold_g && p.gold_g.pct)),
       h('td', null, pct(hidden, p.real_pct)),
-      h('td', null, p.egp ? (hidden ? N(MASK) : N(fmtNumber(p.egp.inflow, 0))) : N(DASH, 'q-ter')))))))
+      h('td', null, p.egp ? (hidden ? N(MASK) : N(fmtNumber(p.egp.inflow, 0))) : N(DASH, 'q-ter'))))))))
 }
 
 /** The line itself, with a soft area under it, a dot on today and a read-out that follows the mouse
@@ -92,11 +92,18 @@ function Plot({ points, hidden }) {
 export function HistoryChart() {
   const hidden = usePrivacy()
   const [data, setData] = useState(null)
+  const [failed, setFailed] = useState(false)
   useEffect(() => {
     let alive = true
-    api('GET', '/egx/api/history?days=365').then((d) => { if (alive) setData(d) }).catch(() => {})
+    api('GET', '/egx/api/history?days=365').then((d) => { if (alive) setData(d) }).catch(() => { if (alive) setFailed(true) })
     return () => { alive = false }
   }, [])
+  if (failed) {
+    return h('section', { className: 'h-wrap h-miss', 'aria-label': 'تطوّر ثروتي', role: 'alert' },
+      h('style', null, HISTORY_CSS),
+      h('h2', { className: 'h-title' }, 'تطوّر ثروتي'),
+      h('p', { className: 'h-line' }, 'الرسم ما وصلش.'))
+  }
   if (!data || !Array.isArray(data.points) || data.points.length < 2) return null
   return h('section', { className: 'h-wrap', 'aria-label': 'تطوّر ثروتي' },
     h('style', null, HISTORY_CSS),

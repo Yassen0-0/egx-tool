@@ -100,8 +100,7 @@ export function SidebarMonosIcon({ size }) {
     tag.textContent = shownPct
     Object.assign(tag.style, {
       marginInlineStart: '8px', direction: 'ltr', unicodeBidi: 'isolate', fontVariantNumeric: 'tabular-nums',
-      fontFamily: 'var(--ds-font-family-code)', fontSize: '12px', flex: 'none',
-      color: state === 'up' ? 'var(--dsw-alias-file-diff-added-marker)' : 'var(--dsw-alias-file-diff-deleted-marker)',
+      fontSize: '12px', flex: 'none', color: 'var(--dsw-alias-label-secondary)',
     })
     row.append(tag)
     return () => tag.remove()

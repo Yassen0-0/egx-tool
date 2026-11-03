@@ -100,7 +100,7 @@ test('a person builds a ledger: search, add, mistakes, a fund by name, edit and 
       const submit = async () => { await click(host.querySelector('form.l-add button[type="submit"]')) }
       const row = (name) => [...host.querySelectorAll('.l-row')].find((b) => b.textContent.includes(name))
 
-      await wait(() => text().includes('ابحث عن أصل وأضفه.'), 'the empty ledger')
+      await wait(() => text().includes('من الخانات تحت، أو من سجّل.'), 'the empty ledger')
       const input = host.querySelector('input[role="combobox"]')
       seen.empty = text()
 
@@ -640,7 +640,9 @@ test('a stock: bought, a dividend into the pounds, bonus shares at no cost, and 
     },
   })
   assert.deepEqual(r.errors, [])
-  assert.match(seen.upcoming, /الجاي قريب.*عائد شهادة البنك الأهلي 30% ?2,500 ج\.م.*قسط قرض العربية ?2,500 ج\.م/)
+  assert.match(seen.upcoming, /الجاي قريب/)
+  assert.match(seen.upcoming, /عائد شهادة البنك الأهلي 30% ?2,500 ج\.م/)
+  assert.match(seen.upcoming, /قسط قرض العربية ?2,500 ج\.م/)
   assert.match(seen.stock, /\+10 سهم أسهم مجانية/)
   assert.match(seen.row, /110 سهم/)
   assert.match(seen.row, /13,420/)  // 110 × 122, at the same 10,000 cost

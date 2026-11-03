@@ -63,7 +63,11 @@ def _cell(value) -> str:
     if isinstance(value, float):
         text = format(value, ".10f").rstrip("0").rstrip(".")
         return text if text not in ("", "-0") else "0"
-    return str(value)
+    text = str(value)
+    # A cell that starts with a formula mark is text, so Excel does not run it.
+    if text[:1] in "=+-@":
+        return "'" + text
+    return text
 
 
 def _row(asset: dict, lot: dict) -> list:

@@ -165,8 +165,10 @@ def series(conn: sqlite3.Connection, at: datetime | None = None) -> list[dict]:
         noon = datetime.combine(d, time(12), CAIRO)
         for c in certificates:
             if (lot_day(c)) <= day:
-                value += deposits.valued(terms.get(c["id"]), c["quantity"], noon)["value"]
-                cost += c["cost_egp"]
+                worth = deposits.valued(terms.get(c["id"]), c["quantity"], noon)
+                value += worth["value"]
+                if not deposits.returned_to_egp(worth.get("deposit"), worth["value"]):
+                    cost += c["cost_egp"] or 0.0
         value -= sum(debts.remaining_on(d, paid, day) for d, paid in owed)
         inflow = sum(v for k, v in flows.items() if (previous is None or k > previous) and k <= day)
         usd = portfolio.rate_on(conn, "USD", day)

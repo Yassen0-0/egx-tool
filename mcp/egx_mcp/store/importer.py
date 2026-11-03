@@ -14,6 +14,7 @@ bring back purchases and movements kept in Excel.
 
 import csv
 import io
+import math
 import sqlite3
 
 from ..catalog import DEPOSIT_PREFIX, KIND_LABEL, find
@@ -31,9 +32,12 @@ def _number(text: str) -> float | None:
     if not text:
         return None
     try:
-        return float(text)
+        value = float(text)
     except ValueError:
         raise LedgerInputError(f"رقم مش مفهوم في الملف: {text}") from None
+    if not math.isfinite(value):
+        raise LedgerInputError(f"رقم مش مفهوم في الملف: {text}")
+    return value
 
 
 def _text(text: str) -> str | None:

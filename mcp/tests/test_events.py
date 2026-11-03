@@ -60,6 +60,15 @@ def test_at_maturity_the_principal_comes_back(conn):
     assert egp["quantity"] == pytest.approx(100000 * (1 + 0.24 * 365 / 365))
     cert = asset(conn, lot["symbol"])
     assert cert["value_egp"] == 0 and cert["deposit"]["status"] == "matured"
+    returned = 100000 * (1 + 0.24)
+    totals = summary(conn)["totals"]
+    # The principal came back into the pounds once: the certificate's own cost is not added again.
+    assert totals["value"] == pytest.approx(returned)
+    assert totals["cost"] == pytest.approx(returned) and totals["priced_cost"] == pytest.approx(returned)
+    assert totals["growth"] == pytest.approx(0)
+    assert cert["growth"] is None and cert["group"] == "closed"
+    last = wealth.series(conn, AT)[-1]
+    assert last["value_egp"] == pytest.approx(returned) and last["cost_egp"] == pytest.approx(returned)
 
 
 def test_bought_with_the_ledgers_pounds(conn):

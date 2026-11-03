@@ -70,6 +70,22 @@ def test_a_file_that_would_go_below_zero_writes_nothing(tmp_path):
     target.close()
 
 
+def test_a_non_finite_quantity_is_refused(tmp_path):
+    conn = connect(tmp_path / "n.sqlite")
+    text = "asset_key,name,quantity,buy_price\nEGP,الجنيه,inf,1\n"
+    with pytest.raises(LedgerInputError, match="رقم مش مفهوم"):
+        ledger_import(conn, text)
+    assert conn.execute("SELECT COUNT(*) FROM holdings").fetchone()[0] == 0
+    conn.close()
+
+
+def test_a_formula_note_exports_as_text(tmp_path):
+    conn = connect(tmp_path / "f.sqlite")
+    portfolio.add_holding(conn, "EGP", buy_price=1, amount=10, buy_date="2026-09-01", note="=1+1")
+    assert "'=1+1" in ledger_csv(conn, AT)["csv"]
+    conn.close()
+
+
 def test_not_an_export(tmp_path):
     conn = connect(tmp_path / "c.sqlite")
     with pytest.raises(LedgerInputError, match="مش ملف تصدير"):

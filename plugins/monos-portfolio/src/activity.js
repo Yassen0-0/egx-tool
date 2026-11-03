@@ -3,7 +3,7 @@
 // (/egx/api/activity → store/activity.py); this only shows them. An asset's name opens its row. ES module.
 import { N, api, frag, h, useEffect, useState } from '../../shared/runtime.js'
 import { fmtDate, fmtSigned, toneOf } from '../../shared/format.mjs'
-import { Skeleton } from '../../shared/components.js'
+import { SkeletonRow } from '../../shared/components.js'
 import { MASK, usePrivacy } from '../../shared/privacy.js'
 import { amount } from './moves.js'
 import { money } from './units.mjs'
@@ -38,7 +38,7 @@ export function ActivityView({ onOpen, onCompose }) {
     return () => { live = false }
   }, [month, kind, tries])
 
-  if (data === undefined) return h('div', { 'aria-busy': true, className: 'q-stack', style: { gap: 12 } }, h(Skeleton, { width: '100%', height: 14 }), h(Skeleton, { width: '80%', height: 14 }), h(Skeleton, { width: '60%', height: 14 }))
+  if (data === undefined) return h('div', { 'aria-busy': true, className: 'l-list', style: { padding: '8px 16px' } }, [0, 1, 2].map((i) => h(SkeletonRow, { key: i })))
   if (data === null) {
     return h('div', { className: 'l-inline', role: 'alert' }, h('span', { className: 'q-error' }, 'تعذّر تحميل الحركات'),
       h('button', { type: 'button', className: 'q-btn q-btn-sm', onClick: () => { setData(undefined); setTries(tries + 1) } }, 'حاول مرة تانية'))
